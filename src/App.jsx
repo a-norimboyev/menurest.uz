@@ -16,8 +16,11 @@ const HISTORY_KEY = 'planner-history-v1'
 const RECURRING_KEY = 'planner-recurring-v1'
 const DAILY_QUOTES_KEY = 'planner-daily-motivation-v1'
 const SYNC_TIMESTAMP_KEY = 'planner-sync-updated-at-v1'
+const AUTH_SESSION_KEY = 'planner-auth-ok-v1'
 const SYNC_PULL_INTERVAL_MS = 60000
 const SYNC_PUSH_DEBOUNCE_MS = 900
+const AUTH_USERNAME = 'Azizjon'
+const AUTH_PASSWORD = 'Azizjon1'
 const THEME_OPTIONS = [
   { id: 'premium', label: 'Iliq Premium' },
   { id: 'minimal', label: 'Oq Minimal' },
@@ -368,7 +371,49 @@ function MotivationPage({
   )
 }
 
+function LoginPage({ username, password, error, onUsernameChange, onPasswordChange, onSubmit }) {
+  return (
+    <main className="sheet login-shell">
+      <section className="login-card" aria-label="Kirish">
+        <h1>Kirish</h1>
+        <p>Faqat ruxsat etilgan login va parol bilan kirish mumkin.</p>
+        <form className="login-form" onSubmit={onSubmit}>
+          <label htmlFor="login-username">Login</label>
+          <input
+            id="login-username"
+            type="text"
+            autoComplete="username"
+            value={username}
+            onChange={(event) => onUsernameChange(event.target.value)}
+            placeholder="Login"
+            required
+          />
+
+          <label htmlFor="login-password">Parol</label>
+          <input
+            id="login-password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(event) => onPasswordChange(event.target.value)}
+            placeholder="Parol"
+            required
+          />
+
+          {error ? <p className="login-error">{error}</p> : null}
+
+          <button type="submit">Kirish</button>
+        </form>
+      </section>
+    </main>
+  )
+}
+
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem(AUTH_SESSION_KEY) === '1')
+  const [loginUsername, setLoginUsername] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
   const cloudSyncEnabled = isCloudSyncEnabled()
   const syncReadyRef = useRef(!cloudSyncEnabled)
   const syncTimerRef = useRef(null)
@@ -398,6 +443,20 @@ export default function App() {
     const saved = initialQuotes[getDateId()]
     return typeof saved === 'string' && saved.trim().length > 0 ? saved : getDailyMotivation(getDateId())
   })
+
+  function handleLoginSubmit(event) {
+    event.preventDefault()
+
+    if (loginUsername.trim() === AUTH_USERNAME && loginPassword === AUTH_PASSWORD) {
+      sessionStorage.setItem(AUTH_SESSION_KEY, '1')
+      setIsAuthenticated(true)
+      setLoginError('')
+      setLoginPassword('')
+      return
+    }
+
+    setLoginError('Login yoki parol noto‘g‘ri.')
+  }
 
   const recurringTasks = useMemo(
     () => recurringTemplates.map((row, index) => ({ text: row.text, done: Boolean(recurringDone[index]) })),
@@ -779,7 +838,7 @@ export default function App() {
     }
   }
 
-  return (
+  return isAuthenticated ? (
     <main className="sheet">
       <Header
         theme={theme}
@@ -857,5 +916,14 @@ export default function App() {
         <Route path="*" element={<Navigate to="/planner" replace />} />
       </Routes>
     </main>
+  ) : (
+    <LoginPage
+      username={loginUsername}
+      password={loginPassword}
+      error={loginError}
+      onUsernameChange={setLoginUsername}
+      onPasswordChange={setLoginPassword}
+      onSubmit={handleLoginSubmit}
+    />
   )
 }

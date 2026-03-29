@@ -1,6 +1,7 @@
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '')
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
-const SYNC_USER_ID = import.meta.env.VITE_PLANNER_SYNC_USER_ID || ''
+const SYNC_USER_ID = import.meta.env.VITE_PLANNER_SYNC_USER_ID || 'Azizjon'
+const BACKEND_SYNC_URL = (import.meta.env.VITE_SYNC_BACKEND_URL || '').replace(/\/+$/, '')
 const REQUEST_TIMEOUT_MS = 8000
 
 function toMs(value) {
@@ -16,6 +17,14 @@ function getHeaders() {
     Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
     'Content-Type': 'application/json',
   }
+}
+
+function isBackendSyncEnabled() {
+  return Boolean(BACKEND_SYNC_URL && SYNC_USER_ID)
+}
+
+function isSupabaseSyncEnabled() {
+  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SYNC_USER_ID)
 }
 
 async function fetchWithTimeout(url, options) {
@@ -34,11 +43,34 @@ async function fetchWithTimeout(url, options) {
 }
 
 export function isCloudSyncEnabled() {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SYNC_USER_ID)
+  return isBackendSyncEnabled() || isSupabaseSyncEnabled()
 }
 
 export async function loadCloudSnapshot() {
   if (!isCloudSyncEnabled()) return null
+
+  if (isBackendSyncEnabled()) {
+    const endpoint = `${BACKEND_SYNC_URL}/sync/${encodeURIComponent(SYNC_USER_ID)}`
+    const response = await fetchWithTimeout(endpoint, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (response.status === 404) return null
+    if (!response.ok) {
+      throw new Error(`Backend read failed: ${response.status}`)
+    }
+
+    const data = await response.json()
+    if (!data || typeof data !== 'object' || !data.payload) return null
+
+    return {
+      payload: data.payload,
+      timestamp: toMs(data.updatedAt),
+    }
+  }
 
   const endpoint = `${SUPABASE_URL}/rest/v1/planner_sync?user_id=eq.${encodeURIComponent(SYNC_USER_ID)}&select=payload,updated_at&limit=1`
   const response = await fetchWithTimeout(endpoint, {
@@ -62,6 +94,41 @@ export async function loadCloudSnapshot() {
 
 export async function saveCloudSnapshot(payload, lastKnownTimestamp = 0) {
   if (!isCloudSyncEnabled()) return null
+
+  if (isBackendSyncEnabled()) {
+    const endpoint = `${BACKEND_SYNC_URL}/sync/${encodeURIComponent(SYNC_USER_ID)}`
+    const response = await fetchWithTimeout(endpoint, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        payload,
+        lastKnownTimestamp,
+      }),
+    })
+
+    if (response.status === 409) {
+      const conflict = await response.json()
+      return {
+        status: 'conflict',
+        remote: {
+          payload: conflict?.remote?.payload,
+          timestamp: toMs(conflict?.remote?.updatedAt),
+        },
+      }
+    }
+
+    if (!response.ok) {
+      throw new Error(`Backend write failed: ${response.status}`)
+    }
+
+    const saved = await response.json()
+    return {
+      status: 'saved',
+      row: saved,
+    }
+  }
 
   const remote = await loadCloudSnapshot()
   const remoteTimestamp = Number(remote?.timestamp || 0)
