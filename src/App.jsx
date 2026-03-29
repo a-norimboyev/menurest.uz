@@ -17,6 +17,7 @@ const RECURRING_KEY = 'planner-recurring-v1'
 const DAILY_QUOTES_KEY = 'planner-daily-motivation-v1'
 const SYNC_TIMESTAMP_KEY = 'planner-sync-updated-at-v1'
 const AUTH_SESSION_KEY = 'planner-auth-ok-v1'
+const AUTH_SYNC_USER_KEY = 'planner-auth-user-id-v1'
 const SYNC_PULL_INTERVAL_MS = 60000
 const SYNC_PUSH_DEBOUNCE_MS = 900
 const AUTH_USERNAME = 'Azizjon'
@@ -449,6 +450,7 @@ export default function App() {
 
     if (loginUsername.trim() === AUTH_USERNAME && loginPassword === AUTH_PASSWORD) {
       sessionStorage.setItem(AUTH_SESSION_KEY, '1')
+      sessionStorage.setItem(AUTH_SYNC_USER_KEY, AUTH_USERNAME)
       setIsAuthenticated(true)
       setLoginError('')
       setLoginPassword('')
@@ -457,6 +459,12 @@ export default function App() {
 
     setLoginError('Login yoki parol noto‘g‘ri.')
   }
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      sessionStorage.setItem(AUTH_SYNC_USER_KEY, AUTH_USERNAME)
+    }
+  }, [isAuthenticated])
 
   const recurringTasks = useMemo(
     () => recurringTemplates.map((row, index) => ({ text: row.text, done: Boolean(recurringDone[index]) })),

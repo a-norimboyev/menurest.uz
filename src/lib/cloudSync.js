@@ -1,6 +1,7 @@
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '')
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 const SYNC_USER_ID = import.meta.env.VITE_PLANNER_SYNC_USER_ID || 'Azizjon'
+const AUTH_SYNC_USER_KEY = 'planner-auth-user-id-v1'
 const BACKEND_SYNC_URL = (import.meta.env.VITE_SYNC_BACKEND_URL || '').replace(/\/+$/, '')
 const REQUEST_TIMEOUT_MS = 8000
 
@@ -19,12 +20,20 @@ function getHeaders() {
   }
 }
 
+function getSyncUserId() {
+  if (typeof window === 'undefined') return SYNC_USER_ID
+
+  const fromSession = window.sessionStorage.getItem(AUTH_SYNC_USER_KEY)
+  const normalized = typeof fromSession === 'string' ? fromSession.trim() : ''
+  return normalized || SYNC_USER_ID
+}
+
 function isBackendSyncEnabled() {
-  return Boolean(BACKEND_SYNC_URL && SYNC_USER_ID)
+  return Boolean(BACKEND_SYNC_URL && getSyncUserId())
 }
 
 function isSupabaseSyncEnabled() {
-  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && SYNC_USER_ID)
+  return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && getSyncUserId())
 }
 
 async function fetchWithTimeout(url, options) {
@@ -48,9 +57,10 @@ export function isCloudSyncEnabled() {
 
 export async function loadCloudSnapshot() {
   if (!isCloudSyncEnabled()) return null
+  const syncUserId = getSyncUserId()
 
   if (isBackendSyncEnabled()) {
-    const endpoint = `${BACKEND_SYNC_URL}/sync/${encodeURIComponent(SYNC_USER_ID)}`
+    const endpoint = `${BACKEND_SYNC_URL}/sync/${encodeURIComponent(syncUserId)}`
     const response = await fetchWithTimeout(endpoint, {
       method: 'GET',
       headers: {
@@ -72,7 +82,7 @@ export async function loadCloudSnapshot() {
     }
   }
 
-  const endpoint = `${SUPABASE_URL}/rest/v1/planner_sync?user_id=eq.${encodeURIComponent(SYNC_USER_ID)}&select=payload,updated_at&limit=1`
+  const endpoint = `${SUPABASE_URL}/rest/v1/planner_sync?user_id=eq.${encodeURIComponent(syncUserId)}&select=payload,updated_at&limit=1`
   const response = await fetchWithTimeout(endpoint, {
     method: 'GET',
     headers: getHeaders(),
@@ -94,9 +104,10 @@ export async function loadCloudSnapshot() {
 
 export async function saveCloudSnapshot(payload, lastKnownTimestamp = 0) {
   if (!isCloudSyncEnabled()) return null
+  const syncUserId = getSyncUserId()
 
   if (isBackendSyncEnabled()) {
-    const endpoint = `${BACKEND_SYNC_URL}/sync/${encodeURIComponent(SYNC_USER_ID)}`
+    const endpoint = `${BACKEND_SYNC_URL}/sync/${encodeURIComponent(syncUserId)}`
     const response = await fetchWithTimeout(endpoint, {
       method: 'PUT',
       headers: {
@@ -146,7 +157,7 @@ export async function saveCloudSnapshot(payload, lastKnownTimestamp = 0) {
     },
     body: JSON.stringify([
       {
-        user_id: SYNC_USER_ID,
+        user_id: syncUserId,
         payload,
         updated_at: new Date().toISOString(),
       },
