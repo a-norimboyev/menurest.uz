@@ -1,0 +1,611 @@
+import { useMemo, useState, useEffect } from 'react'
+import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
+import Header from './components/Header'
+import DayCards from './components/DayCards'
+import NotesCard from './components/NotesCard'
+import MonthlyCard from './components/MonthlyCard'
+import StatsCard from './components/StatsCard'
+
+const DAY_NAMES = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
+const ROWS_PER_DAY = 7
+const NOTES_ROWS = 7
+const RECURRING_ROWS = 8
+const GOAL_DEFAULT = 70
+const THEME_KEY = 'planner-theme'
+const HISTORY_KEY = 'planner-history-v1'
+const RECURRING_KEY = 'planner-recurring-v1'
+const DAILY_QUOTES_KEY = 'planner-daily-motivation-v1'
+const THEME_OPTIONS = [
+  { id: 'premium', label: 'Iliq Premium' },
+  { id: 'minimal', label: 'Oq Minimal' },
+  { id: 'forest', label: 'Yashil Forest' },
+  { id: 'rose', label: 'Soft Rose' },
+  { id: 'sky', label: 'Osmon Sky' },
+]
+const MOTIVATION_QUOTES = [
+  'Kichik qadam ham oldinga qadam.',
+  'Bugungi intizom ertangi natijani quradi.',
+  'Bajarilgan ish kayfiyatni oshiradi.',
+  'Har kun 1 foiz o‘sish katta farq qiladi.',
+  'Reja bor joyda ishonch bo‘ladi.',
+  'Boshlash mukammal bo‘lishdan muhimroq.',
+  'Vaqtni boshqar, maqsad seni boshqarmasin.',
+  'Oz-ozdan, lekin to‘xtamasdan.',
+  'Bugungi mehnat ertangi yengillik.',
+  'Fokus qilgan joying o‘sadi.',
+]
+
+function getISOWeekId(date = new Date()) {
+  const temp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+  const dayNum = temp.getUTCDay() || 7
+  temp.setUTCDate(temp.getUTCDate() + 4 - dayNum)
+  const yearStart = new Date(Date.UTC(temp.getUTCFullYear(), 0, 1))
+  const weekNo = Math.ceil((((temp - yearStart) / 86400000) + 1) / 7)
+  return `${temp.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`
+}
+
+function getWeekStorageKey(weekId) {
+  return `planner-week-${weekId}`
+}
+
+function getDateId(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+}
+
+function getPreviousDateId(dateId) {
+  const [year, month, day] = dateId.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  date.setDate(date.getDate() - 1)
+  return getDateId(date)
+}
+
+function getRecurringDoneStorageKey(dateId) {
+  return `planner-recurring-done-${dateId}`
+}
+
+function formatWeekLabel(weekId) {
+  const [yearPart, weekPart] = weekId.split('-W')
+  return `${yearPart} • ${Number(weekPart)}-hafta`
+}
+
+function normalizePriority(value) {
+  return value === 'high' || value === 'medium' || value === 'low' ? value : 'medium'
+}
+
+function clampGoal(value) {
+  const parsed = Number.parseInt(String(value), 10)
+  if (Number.isNaN(parsed)) return GOAL_DEFAULT
+  return Math.min(100, Math.max(1, parsed))
+}
+
+function getEmptyWeekState(weekId) {
+  return {
+    weekId,
+    goal: GOAL_DEFAULT,
+    days: Array.from({ length: 7 }, () =>
+      Array.from({ length: ROWS_PER_DAY }, () => ({ text: '', done: false, priority: 'medium' })),
+    ),
+    notes: Array.from({ length: NOTES_ROWS }, () => ''),
+  }
+}
+
+function loadWeekState(weekId) {
+  try {
+    const raw = localStorage.getItem(getWeekStorageKey(weekId))
+    if (!raw) return getEmptyWeekState(weekId)
+
+    const parsed = JSON.parse(raw)
+    const fallback = getEmptyWeekState(weekId)
+
+    return {
+      weekId,
+      goal: clampGoal(parsed?.goal),
+      days: fallback.days.map((dayRows, dayIndex) =>
+        dayRows.map((_, rowIndex) => {
+          const fromStorage = parsed?.days?.[dayIndex]?.[rowIndex]
+          return {
+            text: typeof fromStorage?.text === 'string' ? fromStorage.text : '',
+            done: Boolean(fromStorage?.done),
+            priority: normalizePriority(fromStorage?.priority),
+          }
+        }),
+      ),
+      notes: fallback.notes.map((_, rowIndex) => {
+        const fromStorage = parsed?.notes?.[rowIndex]
+        return typeof fromStorage === 'string' ? fromStorage : ''
+      }),
+    }
+  } catch {
+    return getEmptyWeekState(weekId)
+  }
+}
+
+function saveWeekState(state) {
+  localStorage.setItem(getWeekStorageKey(state.weekId), JSON.stringify(state))
+}
+
+function getHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveHistory(history) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+}
+
+function getEmptyRecurringTemplates() {
+  return Array.from({ length: RECURRING_ROWS }, () => ({ text: '' }))
+}
+
+function loadRecurringTemplates() {
+  try {
+    const raw = localStorage.getItem(RECURRING_KEY)
+    if (!raw) return getEmptyRecurringTemplates()
+    const parsed = JSON.parse(raw)
+    const fallback = getEmptyRecurringTemplates()
+    return fallback.map((_, index) => ({
+      text: typeof parsed?.[index]?.text === 'string' ? parsed[index].text : '',
+    }))
+  } catch {
+    return getEmptyRecurringTemplates()
+  }
+}
+
+function saveRecurringTemplates(rows) {
+  localStorage.setItem(RECURRING_KEY, JSON.stringify(rows))
+}
+
+function getEmptyRecurringDone() {
+  return Array.from({ length: RECURRING_ROWS }, () => false)
+}
+
+function loadRecurringDone(dateId) {
+  try {
+    const raw = localStorage.getItem(getRecurringDoneStorageKey(dateId))
+    if (!raw) return getEmptyRecurringDone()
+    const parsed = JSON.parse(raw)
+    const fallback = getEmptyRecurringDone()
+    return fallback.map((_, index) => Boolean(parsed?.[index]))
+  } catch {
+    return getEmptyRecurringDone()
+  }
+}
+
+function saveRecurringDone(dateId, doneRows) {
+  localStorage.setItem(getRecurringDoneStorageKey(dateId), JSON.stringify(doneRows))
+}
+
+function loadDailyQuotes() {
+  try {
+    const raw = localStorage.getItem(DAILY_QUOTES_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return typeof parsed === 'object' && parsed ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function saveDailyQuotes(quotes) {
+  localStorage.setItem(DAILY_QUOTES_KEY, JSON.stringify(quotes))
+}
+
+function resolveTheme(value) {
+  return THEME_OPTIONS.some((theme) => theme.id === value) ? value : 'premium'
+}
+
+function getDailyMotivation(dateId) {
+  const seed = dateId.split('-').join('')
+  const number = Number.parseInt(seed, 10)
+  const safeIndex = Number.isNaN(number) ? 0 : number % MOTIVATION_QUOTES.length
+  return MOTIVATION_QUOTES[safeIndex]
+}
+
+function PlannerPage({
+  dayNames,
+  days,
+  notes,
+  dateId,
+  recurringTasks,
+  onTaskChange,
+  onNoteChange,
+  onRecurringTaskChange,
+  normalizePriority,
+}) {
+  return (
+    <section className="planner-grid" aria-label="Haftalik reja">
+      <DayCards dayNames={dayNames} days={days} onTaskChange={onTaskChange} normalizePriority={normalizePriority} />
+      <NotesCard notes={notes} onNoteChange={onNoteChange} />
+      <MonthlyCard dateId={dateId} tasks={recurringTasks} onTaskChange={onRecurringTaskChange} />
+    </section>
+  )
+}
+
+function StatsPage({ metrics, achieved, goalValue, onGoalChange, historyEntries, weekId, dayNames }) {
+  return (
+    <section className="single-grid" aria-label="Haftalik statistika">
+      <StatsCard
+        metrics={metrics}
+        achieved={achieved}
+        goalValue={goalValue}
+        onGoalChange={onGoalChange}
+        historyEntries={historyEntries.slice(0, 6)}
+        weekId={weekId}
+        dayNames={dayNames}
+      />
+    </section>
+  )
+}
+
+function HistoryPage({ historyEntries }) {
+  const trendEntries = historyEntries.slice(0, 12).reverse()
+  const chartWidth = 100
+  const chartHeight = 48
+  const points = trendEntries
+    .map((item, index) => {
+      const x = trendEntries.length <= 1 ? chartWidth / 2 : (index / (trendEntries.length - 1)) * chartWidth
+      const y = chartHeight - (item.percent / 100) * chartHeight
+      return `${x},${y}`
+    })
+    .join(' ')
+
+  return (
+    <section className="single-grid" aria-label="Hafta tarixi">
+      <article className="stats-card history-page-card">
+        <h2>To'liq tarix</h2>
+        {trendEntries.length > 0 && (
+          <div className="trend-wrap" aria-label="Haftalik trend chizig'i">
+            <div className="trend-header">
+              <h3>Trend Grafik</h3>
+              <span>Oxirgi {trendEntries.length} hafta</span>
+            </div>
+            <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="trend-svg" role="img" aria-label="Bajarilish trendi">
+              <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} className="trend-axis" />
+              <polyline points={points} className="trend-line" />
+              {trendEntries.map((item, index) => {
+                const x = trendEntries.length <= 1 ? chartWidth / 2 : (index / (trendEntries.length - 1)) * chartWidth
+                const y = chartHeight - (item.percent / 100) * chartHeight
+                return <circle key={item.weekId} cx={x} cy={y} r="1.6" className="trend-dot" />
+              })}
+            </svg>
+            <div className="trend-labels">
+              <span>{trendEntries[0].weekId}</span>
+              <span>{trendEntries[trendEntries.length - 1].weekId}</span>
+            </div>
+          </div>
+        )}
+        <ul className="history-list">
+          {historyEntries.length === 0 ? (
+            <li className="history-empty">Hozircha tarix yo'q.</li>
+          ) : (
+            historyEntries.map((item) => (
+              <li key={item.weekId}>
+                <span>{item.weekId}</span>
+                <strong>
+                  {item.percent}% • {item.done}/{item.total}
+                </strong>
+              </li>
+            ))
+          )}
+        </ul>
+      </article>
+    </section>
+  )
+}
+
+function MotivationPage({
+  todayMotivation,
+  onMotivationChange,
+  motivationQuery,
+  onMotivationQueryChange,
+  motivationStreak,
+  motivationEntries,
+}) {
+  return (
+    <section id="motivation-section" className="motivation-footer" aria-live="polite">
+      <label className="motivation-label" htmlFor="motivation-input">
+        Bugungi motivatsion gapni o'zingiz yozing
+      </label>
+      <input
+        id="motivation-input"
+        className="motivation-input"
+        type="text"
+        value={todayMotivation}
+        onChange={(e) => onMotivationChange(e.target.value)}
+        placeholder="Masalan: Bugun ham bir qadam oldinga"
+      />
+      <p className="motivation-hint">Yozgan gapingiz sana bo'yicha saqlanadi va yo'qolmaydi.</p>
+
+      <div className="motivation-stats" aria-label="Motivatsiya statistikasi">
+        <span>
+          Ketma-ket kun: <strong>{motivationStreak}</strong>
+        </span>
+        <span>
+          Jami yozuv: <strong>{motivationEntries.length}</strong>
+        </span>
+      </div>
+
+      <input
+        className="motivation-search"
+        type="search"
+        value={motivationQuery}
+        onChange={(e) => onMotivationQueryChange(e.target.value)}
+        placeholder="Tarixdan qidirish..."
+        aria-label="Motivatsion gaplardan qidirish"
+      />
+
+      <div className="motivation-history">
+        <h4>Oldingi kunlar</h4>
+        {motivationEntries.length === 0 ? (
+          <p className="motivation-empty">Hozircha saqlangan gap yo'q.</p>
+        ) : (
+          <ul>
+            {motivationEntries.map(([day, text]) => (
+              <li key={day}>
+                <span>{day}</span>
+                <strong>{text}</strong>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </section>
+  )
+}
+
+export default function App() {
+  const [theme, setTheme] = useState(resolveTheme(localStorage.getItem(THEME_KEY)))
+  const [currentWeekDate, setCurrentWeekDate] = useState(new Date())
+  const weekId = useMemo(() => getISOWeekId(currentWeekDate), [currentWeekDate])
+  const dateId = useMemo(() => getDateId(), [])
+
+  const [state, setState] = useState(() => loadWeekState(weekId))
+  const [recurringTemplates, setRecurringTemplates] = useState(() => loadRecurringTemplates())
+  const [recurringDone, setRecurringDone] = useState(() => loadRecurringDone(dateId))
+  const [dailyQuotes, setDailyQuotes] = useState(() => loadDailyQuotes())
+  const [motivationQuery, setMotivationQuery] = useState('')
+  const [todayMotivation, setTodayMotivation] = useState(() => {
+    const initialQuotes = loadDailyQuotes()
+    const saved = initialQuotes[getDateId()]
+    return typeof saved === 'string' && saved.trim().length > 0 ? saved : getDailyMotivation(getDateId())
+  })
+
+  const recurringTasks = useMemo(
+    () => recurringTemplates.map((row, index) => ({ text: row.text, done: Boolean(recurringDone[index]) })),
+    [recurringTemplates, recurringDone],
+  )
+  const allMotivations = useMemo(() => {
+    return Object.entries(dailyQuotes)
+      .filter(([_, text]) => typeof text === 'string' && text.trim().length > 0)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+  }, [dailyQuotes])
+
+  const filteredMotivations = useMemo(() => {
+    const q = motivationQuery.trim().toLowerCase()
+    if (!q) return allMotivations.slice(0, 20)
+    return allMotivations
+      .filter(([day, text]) => day.toLowerCase().includes(q) || text.toLowerCase().includes(q))
+      .slice(0, 20)
+  }, [allMotivations, motivationQuery])
+
+  const motivationStreak = useMemo(() => {
+    let streak = 0
+    let pointer = dateId
+    while (true) {
+      const value = dailyQuotes[pointer]
+      if (typeof value === 'string' && value.trim().length > 0) {
+        streak += 1
+        pointer = getPreviousDateId(pointer)
+      } else {
+        break
+      }
+    }
+    return streak
+  }, [dailyQuotes, dateId])
+
+  useEffect(() => {
+    document.body.dataset.theme = resolveTheme(theme)
+    localStorage.setItem(THEME_KEY, theme)
+  }, [theme])
+
+  useEffect(() => {
+    setState(loadWeekState(weekId))
+  }, [weekId])
+
+  useEffect(() => {
+    saveRecurringTemplates(recurringTemplates)
+  }, [recurringTemplates])
+
+  useEffect(() => {
+    saveRecurringDone(dateId, recurringDone)
+  }, [dateId, recurringDone])
+
+  useEffect(() => {
+    saveDailyQuotes(dailyQuotes)
+  }, [dailyQuotes])
+
+  useEffect(() => {
+    saveWeekState(state)
+
+    const perDay = state.days.map((rows) => {
+      const active = rows.filter((row) => row.text.trim().length > 0).length
+      const done = rows.filter((row) => row.text.trim().length > 0 && row.done).length
+      const percent = active > 0 ? Math.round((done / active) * 100) : 0
+      return { active, done, percent }
+    })
+
+    const totalActiveTasks = perDay.reduce((sum, day) => sum + day.active, 0)
+    const doneTasks = perDay.reduce((sum, day) => sum + day.done, 0)
+    const notesCount = state.notes.filter((note) => note.trim().length > 0).length
+    const percent = totalActiveTasks > 0 ? Math.round((doneTasks / totalActiveTasks) * 100) : 0
+
+    const history = getHistory()
+    history[state.weekId] = {
+      weekId: state.weekId,
+      percent,
+      done: doneTasks,
+      total: totalActiveTasks,
+      notes: notesCount,
+      updatedAt: Date.now(),
+    }
+    saveHistory(history)
+  }, [state])
+
+  const metrics = useMemo(() => {
+    const perDay = state.days.map((rows) => {
+      const active = rows.filter((row) => row.text.trim().length > 0).length
+      const done = rows.filter((row) => row.text.trim().length > 0 && row.done).length
+      const percent = active > 0 ? Math.round((done / active) * 100) : 0
+      return { active, done, percent }
+    })
+
+    const totalActiveTasks = perDay.reduce((sum, day) => sum + day.active, 0)
+    const doneTasks = perDay.reduce((sum, day) => sum + day.done, 0)
+    const notesCount = state.notes.filter((note) => note.trim().length > 0).length
+    const percent = totalActiveTasks > 0 ? Math.round((doneTasks / totalActiveTasks) * 100) : 0
+    const goal = clampGoal(state.goal)
+    const highPriorityCount = state.days
+      .flat()
+      .filter((row) => row.text.trim().length > 0 && normalizePriority(row.priority) === 'high').length
+    const monthlyActive = recurringTasks.filter((row) => row.text.trim().length > 0).length
+    const monthlyDone = recurringTasks.filter((row) => row.text.trim().length > 0 && row.done).length
+
+    return { perDay, totalActiveTasks, doneTasks, notesCount, percent, goal, highPriorityCount, monthlyActive, monthlyDone }
+  }, [state, recurringTasks])
+
+  const historyEntries = useMemo(() => {
+    return Object.values(getHistory())
+      .sort((a, b) => b.weekId.localeCompare(a.weekId))
+  }, [state])
+
+  const achieved = metrics.percent >= metrics.goal
+
+  function updateTask(dayIndex, rowIndex, patch) {
+    setState((prev) => {
+      const next = structuredClone(prev)
+      next.days[dayIndex][rowIndex] = { ...next.days[dayIndex][rowIndex], ...patch }
+      return next
+    })
+  }
+
+  function updateNote(rowIndex, value) {
+    setState((prev) => {
+      const next = structuredClone(prev)
+      next.notes[rowIndex] = value
+      return next
+    })
+  }
+
+  function updateRecurringTask(rowIndex, patch) {
+    if (typeof patch.text === 'string') {
+      setRecurringTemplates((prev) => {
+        const next = structuredClone(prev)
+        next[rowIndex] = { ...next[rowIndex], text: patch.text }
+        return next
+      })
+    }
+
+    if (typeof patch.done === 'boolean') {
+      setRecurringDone((prev) => {
+        const next = [...prev]
+        next[rowIndex] = patch.done
+        return next
+      })
+    }
+  }
+
+  function shiftWeek(delta) {
+    setCurrentWeekDate((prev) => {
+      const next = new Date(prev)
+      next.setDate(next.getDate() + delta * 7)
+      return next
+    })
+  }
+
+  function handleMotivationChange(value) {
+    setTodayMotivation(value)
+    setDailyQuotes((prev) => ({ ...prev, [dateId]: value }))
+  }
+
+  return (
+    <main className="sheet">
+      <Header
+        theme={theme}
+        themeOptions={THEME_OPTIONS}
+        onThemeChange={setTheme}
+        weekLabel={formatWeekLabel(weekId)}
+        onPrevWeek={() => shiftWeek(-1)}
+        onNextWeek={() => shiftWeek(1)}
+      />
+
+      <nav className="page-tabs" aria-label="Sahifalar">
+        <NavLink to="/planner" className={({ isActive }) => (isActive ? 'tab-link is-active' : 'tab-link')}>
+          Reja
+        </NavLink>
+        <NavLink to="/stats" className={({ isActive }) => (isActive ? 'tab-link is-active' : 'tab-link')}>
+          Statistika
+        </NavLink>
+        <NavLink to="/history" className={({ isActive }) => (isActive ? 'tab-link is-active' : 'tab-link')}>
+          Tarix
+        </NavLink>
+        <NavLink to="/motivation" className={({ isActive }) => (isActive ? 'tab-link is-active' : 'tab-link')}>
+          Motivatsiya
+        </NavLink>
+      </nav>
+
+      <Routes>
+        <Route
+          path="/planner"
+          element={
+            <PlannerPage
+              dayNames={DAY_NAMES}
+              days={state.days}
+              notes={state.notes}
+              dateId={dateId}
+              recurringTasks={recurringTasks}
+              onTaskChange={updateTask}
+              onNoteChange={updateNote}
+              onRecurringTaskChange={updateRecurringTask}
+              normalizePriority={normalizePriority}
+            />
+          }
+        />
+        <Route
+          path="/stats"
+          element={
+            <StatsPage
+              metrics={metrics}
+              achieved={achieved}
+              goalValue={state.goal}
+              onGoalChange={(value) => setState((prev) => ({ ...prev, goal: clampGoal(value) }))}
+              historyEntries={historyEntries}
+              weekId={weekId}
+              dayNames={DAY_NAMES}
+            />
+          }
+        />
+        <Route path="/history" element={<HistoryPage historyEntries={historyEntries} />} />
+        <Route
+          path="/motivation"
+          element={
+            <MotivationPage
+              todayMotivation={todayMotivation}
+              onMotivationChange={handleMotivationChange}
+              motivationQuery={motivationQuery}
+              onMotivationQueryChange={setMotivationQuery}
+              motivationStreak={motivationStreak}
+              motivationEntries={filteredMotivations}
+            />
+          }
+        />
+        <Route path="*" element={<Navigate to="/planner" replace />} />
+      </Routes>
+    </main>
+  )
+}
