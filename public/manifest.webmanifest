@@ -3,7 +3,7 @@
   "short_name": "365 Reja",
   "description": "Haftalik reja va motivatsiya ilovasi",
   "lang": "uz",
-  "start_url": "/",
+  "start_url": "/#/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#fffef8",
