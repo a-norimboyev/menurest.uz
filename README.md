@@ -7,6 +7,12 @@ Haftalik reja ilovasi (web + PWA) endi cloud sync bilan telefon va kompyuter ora
 1. `npm install`
 2. `npm run dev`
 
+## Sifat tekshiruvi
+
+1. `npm run lint`
+2. `npm run test`
+3. `npm run build`
+
 ## Cloud Sync (Supabase)
 
 Cloud sync yoqish uchun `.env` fayl yarating va quyidagilarni kiriting:
@@ -52,3 +58,10 @@ with check (user_id = '<YOUR_SYNC_USER_ID>');
 Muhim: `.env` ichidagi `VITE_PLANNER_SYNC_USER_ID` va policy ichidagi `<YOUR_SYNC_USER_ID>` bir xil bo'lishi kerak.
 
 Eslatma: bu authsiz minimal xavfsiz variant. Katta loyiha uchun Supabase Auth bilan `auth.uid()` asosidagi RLS ishlatish tavsiya etiladi.
+
+## Sync ishlash tartibi
+
+1. Ilova cloud holatini headerda ko'rsatadi: syncing/synced/error/local.
+2. Yangi o'zgarishlar debounce bilan cloudga yoziladi.
+3. Tab qayta ochilganda va davriy intervalda clouddan yangilanish olinadi.
+4. Konflikt bo'lsa clouddagi eng yangi versiya ustun qo'yiladi va statusda ogohlantirish chiqadi.

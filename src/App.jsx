@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import Header from './components/Header'
 import DayCards from './components/DayCards'
@@ -16,7 +16,7 @@ const HISTORY_KEY = 'planner-history-v1'
 const RECURRING_KEY = 'planner-recurring-v1'
 const DAILY_QUOTES_KEY = 'planner-daily-motivation-v1'
 const SYNC_TIMESTAMP_KEY = 'planner-sync-updated-at-v1'
-const SYNC_PULL_INTERVAL_MS = 20000
+const SYNC_PULL_INTERVAL_MS = 60000
 const SYNC_PUSH_DEBOUNCE_MS = 900
 const THEME_OPTIONS = [
   { id: 'premium', label: 'Iliq Premium' },
@@ -166,10 +166,6 @@ function loadRecurringTemplates() {
 
 function saveRecurringTemplates(rows) {
   localStorage.setItem(RECURRING_KEY, JSON.stringify(rows))
-}
-
-function getEmptyRecurringDone() {
-  return Array.from({ length: RECURRING_ROWS }, () => false)
 }
 
 function loadRecurringDone(dateId, minRows = RECURRING_ROWS) {
@@ -396,6 +392,7 @@ export default function App() {
   const [motivationQuery, setMotivationQuery] = useState('')
   const [syncStatus, setSyncStatus] = useState(cloudSyncEnabled ? 'syncing' : 'local')
   const [syncLabel, setSyncLabel] = useState(cloudSyncEnabled ? 'Cloud ulanmoqda...' : 'Faqat shu qurilmada')
+  const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine))
   const [todayMotivation, setTodayMotivation] = useState(() => {
     const initialQuotes = loadDailyQuotes()
     const saved = initialQuotes[getDateId()]
@@ -468,7 +465,20 @@ export default function App() {
     }
   }, [])
 
-  function applyRemotePayload(remotePayload) {
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true)
+    const onOffline = () => setIsOnline(false)
+
+    window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
+
+    return () => {
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
+    }
+  }, [])
+
+  const applyRemotePayload = useCallback((remotePayload) => {
     if (typeof remotePayload?.theme === 'string') {
       setTheme(resolveTheme(remotePayload.theme))
     }
@@ -499,7 +509,7 @@ export default function App() {
 
     setState(loadWeekState(weekId))
     setRecurringDone(loadRecurringDone(dateId, loadRecurringTemplates().length))
-  }
+  }, [dateId, weekId])
 
   useEffect(() => {
     let cancelled = false
@@ -508,6 +518,13 @@ export default function App() {
       if (!cloudSyncEnabled) {
         setSyncStatus('local')
         setSyncLabel('Faqat shu qurilmada')
+        syncReadyRef.current = true
+        return
+      }
+
+      if (!navigator.onLine) {
+        setSyncStatus('error')
+        setSyncLabel('Internetsiz: lokal rejim')
         syncReadyRef.current = true
         return
       }
@@ -542,7 +559,11 @@ export default function App() {
     }
 
     pullFromCloud()
-    const intervalId = window.setInterval(pullFromCloud, SYNC_PULL_INTERVAL_MS)
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        pullFromCloud()
+      }
+    }, SYNC_PULL_INTERVAL_MS)
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         pullFromCloud()
@@ -556,7 +577,7 @@ export default function App() {
       window.clearInterval(intervalId)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [cloudSyncEnabled, dateId, weekId])
+  }, [applyRemotePayload, cloudSyncEnabled, dateId, weekId])
 
   useEffect(() => {
     setState(loadWeekState(weekId))
@@ -611,6 +632,7 @@ export default function App() {
 
   useEffect(() => {
     if (!cloudSyncEnabled || !syncReadyRef.current) return
+    if (!isOnline) return
 
     if (skipNextPushRef.current) {
       skipNextPushRef.current = false
@@ -636,8 +658,19 @@ export default function App() {
         history: getHistory(),
       }
 
-      saveCloudSnapshot(payload)
-        .then(() => {
+      saveCloudSnapshot(payload, lastSyncedTimestampRef.current)
+        .then((result) => {
+          if (result?.status === 'conflict' && result.remote?.payload) {
+            skipNextPushRef.current = true
+            applyRemotePayload(result.remote.payload)
+            const remoteTimestamp = Number(result.remote.timestamp || 0)
+            lastSyncedTimestampRef.current = remoteTimestamp
+            localStorage.setItem(SYNC_TIMESTAMP_KEY, String(remoteTimestamp))
+            setSyncStatus('error')
+            setSyncLabel('Konflikt topildi: cloud versiya yuklandi')
+            return
+          }
+
           lastSyncedTimestampRef.current = payload.updatedAt
           localStorage.setItem(SYNC_TIMESTAMP_KEY, String(payload.updatedAt))
           setSyncStatus('synced')
@@ -654,7 +687,7 @@ export default function App() {
         clearTimeout(syncTimerRef.current)
       }
     }
-  }, [cloudSyncEnabled, theme, dateId, state, recurringTemplates, recurringDone, dailyQuotes])
+  }, [applyRemotePayload, cloudSyncEnabled, isOnline, theme, dateId, state, recurringTemplates, recurringDone, dailyQuotes])
 
   const metrics = useMemo(() => {
     const perDay = state.days.map((rows) => {
@@ -678,10 +711,8 @@ export default function App() {
     return { perDay, totalActiveTasks, doneTasks, notesCount, percent, goal, highPriorityCount, monthlyActive, monthlyDone }
   }, [state, recurringTasks])
 
-  const historyEntries = useMemo(() => {
-    return Object.values(getHistory())
-      .sort((a, b) => b.weekId.localeCompare(a.weekId))
-  }, [state])
+  const historyEntries = Object.values(getHistory())
+    .sort((a, b) => b.weekId.localeCompare(a.weekId))
 
   const achieved = metrics.percent >= metrics.goal
 
@@ -689,14 +720,6 @@ export default function App() {
     setState((prev) => {
       const next = structuredClone(prev)
       next.days[dayIndex][rowIndex] = { ...next.days[dayIndex][rowIndex], ...patch }
-      return next
-    })
-  }
-
-  function updateNote(rowIndex, value) {
-    setState((prev) => {
-      const next = structuredClone(prev)
-      next.notes[rowIndex] = value
       return next
     })
   }

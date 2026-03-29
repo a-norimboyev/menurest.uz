@@ -3,6 +3,13 @@ const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || ''
 const SYNC_USER_ID = import.meta.env.VITE_PLANNER_SYNC_USER_ID || ''
 const REQUEST_TIMEOUT_MS = 8000
 
+function toMs(value) {
+  const asNumber = Number(value)
+  if (!Number.isNaN(asNumber) && asNumber > 0) return asNumber
+  const parsed = Date.parse(String(value || ''))
+  return Number.isNaN(parsed) ? 0 : parsed
+}
+
 function getHeaders() {
   return {
     apikey: SUPABASE_ANON_KEY,
@@ -46,11 +53,22 @@ export async function loadCloudSnapshot() {
   const rows = await response.json()
   if (!Array.isArray(rows) || rows.length === 0) return null
 
-  return rows[0]
+  const row = rows[0]
+  return {
+    ...row,
+    timestamp: Math.max(toMs(row?.payload?.updatedAt), toMs(row?.updated_at)),
+  }
 }
 
-export async function saveCloudSnapshot(payload) {
+export async function saveCloudSnapshot(payload, lastKnownTimestamp = 0) {
   if (!isCloudSyncEnabled()) return null
+
+  const remote = await loadCloudSnapshot()
+  const remoteTimestamp = Number(remote?.timestamp || 0)
+
+  if (remote && remoteTimestamp > Number(lastKnownTimestamp || 0)) {
+    return { status: 'conflict', remote }
+  }
 
   const endpoint = `${SUPABASE_URL}/rest/v1/planner_sync?on_conflict=user_id`
   const response = await fetchWithTimeout(endpoint, {
@@ -73,5 +91,8 @@ export async function saveCloudSnapshot(payload) {
   }
 
   const rows = await response.json()
-  return Array.isArray(rows) && rows[0] ? rows[0] : null
+  return {
+    status: 'saved',
+    row: Array.isArray(rows) && rows[0] ? rows[0] : null,
+  }
 }

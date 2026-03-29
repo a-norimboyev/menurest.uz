@@ -1,8 +1,24 @@
 const CACHE_NAME = 'planner365-v2'
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg']
+const MAX_RUNTIME_CACHE_ITEMS = 60
 
 function isSameOrigin(url) {
   return new URL(url).origin === self.location.origin
+}
+
+async function trimRuntimeCache(cache) {
+  const keys = await cache.keys()
+  const runtimeKeys = keys.filter((request) => {
+    const path = new URL(request.url).pathname
+    return !APP_SHELL.includes(path)
+  })
+
+  const overflow = runtimeKeys.length - MAX_RUNTIME_CACHE_ITEMS
+  if (overflow <= 0) return
+
+  for (let i = 0; i < overflow; i += 1) {
+    await cache.delete(runtimeKeys[i])
+  }
 }
 
 self.addEventListener('install', (event) => {
@@ -56,6 +72,7 @@ self.addEventListener('fetch', (event) => {
         if (response.ok && response.type === 'basic') {
           const cache = await caches.open(CACHE_NAME)
           await cache.put(event.request, response.clone())
+          await trimRuntimeCache(cache)
         }
         return response
       } catch {
