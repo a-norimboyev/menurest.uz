@@ -1,5 +1,9 @@
-const CACHE_NAME = 'planner365-v1'
+const CACHE_NAME = 'planner365-v2'
 const APP_SHELL = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg']
+
+function isSameOrigin(url) {
+  return new URL(url).origin === self.location.origin
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -25,21 +29,38 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return
+  if (!isSameOrigin(event.request.url)) return
+
   const isNavigation = event.request.mode === 'navigate'
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached
-      return fetch(event.request)
-        .then((response) => {
-          if (isNavigation && !response.ok) {
-            return caches.match('/index.html')
+    (async () => {
+      if (isNavigation) {
+        try {
+          const fresh = await fetch(event.request)
+          if (fresh.ok) {
+            const cache = await caches.open(CACHE_NAME)
+            await cache.put('/index.html', fresh.clone())
           }
-          const copy = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy))
-          return response
-        })
-        .catch(() => caches.match('/index.html'))
-    }),
+          return fresh
+        } catch {
+          return (await caches.match('/index.html')) || Response.error()
+        }
+      }
+
+      const cached = await caches.match(event.request)
+      if (cached) return cached
+
+      try {
+        const response = await fetch(event.request)
+        if (response.ok && response.type === 'basic') {
+          const cache = await caches.open(CACHE_NAME)
+          await cache.put(event.request, response.clone())
+        }
+        return response
+      } catch {
+        return Response.error()
+      }
+    })(),
   )
 })

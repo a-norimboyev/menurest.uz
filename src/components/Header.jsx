@@ -7,6 +7,8 @@ export default function Header({
   onNextWeek,
   canInstallApp,
   onInstallApp,
+  syncStatus,
+  syncLabel,
 }) {
   return (
     <header className="title-wrap">
@@ -20,6 +22,9 @@ export default function Header({
         <span className="meta-pill">7 kunlik fokus</span>
         <span className="meta-divider" />
         <span className="meta-pill">Shaxsiy reja</span>
+      </div>
+      <div className={`sync-pill sync-${syncStatus}`} role="status" aria-live="polite">
+        {syncLabel}
       </div>
       <div className="theme-switch" role="group" aria-label="Tema tanlash">
         {themeOptions.map((option) => (

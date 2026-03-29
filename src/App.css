@@ -157,6 +157,41 @@ body {
   border-bottom: 2px solid #b6966e;
 }
 
+.sync-pill {
+  margin-top: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  border: 1px solid #ccb596;
+  background: #fff7ea;
+  color: #5b4935;
+}
+
+.sync-pill.sync-syncing {
+  border-color: #d7b489;
+  background: #fff1dc;
+  color: #6b4a24;
+}
+
+.sync-pill.sync-synced {
+  border-color: #9ec89e;
+  background: #eef9ee;
+  color: #2c5b2c;
+}
+
+.sync-pill.sync-error {
+  border-color: #e2a3a3;
+  background: #fff0f0;
+  color: #7a2a2a;
+}
+
+.sync-pill.sync-local {
+  border-color: #ccb596;
+  background: #f8efe0;
+  color: #5b4935;
+}
+
 .theme-switch,
 .week-switch,
 .action-switch {

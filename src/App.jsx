@@ -1,9 +1,10 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import Header from './components/Header'
 import DayCards from './components/DayCards'
 import MonthlyCard from './components/MonthlyCard'
 import StatsCard from './components/StatsCard'
+import { isCloudSyncEnabled, loadCloudSnapshot, saveCloudSnapshot } from './lib/cloudSync'
 
 const DAY_NAMES = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
 const ROWS_PER_DAY = 7
@@ -14,6 +15,9 @@ const THEME_KEY = 'planner-theme'
 const HISTORY_KEY = 'planner-history-v1'
 const RECURRING_KEY = 'planner-recurring-v1'
 const DAILY_QUOTES_KEY = 'planner-daily-motivation-v1'
+const SYNC_TIMESTAMP_KEY = 'planner-sync-updated-at-v1'
+const SYNC_PULL_INTERVAL_MS = 20000
+const SYNC_PUSH_DEBOUNCE_MS = 900
 const THEME_OPTIONS = [
   { id: 'premium', label: 'Iliq Premium' },
   { id: 'minimal', label: 'Oq Minimal' },
@@ -369,6 +373,11 @@ function MotivationPage({
 }
 
 export default function App() {
+  const cloudSyncEnabled = isCloudSyncEnabled()
+  const syncReadyRef = useRef(!cloudSyncEnabled)
+  const syncTimerRef = useRef(null)
+  const skipNextPushRef = useRef(false)
+  const lastSyncedTimestampRef = useRef(Number(localStorage.getItem(SYNC_TIMESTAMP_KEY) || 0))
   const [theme, setTheme] = useState(resolveTheme(localStorage.getItem(THEME_KEY)))
   const [currentWeekDate, setCurrentWeekDate] = useState(new Date())
   const weekId = useMemo(() => getISOWeekId(currentWeekDate), [currentWeekDate])
@@ -385,6 +394,8 @@ export default function App() {
   const [recurringDone, setRecurringDone] = useState(() => loadRecurringDone(dateId, loadRecurringTemplates().length))
   const [dailyQuotes, setDailyQuotes] = useState(() => loadDailyQuotes())
   const [motivationQuery, setMotivationQuery] = useState('')
+  const [syncStatus, setSyncStatus] = useState(cloudSyncEnabled ? 'syncing' : 'local')
+  const [syncLabel, setSyncLabel] = useState(cloudSyncEnabled ? 'Cloud ulanmoqda...' : 'Faqat shu qurilmada')
   const [todayMotivation, setTodayMotivation] = useState(() => {
     const initialQuotes = loadDailyQuotes()
     const saved = initialQuotes[getDateId()]
@@ -457,6 +468,96 @@ export default function App() {
     }
   }, [])
 
+  function applyRemotePayload(remotePayload) {
+    if (typeof remotePayload?.theme === 'string') {
+      setTheme(resolveTheme(remotePayload.theme))
+    }
+
+    if (remotePayload.weekState && typeof remotePayload.weekState === 'object' && typeof remotePayload.weekState.weekId === 'string') {
+      localStorage.setItem(getWeekStorageKey(remotePayload.weekState.weekId), JSON.stringify(remotePayload.weekState))
+    }
+
+    if (remotePayload.history && typeof remotePayload.history === 'object') {
+      saveHistory(remotePayload.history)
+    }
+
+    if (Array.isArray(remotePayload.recurringTemplates)) {
+      setRecurringTemplates(remotePayload.recurringTemplates)
+      saveRecurringTemplates(remotePayload.recurringTemplates)
+    }
+
+    if (Array.isArray(remotePayload.recurringDone) && typeof remotePayload.dateId === 'string') {
+      localStorage.setItem(getRecurringDoneStorageKey(remotePayload.dateId), JSON.stringify(remotePayload.recurringDone))
+    }
+
+    if (remotePayload.dailyQuotes && typeof remotePayload.dailyQuotes === 'object') {
+      setDailyQuotes(remotePayload.dailyQuotes)
+      saveDailyQuotes(remotePayload.dailyQuotes)
+      const todayValue = remotePayload.dailyQuotes[dateId]
+      setTodayMotivation(typeof todayValue === 'string' && todayValue.trim().length > 0 ? todayValue : getDailyMotivation(dateId))
+    }
+
+    setState(loadWeekState(weekId))
+    setRecurringDone(loadRecurringDone(dateId, loadRecurringTemplates().length))
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function pullFromCloud() {
+      if (!cloudSyncEnabled) {
+        setSyncStatus('local')
+        setSyncLabel('Faqat shu qurilmada')
+        syncReadyRef.current = true
+        return
+      }
+
+      try {
+        const localTimestamp = Number(localStorage.getItem(SYNC_TIMESTAMP_KEY) || 0)
+        const remoteRow = await loadCloudSnapshot()
+        const remotePayload = remoteRow?.payload && typeof remoteRow.payload === 'object' ? remoteRow.payload : null
+        const remoteTimestamp = Number(remotePayload?.updatedAt || 0)
+
+        if (!cancelled && remotePayload && remoteTimestamp > Math.max(localTimestamp, lastSyncedTimestampRef.current)) {
+          skipNextPushRef.current = true
+          applyRemotePayload(remotePayload)
+        }
+
+        const latestTimestamp = Math.max(localTimestamp, remoteTimestamp, lastSyncedTimestampRef.current)
+        lastSyncedTimestampRef.current = latestTimestamp
+        if (latestTimestamp > 0) {
+          localStorage.setItem(SYNC_TIMESTAMP_KEY, String(latestTimestamp))
+        }
+
+        setSyncStatus('synced')
+        setSyncLabel('Cloud sinxron: tayyor')
+      } catch {
+        setSyncStatus('error')
+        setSyncLabel('Cloud xatosi: internetni tekshiring')
+      } finally {
+        if (!cancelled) {
+          syncReadyRef.current = true
+        }
+      }
+    }
+
+    pullFromCloud()
+    const intervalId = window.setInterval(pullFromCloud, SYNC_PULL_INTERVAL_MS)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        pullFromCloud()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [cloudSyncEnabled, dateId, weekId])
+
   useEffect(() => {
     setState(loadWeekState(weekId))
   }, [weekId])
@@ -507,6 +608,53 @@ export default function App() {
     }
     saveHistory(history)
   }, [state])
+
+  useEffect(() => {
+    if (!cloudSyncEnabled || !syncReadyRef.current) return
+
+    if (skipNextPushRef.current) {
+      skipNextPushRef.current = false
+      return
+    }
+
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current)
+    }
+
+    setSyncStatus('syncing')
+    setSyncLabel('Cloudga saqlanmoqda...')
+
+    syncTimerRef.current = setTimeout(() => {
+      const payload = {
+        updatedAt: Date.now(),
+        theme,
+        dateId,
+        weekState: state,
+        recurringTemplates,
+        recurringDone,
+        dailyQuotes,
+        history: getHistory(),
+      }
+
+      saveCloudSnapshot(payload)
+        .then(() => {
+          lastSyncedTimestampRef.current = payload.updatedAt
+          localStorage.setItem(SYNC_TIMESTAMP_KEY, String(payload.updatedAt))
+          setSyncStatus('synced')
+          setSyncLabel('Cloud sinxron: saqlandi')
+        })
+        .catch(() => {
+          setSyncStatus('error')
+          setSyncLabel('Cloudga yozilmadi: keyin yana urinadi')
+        })
+    }, SYNC_PUSH_DEBOUNCE_MS)
+
+    return () => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current)
+      }
+    }
+  }, [cloudSyncEnabled, theme, dateId, state, recurringTemplates, recurringDone, dailyQuotes])
 
   const metrics = useMemo(() => {
     const perDay = state.days.map((rows) => {
@@ -619,6 +767,8 @@ export default function App() {
         onNextWeek={() => shiftWeek(1)}
         canInstallApp={Boolean(installPromptEvent) && !isStandalone}
         onInstallApp={handleInstallApp}
+        syncStatus={syncStatus}
+        syncLabel={syncLabel}
       />
 
       <nav className="page-tabs" aria-label="Sahifalar">
