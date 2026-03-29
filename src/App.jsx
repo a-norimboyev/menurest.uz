@@ -373,6 +373,12 @@ export default function App() {
   const [currentWeekDate, setCurrentWeekDate] = useState(new Date())
   const weekId = useMemo(() => getISOWeekId(currentWeekDate), [currentWeekDate])
   const dateId = useMemo(() => getDateId(), [])
+  const [installPromptEvent, setInstallPromptEvent] = useState(null)
+  const [isStandalone, setIsStandalone] = useState(() => {
+    if (typeof window === 'undefined') return false
+    const standaloneMedia = window.matchMedia?.('(display-mode: standalone)')
+    return Boolean(standaloneMedia?.matches || window.navigator.standalone)
+  })
 
   const [state, setState] = useState(() => loadWeekState(weekId))
   const [recurringTemplates, setRecurringTemplates] = useState(() => loadRecurringTemplates())
@@ -422,6 +428,34 @@ export default function App() {
     document.body.dataset.theme = resolveTheme(theme)
     localStorage.setItem(THEME_KEY, theme)
   }, [theme])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const media = window.matchMedia?.('(display-mode: standalone)')
+    const updateDisplayMode = () => {
+      setIsStandalone(Boolean(media?.matches || window.navigator.standalone))
+    }
+    const handleBeforeInstallPrompt = (event) => {
+      event.preventDefault()
+      setInstallPromptEvent(event)
+    }
+    const handleInstalled = () => {
+      setInstallPromptEvent(null)
+      setIsStandalone(true)
+    }
+
+    updateDisplayMode()
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleInstalled)
+    media?.addEventListener?.('change', updateDisplayMode)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleInstalled)
+      media?.removeEventListener?.('change', updateDisplayMode)
+    }
+  }, [])
 
   useEffect(() => {
     setState(loadWeekState(weekId))
@@ -563,6 +597,17 @@ export default function App() {
     setDailyQuotes((prev) => ({ ...prev, [dateId]: value }))
   }
 
+  async function handleInstallApp() {
+    if (!installPromptEvent) return
+
+    installPromptEvent.prompt()
+    try {
+      await installPromptEvent.userChoice
+    } finally {
+      setInstallPromptEvent(null)
+    }
+  }
+
   return (
     <main className="sheet">
       <Header
@@ -572,6 +617,8 @@ export default function App() {
         weekLabel={formatWeekLabel(weekId)}
         onPrevWeek={() => shiftWeek(-1)}
         onNextWeek={() => shiftWeek(1)}
+        canInstallApp={Boolean(installPromptEvent) && !isStandalone}
+        onInstallApp={handleInstallApp}
       />
 
       <nav className="page-tabs" aria-label="Sahifalar">

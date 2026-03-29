@@ -5,6 +5,8 @@ export default function Header({
   weekLabel,
   onPrevWeek,
   onNextWeek,
+  canInstallApp,
+  onInstallApp,
 }) {
   return (
     <header className="title-wrap">
@@ -39,6 +41,11 @@ export default function Header({
         <button type="button" className="week-btn" onClick={onNextWeek}>
           Kelasi hafta
         </button>
+        {canInstallApp && (
+          <button type="button" className="week-btn" onClick={onInstallApp}>
+            Ilova o'rnatish
+          </button>
+        )}
       </div>
     </header>
   )
