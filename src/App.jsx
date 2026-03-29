@@ -22,6 +22,7 @@ const SYNC_PULL_INTERVAL_MS = 60000
 const SYNC_PUSH_DEBOUNCE_MS = 900
 const AUTH_USERNAME = 'Azizjon'
 const AUTH_PASSWORD = 'Azizjon1'
+const CONFIGURED_SYNC_USER_ID = (import.meta.env.VITE_PLANNER_SYNC_USER_ID || AUTH_USERNAME).trim() || AUTH_USERNAME
 const THEME_OPTIONS = [
   { id: 'premium', label: 'Iliq Premium' },
   { id: 'minimal', label: 'Oq Minimal' },
@@ -450,7 +451,7 @@ export default function App() {
 
     if (loginUsername.trim() === AUTH_USERNAME && loginPassword === AUTH_PASSWORD) {
       sessionStorage.setItem(AUTH_SESSION_KEY, '1')
-      sessionStorage.setItem(AUTH_SYNC_USER_KEY, AUTH_USERNAME)
+      sessionStorage.setItem(AUTH_SYNC_USER_KEY, CONFIGURED_SYNC_USER_ID)
       setIsAuthenticated(true)
       setLoginError('')
       setLoginPassword('')
@@ -462,7 +463,7 @@ export default function App() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      sessionStorage.setItem(AUTH_SYNC_USER_KEY, AUTH_USERNAME)
+      sessionStorage.setItem(AUTH_SYNC_USER_KEY, CONFIGURED_SYNC_USER_ID)
     }
   }, [isAuthenticated])
 
