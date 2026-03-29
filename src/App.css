@@ -244,6 +244,17 @@ body {
   color: #5b4935;
 }
 
+.storage-pill {
+  margin-top: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 1px solid #b9a486;
+  background: #f2e7d6;
+  color: #4f3f2d;
+}
+
 .sync-pill.sync-syncing {
   border-color: #d7b489;
   background: #fff1dc;

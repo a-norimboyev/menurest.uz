@@ -9,6 +9,7 @@ export default function Header({
   onInstallApp,
   syncStatus,
   syncLabel,
+  storageLabel,
 }) {
   return (
     <header className="title-wrap">
@@ -25,6 +26,9 @@ export default function Header({
       </div>
       <div className={`sync-pill sync-${syncStatus}`} role="status" aria-live="polite">
         {syncLabel}
+      </div>
+      <div className="storage-pill" aria-live="polite">
+        {storageLabel}
       </div>
       <div className="theme-switch" role="group" aria-label="Tema tanlash">
         {themeOptions.map((option) => (

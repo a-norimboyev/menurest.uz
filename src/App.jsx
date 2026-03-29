@@ -4,7 +4,7 @@ import Header from './components/Header'
 import DayCards from './components/DayCards'
 import MonthlyCard from './components/MonthlyCard'
 import StatsCard from './components/StatsCard'
-import { isCloudSyncEnabled, loadCloudSnapshot, saveCloudSnapshot } from './lib/cloudSync'
+import { getCloudStorageInfo, isCloudSyncEnabled, loadCloudSnapshot, saveCloudSnapshot } from './lib/cloudSync'
 
 const DAY_NAMES = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
 const ROWS_PER_DAY = 7
@@ -409,12 +409,30 @@ function LoginPage({ username, password, error, onUsernameChange, onPasswordChan
   )
 }
 
+function CloudRequiredPage({ storageLabel }) {
+  return (
+    <main className="sheet login-shell">
+      <section className="login-card" aria-label="Cloud sozlamasi kerak">
+        <h1>Cloud Sozlang</h1>
+        <p>
+          Bu loyiha hozir bitta markaziy joyga saqlash rejimida ishlaydi. Cloud ulanmaguncha yozuvlar ochilmaydi.
+        </p>
+        <p className="login-error">{storageLabel}</p>
+        <p>
+          Vercel env'da kamida bitta yo'lni yoqing: <strong>VITE_SYNC_BACKEND_URL</strong> yoki Supabase URL + ANON KEY.
+        </p>
+      </section>
+    </main>
+  )
+}
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem(AUTH_SESSION_KEY) === '1')
   const [loginUsername, setLoginUsername] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const cloudSyncEnabled = isCloudSyncEnabled()
+  const cloudStorageInfo = getCloudStorageInfo()
   const syncReadyRef = useRef(!cloudSyncEnabled)
   const syncTimerRef = useRef(null)
   const skipNextPushRef = useRef(false)
@@ -839,6 +857,7 @@ export default function App() {
   }
 
   return isAuthenticated ? (
+    cloudSyncEnabled ? (
     <main className="sheet">
       <Header
         theme={theme}
@@ -851,6 +870,7 @@ export default function App() {
         onInstallApp={handleInstallApp}
         syncStatus={syncStatus}
         syncLabel={syncLabel}
+        storageLabel={cloudStorageInfo.label}
       />
 
       <nav className="page-tabs" aria-label="Sahifalar">
@@ -916,6 +936,9 @@ export default function App() {
         <Route path="*" element={<Navigate to="/planner" replace />} />
       </Routes>
     </main>
+    ) : (
+      <CloudRequiredPage storageLabel={cloudStorageInfo.label} />
+    )
   ) : (
     <LoginPage
       username={loginUsername}

@@ -46,6 +46,36 @@ export function isCloudSyncEnabled() {
   return isBackendSyncEnabled() || isSupabaseSyncEnabled()
 }
 
+export function getCloudStorageInfo() {
+  if (isBackendSyncEnabled()) {
+    return {
+      enabled: true,
+      mode: 'backend',
+      userId: SYNC_USER_ID,
+      target: `${BACKEND_SYNC_URL}/sync/${encodeURIComponent(SYNC_USER_ID)}`,
+      label: `Saqlash joyi: Backend Cloud (${SYNC_USER_ID})`,
+    }
+  }
+
+  if (isSupabaseSyncEnabled()) {
+    return {
+      enabled: true,
+      mode: 'supabase',
+      userId: SYNC_USER_ID,
+      target: `${SUPABASE_URL}/rest/v1/planner_sync`,
+      label: `Saqlash joyi: Supabase Cloud (${SYNC_USER_ID})`,
+    }
+  }
+
+  return {
+    enabled: false,
+    mode: 'none',
+    userId: SYNC_USER_ID,
+    target: '',
+    label: "Saqlash joyi: Cloud sozlanmagan",
+  }
+}
+
 export async function loadCloudSnapshot() {
   if (!isCloudSyncEnabled()) return null
 
