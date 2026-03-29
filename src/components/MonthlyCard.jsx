@@ -1,4 +1,4 @@
-export default function MonthlyCard({ dateId, tasks, onTaskChange }) {
+export default function MonthlyCard({ dateId, tasks, onTaskChange, onAddTaskRow }) {
   return (
     <article className="notes-card monthly-card">
       <h2>Har Kunlik Doimiy Vazifalar</h2>
@@ -24,6 +24,9 @@ export default function MonthlyCard({ dateId, tasks, onTaskChange }) {
           </li>
         ))}
       </ul>
+      <button type="button" className="monthly-add-btn" onClick={onAddTaskRow}>
+        + Vazifa qo'shish
+      </button>
     </article>
   )
 }

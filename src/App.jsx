@@ -2,7 +2,6 @@ import { useMemo, useState, useEffect } from 'react'
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import Header from './components/Header'
 import DayCards from './components/DayCards'
-import NotesCard from './components/NotesCard'
 import MonthlyCard from './components/MonthlyCard'
 import StatsCard from './components/StatsCard'
 
@@ -100,16 +99,18 @@ function loadWeekState(weekId) {
     return {
       weekId,
       goal: clampGoal(parsed?.goal),
-      days: fallback.days.map((dayRows, dayIndex) =>
-        dayRows.map((_, rowIndex) => {
-          const fromStorage = parsed?.days?.[dayIndex]?.[rowIndex]
+      days: fallback.days.map((dayRows, dayIndex) => {
+        const storedRows = Array.isArray(parsed?.days?.[dayIndex]) ? parsed.days[dayIndex] : []
+        const rowCount = Math.max(dayRows.length, storedRows.length)
+        return Array.from({ length: rowCount }, (_, rowIndex) => {
+          const fromStorage = storedRows[rowIndex]
           return {
             text: typeof fromStorage?.text === 'string' ? fromStorage.text : '',
             done: Boolean(fromStorage?.done),
             priority: normalizePriority(fromStorage?.priority),
           }
-        }),
-      ),
+        })
+      }),
       notes: fallback.notes.map((_, rowIndex) => {
         const fromStorage = parsed?.notes?.[rowIndex]
         return typeof fromStorage === 'string' ? fromStorage : ''
@@ -149,7 +150,9 @@ function loadRecurringTemplates() {
     if (!raw) return getEmptyRecurringTemplates()
     const parsed = JSON.parse(raw)
     const fallback = getEmptyRecurringTemplates()
-    return fallback.map((_, index) => ({
+    const storedRows = Array.isArray(parsed) ? parsed : []
+    const rowCount = Math.max(fallback.length, storedRows.length)
+    return Array.from({ length: rowCount }, (_, index) => ({
       text: typeof parsed?.[index]?.text === 'string' ? parsed[index].text : '',
     }))
   } catch {
@@ -165,15 +168,16 @@ function getEmptyRecurringDone() {
   return Array.from({ length: RECURRING_ROWS }, () => false)
 }
 
-function loadRecurringDone(dateId) {
+function loadRecurringDone(dateId, minRows = RECURRING_ROWS) {
   try {
     const raw = localStorage.getItem(getRecurringDoneStorageKey(dateId))
-    if (!raw) return getEmptyRecurringDone()
+    if (!raw) return Array.from({ length: minRows }, () => false)
     const parsed = JSON.parse(raw)
-    const fallback = getEmptyRecurringDone()
-    return fallback.map((_, index) => Boolean(parsed?.[index]))
+    const storedRows = Array.isArray(parsed) ? parsed : []
+    const rowCount = Math.max(minRows, storedRows.length)
+    return Array.from({ length: rowCount }, (_, index) => Boolean(parsed?.[index]))
   } catch {
-    return getEmptyRecurringDone()
+    return Array.from({ length: minRows }, () => false)
   }
 }
 
@@ -210,19 +214,24 @@ function getDailyMotivation(dateId) {
 function PlannerPage({
   dayNames,
   days,
-  notes,
   dateId,
   recurringTasks,
   onTaskChange,
-  onNoteChange,
+  onAddTaskRow,
   onRecurringTaskChange,
+  onAddRecurringRow,
   normalizePriority,
 }) {
   return (
     <section className="planner-grid" aria-label="Haftalik reja">
-      <DayCards dayNames={dayNames} days={days} onTaskChange={onTaskChange} normalizePriority={normalizePriority} />
-      <NotesCard notes={notes} onNoteChange={onNoteChange} />
-      <MonthlyCard dateId={dateId} tasks={recurringTasks} onTaskChange={onRecurringTaskChange} />
+      <DayCards
+        dayNames={dayNames}
+        days={days}
+        onTaskChange={onTaskChange}
+        onAddTaskRow={onAddTaskRow}
+        normalizePriority={normalizePriority}
+      />
+      <MonthlyCard dateId={dateId} tasks={recurringTasks} onTaskChange={onRecurringTaskChange} onAddTaskRow={onAddRecurringRow} />
     </section>
   )
 }
@@ -367,7 +376,7 @@ export default function App() {
 
   const [state, setState] = useState(() => loadWeekState(weekId))
   const [recurringTemplates, setRecurringTemplates] = useState(() => loadRecurringTemplates())
-  const [recurringDone, setRecurringDone] = useState(() => loadRecurringDone(dateId))
+  const [recurringDone, setRecurringDone] = useState(() => loadRecurringDone(dateId, loadRecurringTemplates().length))
   const [dailyQuotes, setDailyQuotes] = useState(() => loadDailyQuotes())
   const [motivationQuery, setMotivationQuery] = useState('')
   const [todayMotivation, setTodayMotivation] = useState(() => {
@@ -420,6 +429,14 @@ export default function App() {
 
   useEffect(() => {
     saveRecurringTemplates(recurringTemplates)
+  }, [recurringTemplates])
+
+  useEffect(() => {
+    setRecurringDone((prev) => {
+      if (prev.length === recurringTemplates.length) return prev
+      const next = Array.from({ length: recurringTemplates.length }, (_, index) => Boolean(prev[index]))
+      return next
+    })
   }, [recurringTemplates])
 
   useEffect(() => {
@@ -520,6 +537,19 @@ export default function App() {
     }
   }
 
+  function addTaskRow(dayIndex) {
+    setState((prev) => {
+      const next = structuredClone(prev)
+      next.days[dayIndex].push({ text: '', done: false, priority: 'medium' })
+      return next
+    })
+  }
+
+  function addRecurringRow() {
+    setRecurringTemplates((prev) => [...prev, { text: '' }])
+    setRecurringDone((prev) => [...prev, false])
+  }
+
   function shiftWeek(delta) {
     setCurrentWeekDate((prev) => {
       const next = new Date(prev)
@@ -566,12 +596,12 @@ export default function App() {
             <PlannerPage
               dayNames={DAY_NAMES}
               days={state.days}
-              notes={state.notes}
               dateId={dateId}
               recurringTasks={recurringTasks}
               onTaskChange={updateTask}
-              onNoteChange={updateNote}
+              onAddTaskRow={addTaskRow}
               onRecurringTaskChange={updateRecurringTask}
+              onAddRecurringRow={addRecurringRow}
               normalizePriority={normalizePriority}
             />
           }

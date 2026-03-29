@@ -1,4 +1,4 @@
-export default function DayCards({ dayNames, days, onTaskChange, normalizePriority }) {
+export default function DayCards({ dayNames, days, onTaskChange, onAddTaskRow, normalizePriority }) {
   return (
     <>
       {dayNames.map((dayName, dayIndex) => (
@@ -37,6 +37,9 @@ export default function DayCards({ dayNames, days, onTaskChange, normalizePriori
               </li>
             ))}
           </ul>
+          <button type="button" className="day-add-btn" onClick={() => onAddTaskRow(dayIndex)}>
+            + Vazifa qo'shish
+          </button>
         </article>
       ))}
     </>

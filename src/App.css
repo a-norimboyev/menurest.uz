@@ -33,6 +33,38 @@ body {
   padding: 0;
 }
 
+.day-add-btn,
+.monthly-add-btn {
+  width: 100%;
+  margin-top: 0.55rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 58%, var(--line));
+  background: color-mix(in srgb, #fff8ee 82%, var(--accent) 18%);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
+}
+
+.day-add-btn:hover,
+.monthly-add-btn:hover {
+  background: color-mix(in srgb, #fff2de 70%, var(--accent) 30%);
+  border-color: color-mix(in srgb, var(--accent) 76%, var(--line));
+}
+
+.day-add-btn:active,
+.monthly-add-btn:active {
+  transform: translateY(1px);
+}
+
+.day-add-btn:focus-visible,
+.monthly-add-btn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, #ffffff);
+  outline-offset: 2px;
+}
+
 .sheet {
   position: relative;
   overflow: hidden;
