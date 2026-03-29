@@ -1,0 +1,19 @@
+{
+  "name": "365 Kunlik Reja",
+  "short_name": "365 Reja",
+  "description": "Haftalik reja va motivatsiya ilovasi",
+  "lang": "uz",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fffef8",
+  "theme_color": "#c48a4a",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
