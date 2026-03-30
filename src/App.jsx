@@ -5,6 +5,7 @@ import DayCards from './components/DayCards'
 import MonthlyCard from './components/MonthlyCard'
 import StatsCard from './components/StatsCard'
 import { getCloudStorageInfo, isCloudSyncEnabled, loadCloudSnapshot, saveCloudSnapshot } from './lib/cloudSync'
+import { saveMedia, loadMedia, deleteMedia, loadAllMedia } from './lib/mediaStore'
 
 const DAY_NAMES = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
 const ROWS_PER_DAY = 7
@@ -318,23 +319,104 @@ function MotivationPage({
   onMotivationQueryChange,
   motivationStreak,
   motivationEntries,
+  dateId,
 }) {
+  const [mediaItems, setMediaItems] = useState([])
+  const [allMediaMap, setAllMediaMap] = useState({})
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef(null)
+
+  function refreshAllMedia() {
+    loadAllMedia().then(setAllMediaMap).catch(() => {})
+  }
+
+  useEffect(() => {
+    loadMedia(dateId).then(setMediaItems).catch(() => {})
+    refreshAllMedia()
+  }, [dateId])
+
+  async function handleFileSelect(event) {
+    const files = Array.from(event.target.files || [])
+    if (files.length === 0) return
+    setUploading(true)
+    try {
+      for (const file of files) {
+        await saveMedia(dateId, file)
+      }
+      const updated = await loadMedia(dateId)
+      setMediaItems(updated)
+      refreshAllMedia()
+    } catch {
+      // silent
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  async function handleDeleteMedia(id) {
+    await deleteMedia(id)
+    const updated = await loadMedia(dateId)
+    setMediaItems(updated)
+    refreshAllMedia()
+  }
+
   return (
     <section id="motivation-section" className="motivation-footer" aria-live="polite">
-      <label className="motivation-label" htmlFor="motivation-input">
-        Bugungi motivatsion gapni o'zingiz yozing
-      </label>
-      <input
-        id="motivation-input"
-        className="motivation-input"
-        type="text"
-        value={todayMotivation}
-        onChange={(e) => onMotivationChange(e.target.value)}
-        placeholder="Masalan: Bugun ham bir qadam oldinga"
-      />
-      <p className="motivation-hint">Yozgan gapingiz sana bo'yicha saqlanadi va yo'qolmaydi.</p>
+      <div className="daily-card">
+        <label className="motivation-label" htmlFor="motivation-input">
+          Bugun uchun qisqacha yozing
+        </label>
+        <div className="motivation-input-row">
+          <input
+            id="motivation-input"
+            className="motivation-input"
+            type="text"
+            value={todayMotivation}
+            onChange={(e) => onMotivationChange(e.target.value)}
+            placeholder="Masalan: Bugun asosiy vazifa - dars va ishlarni yakunlash"
+          />
 
-      <div className="motivation-stats" aria-label="Motivatsiya statistikasi">
+          {/* Media upload */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,video/*"
+            multiple
+            onChange={handleFileSelect}
+            className="media-file-input"
+            id="media-file-input"
+          />
+          <label htmlFor="media-file-input" className="media-upload-btn">
+            {uploading ? '...' : '📷 / 🎬'}
+          </label>
+        </div>
+
+        {/* Media preview grid */}
+        {mediaItems.length > 0 && (
+          <div className="media-grid">
+            {mediaItems.map((item) => (
+              <div key={item.id} className="media-item">
+                {item.type === 'video' ? (
+                  <video src={URL.createObjectURL(item.blob)} controls className="media-preview" />
+                ) : (
+                  <img src={URL.createObjectURL(item.blob)} alt={item.name} className="media-preview" />
+                )}
+                <button
+                  type="button"
+                  className="media-delete-btn"
+                  onClick={() => handleDeleteMedia(item.id)}
+                  aria-label={`${item.name} ni o'chirish`}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="motivation-stats" aria-label="Statistika">
         <span>
           Ketma-ket kun: <strong>{motivationStreak}</strong>
         </span>
@@ -349,7 +431,7 @@ function MotivationPage({
         value={motivationQuery}
         onChange={(e) => onMotivationQueryChange(e.target.value)}
         placeholder="Tarixdan qidirish..."
-        aria-label="Motivatsion gaplardan qidirish"
+        aria-label="Tarixdan qidirish"
       />
 
       <div className="motivation-history">
@@ -359,9 +441,22 @@ function MotivationPage({
         ) : (
           <ul>
             {motivationEntries.map(([day, text]) => (
-              <li key={day}>
+              <li key={day} className="history-entry">
                 <span>{day}</span>
-                <strong>{text}</strong>
+                <div className="history-entry-content">
+                  <strong>{text}</strong>
+                  {allMediaMap[day] && allMediaMap[day].length > 0 && (
+                    <div className="history-media-row">
+                      {allMediaMap[day].map((item) => (
+                        item.type === 'video' ? (
+                          <video key={item.id} src={URL.createObjectURL(item.blob)} controls className="history-media-thumb" />
+                        ) : (
+                          <img key={item.id} src={URL.createObjectURL(item.blob)} alt={item.name} className="history-media-thumb" />
+                        )
+                      ))}
+                    </div>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -404,23 +499,6 @@ function LoginPage({ username, password, error, onUsernameChange, onPasswordChan
 
           <button type="submit">Kirish</button>
         </form>
-      </section>
-    </main>
-  )
-}
-
-function CloudRequiredPage({ storageLabel }) {
-  return (
-    <main className="sheet login-shell">
-      <section className="login-card" aria-label="Cloud sozlamasi kerak">
-        <h1>Cloud Sozlang</h1>
-        <p>
-          Bu loyiha hozir bitta markaziy joyga saqlash rejimida ishlaydi. Cloud ulanmaguncha yozuvlar ochilmaydi.
-        </p>
-        <p className="login-error">{storageLabel}</p>
-        <p>
-          Vercel env'da kamida bitta yo'lni yoqing: <strong>VITE_SYNC_BACKEND_URL</strong> yoki Supabase URL + ANON KEY.
-        </p>
       </section>
     </main>
   )
@@ -857,7 +935,6 @@ export default function App() {
   }
 
   return isAuthenticated ? (
-    cloudSyncEnabled ? (
     <main className="sheet">
       <Header
         theme={theme}
@@ -884,7 +961,7 @@ export default function App() {
           Tarix
         </NavLink>
         <NavLink to="/motivation" className={({ isActive }) => (isActive ? 'tab-link is-active' : 'tab-link')}>
-          Motivatsiya
+          Bugun kuni
         </NavLink>
       </nav>
 
@@ -930,15 +1007,13 @@ export default function App() {
               onMotivationQueryChange={setMotivationQuery}
               motivationStreak={motivationStreak}
               motivationEntries={filteredMotivations}
+              dateId={dateId}
             />
           }
         />
         <Route path="*" element={<Navigate to="/planner" replace />} />
       </Routes>
     </main>
-    ) : (
-      <CloudRequiredPage storageLabel={cloudStorageInfo.label} />
-    )
   ) : (
     <LoginPage
       username={loginUsername}

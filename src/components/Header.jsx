@@ -5,11 +5,6 @@ export default function Header({
   weekLabel,
   onPrevWeek,
   onNextWeek,
-  canInstallApp,
-  onInstallApp,
-  syncStatus,
-  syncLabel,
-  storageLabel,
 }) {
   return (
     <header className="title-wrap">
@@ -24,12 +19,7 @@ export default function Header({
         <span className="meta-divider" />
         <span className="meta-pill">Shaxsiy reja</span>
       </div>
-      <div className={`sync-pill sync-${syncStatus}`} role="status" aria-live="polite">
-        {syncLabel}
-      </div>
-      <div className="storage-pill" aria-live="polite">
-        {storageLabel}
-      </div>
+
       <div className="theme-switch" role="group" aria-label="Tema tanlash">
         {themeOptions.map((option) => (
           <button
@@ -50,11 +40,6 @@ export default function Header({
         <button type="button" className="week-btn" onClick={onNextWeek}>
           Kelasi hafta
         </button>
-        {canInstallApp && (
-          <button type="button" className="week-btn" onClick={onInstallApp}>
-            Ilova o'rnatish
-          </button>
-        )}
       </div>
     </header>
   )
