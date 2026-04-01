@@ -7,8 +7,6 @@ export default function PlannerPage({
   dateId,
   editableDayIndex,
   pastDayIndices,
-  carryBacklog,
-  onPullBacklog,
   carryUndo,
   onUndoCarry,
   canRetryCarry,
@@ -42,15 +40,6 @@ export default function PlannerPage({
           </button>
         </article>
       ) : null}
-
-      <article className="notes-card backlog-card">
-        <h2>Backlog</h2>
-        <p className="monthly-meta">Bugun: {dateId}</p>
-        <p className="monthly-meta">Jami: {carryBacklog.length}</p>
-        <button type="button" className="action-btn" disabled={carryBacklog.length === 0 || editableDayIndex < 0} onClick={onPullBacklog}>
-          Backlogdan bugunga olish
-        </button>
-      </article>
 
       {carryLog.length > 0 ? (
         <article className="notes-card backlog-card">

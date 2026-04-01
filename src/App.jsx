@@ -439,8 +439,6 @@ export default function App() {
   }, [carryUndo])
 
   useEffect(() => {
-    if (!carrySettings.enabled) return
-
     const todayDate = parseDateId(dateId)
     const lastRunRaw = localStorage.getItem(CARRY_LAST_RUN_DATE_KEY)
     let runDate = lastRunRaw ? parseDateId(lastRunRaw) : parseDateId(dateId)
@@ -492,6 +490,19 @@ export default function App() {
           carryDays: Number.isFinite(row?.carryDays) ? Math.max(0, Number(row.carryDays)) : 0,
         }))
 
+      // Legacy backlog entries are also injected automatically so no task is hidden.
+      if (targetDateId === dateId && backlogDraft.length > 0) {
+        undone.push(
+          ...backlogDraft.map((item) => ({
+            text: item.text,
+            done: false,
+            priority: normalizePriority(item.priority),
+            carryDays: Number.isFinite(item?.carryDays) ? Math.max(1, Number(item.carryDays)) : 1,
+          })),
+        )
+        backlogDraft = []
+      }
+
       if (undone.length === 0) {
         localStorage.setItem(carryKey, '1')
         localStorage.setItem(CARRY_LAST_RUN_DATE_KEY, targetDateId)
@@ -525,8 +536,7 @@ export default function App() {
         existingToday.add(taskKey)
       })
 
-      const toToday = uniqueUndone.slice(0, carrySettings.limit)
-      const toBacklog = uniqueUndone.slice(carrySettings.limit)
+      const toToday = uniqueUndone
 
       toToday.forEach((task) => {
         const emptyIndex = nextTargetRows.findIndex((row) => row.text.trim().length === 0)
@@ -536,26 +546,6 @@ export default function App() {
           nextTargetRows.push(task)
         }
       })
-
-      if (toBacklog.length > 0) {
-        const backlogKeySet = new Set(
-          backlogDraft.map((item) => `${item.text.toLowerCase()}|${normalizePriority(item.priority)}|${item.carryDays}`),
-        )
-        const mergedBacklog = [...backlogDraft]
-        toBacklog.forEach((task) => {
-          const key = `${task.text.toLowerCase()}|${task.priority}|${task.carryDays}`
-          if (!backlogKeySet.has(key)) {
-            mergedBacklog.unshift({
-              text: task.text,
-              priority: task.priority,
-              carryDays: task.carryDays,
-              fromDate: getDateId(previousDate),
-            })
-            backlogKeySet.add(key)
-          }
-        })
-        backlogDraft = mergedBacklog.slice(0, 120)
-      }
 
       targetWeek.days[currentDayIndex] = nextTargetRows
       saveWeekState(sourceWeek)
@@ -606,7 +596,7 @@ export default function App() {
     if (weekId === todayWeekId) {
       setState(loadWeekState(todayWeekId))
     }
-  }, [dateId, weekId, todayWeekId, carrySettings.enabled, carrySettings.limit, carryBacklog, carryRefreshToken])
+  }, [dateId, weekId, todayWeekId, carryBacklog, carryRefreshToken])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1030,12 +1020,6 @@ export default function App() {
         theme={theme}
         themeOptions={THEME_OPTIONS}
         onThemeChange={setTheme}
-        carryEnabled={carrySettings.enabled}
-        onToggleCarry={() => setCarrySettings((prev) => ({ ...prev, enabled: !prev.enabled }))}
-        carryLimit={carrySettings.limit}
-        onCarryLimitChange={(delta) =>
-          setCarrySettings((prev) => ({ ...prev, limit: Math.min(10, Math.max(1, prev.limit + delta)) }))
-        }
         weekLabel={formatWeekLabel(weekId)}
         onPrevWeek={() => shiftWeek(-1)}
         onNextWeek={() => shiftWeek(1)}
