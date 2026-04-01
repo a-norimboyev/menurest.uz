@@ -1,15 +1,15 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import Header from './components/Header'
-import DayCards from './components/DayCards'
-import MonthlyCard from './components/MonthlyCard'
-import StatsCard from './components/StatsCard'
+import PlannerPage from './pages/PlannerPage'
+import StatsPage from './pages/StatsPage'
+import HistoryPage from './pages/HistoryPage'
+import MotivationPage from './pages/MotivationPage'
+import LoginPage from './pages/LoginPage'
 import { getCloudStorageInfo, isCloudSyncEnabled, loadCloudSnapshot, saveCloudSnapshot } from './lib/cloudSync'
-import { saveMedia, loadMedia, deleteMedia, loadAllMedia } from './lib/mediaStore'
 
 const DAY_NAMES = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
 const ROWS_PER_DAY = 7
-const NOTES_ROWS = 7
 const RECURRING_ROWS = 8
 const GOAL_DEFAULT = 70
 const THEME_KEY = 'planner-theme'
@@ -28,6 +28,7 @@ const THEME_OPTIONS = [
   { id: 'forest', label: 'Yashil Forest' },
   { id: 'rose', label: 'Soft Rose' },
   { id: 'sky', label: 'Osmon Sky' },
+  { id: 'dark', label: '🌙 Dark' },
 ]
 const MOTIVATION_QUOTES = [
   'Kichik qadam ham oldinga qadam.',
@@ -92,7 +93,6 @@ function getEmptyWeekState(weekId) {
     days: Array.from({ length: 7 }, () =>
       Array.from({ length: ROWS_PER_DAY }, () => ({ text: '', done: false, priority: 'medium' })),
     ),
-    notes: Array.from({ length: NOTES_ROWS }, () => ''),
   }
 }
 
@@ -118,10 +118,6 @@ function loadWeekState(weekId) {
             priority: normalizePriority(fromStorage?.priority),
           }
         })
-      }),
-      notes: fallback.notes.map((_, rowIndex) => {
-        const fromStorage = parsed?.notes?.[rowIndex]
-        return typeof fromStorage === 'string' ? fromStorage : ''
       }),
     }
   } catch {
@@ -215,295 +211,6 @@ function getDailyMotivation(dateId) {
   return MOTIVATION_QUOTES[safeIndex]
 }
 
-function PlannerPage({
-  dayNames,
-  days,
-  dateId,
-  recurringTasks,
-  onTaskChange,
-  onAddTaskRow,
-  onRecurringTaskChange,
-  onAddRecurringRow,
-  normalizePriority,
-}) {
-  return (
-    <section className="planner-grid" aria-label="Haftalik reja">
-      <DayCards
-        dayNames={dayNames}
-        days={days}
-        onTaskChange={onTaskChange}
-        onAddTaskRow={onAddTaskRow}
-        normalizePriority={normalizePriority}
-      />
-      <MonthlyCard dateId={dateId} tasks={recurringTasks} onTaskChange={onRecurringTaskChange} onAddTaskRow={onAddRecurringRow} />
-    </section>
-  )
-}
-
-function StatsPage({ metrics, achieved, goalValue, onGoalChange, historyEntries, weekId, dayNames }) {
-  return (
-    <section className="single-grid" aria-label="Haftalik statistika">
-      <StatsCard
-        metrics={metrics}
-        achieved={achieved}
-        goalValue={goalValue}
-        onGoalChange={onGoalChange}
-        historyEntries={historyEntries.slice(0, 6)}
-        weekId={weekId}
-        dayNames={dayNames}
-      />
-    </section>
-  )
-}
-
-function HistoryPage({ historyEntries }) {
-  const trendEntries = historyEntries.slice(0, 12).reverse()
-  const chartWidth = 100
-  const chartHeight = 48
-  const points = trendEntries
-    .map((item, index) => {
-      const x = trendEntries.length <= 1 ? chartWidth / 2 : (index / (trendEntries.length - 1)) * chartWidth
-      const y = chartHeight - (item.percent / 100) * chartHeight
-      return `${x},${y}`
-    })
-    .join(' ')
-
-  return (
-    <section className="single-grid" aria-label="Hafta tarixi">
-      <article className="stats-card history-page-card">
-        <h2>To'liq tarix</h2>
-        {trendEntries.length > 0 && (
-          <div className="trend-wrap" aria-label="Haftalik trend chizig'i">
-            <div className="trend-header">
-              <h3>Trend Grafik</h3>
-              <span>Oxirgi {trendEntries.length} hafta</span>
-            </div>
-            <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="trend-svg" role="img" aria-label="Bajarilish trendi">
-              <line x1="0" y1={chartHeight} x2={chartWidth} y2={chartHeight} className="trend-axis" />
-              <polyline points={points} className="trend-line" />
-              {trendEntries.map((item, index) => {
-                const x = trendEntries.length <= 1 ? chartWidth / 2 : (index / (trendEntries.length - 1)) * chartWidth
-                const y = chartHeight - (item.percent / 100) * chartHeight
-                return <circle key={item.weekId} cx={x} cy={y} r="1.6" className="trend-dot" />
-              })}
-            </svg>
-            <div className="trend-labels">
-              <span>{trendEntries[0].weekId}</span>
-              <span>{trendEntries[trendEntries.length - 1].weekId}</span>
-            </div>
-          </div>
-        )}
-        <ul className="history-list">
-          {historyEntries.length === 0 ? (
-            <li className="history-empty">Hozircha tarix yo'q.</li>
-          ) : (
-            historyEntries.map((item) => (
-              <li key={item.weekId}>
-                <span>{item.weekId}</span>
-                <strong>
-                  {item.percent}% • {item.done}/{item.total}
-                </strong>
-              </li>
-            ))
-          )}
-        </ul>
-      </article>
-    </section>
-  )
-}
-
-function MotivationPage({
-  todayMotivation,
-  onMotivationChange,
-  motivationQuery,
-  onMotivationQueryChange,
-  motivationStreak,
-  motivationEntries,
-  dateId,
-}) {
-  const [mediaItems, setMediaItems] = useState([])
-  const [allMediaMap, setAllMediaMap] = useState({})
-  const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef(null)
-
-  function refreshAllMedia() {
-    loadAllMedia().then(setAllMediaMap).catch(() => {})
-  }
-
-  useEffect(() => {
-    loadMedia(dateId).then(setMediaItems).catch(() => {})
-    refreshAllMedia()
-  }, [dateId])
-
-  async function handleFileSelect(event) {
-    const files = Array.from(event.target.files || [])
-    if (files.length === 0) return
-    setUploading(true)
-    try {
-      for (const file of files) {
-        await saveMedia(dateId, file)
-      }
-      const updated = await loadMedia(dateId)
-      setMediaItems(updated)
-      refreshAllMedia()
-    } catch {
-      // silent
-    } finally {
-      setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
-  async function handleDeleteMedia(id) {
-    await deleteMedia(id)
-    const updated = await loadMedia(dateId)
-    setMediaItems(updated)
-    refreshAllMedia()
-  }
-
-  return (
-    <section id="motivation-section" className="motivation-footer" aria-live="polite">
-      <div className="daily-card">
-        <label className="motivation-label" htmlFor="motivation-input">
-          Bugun uchun qisqacha yozing
-        </label>
-        <div className="motivation-input-row">
-          <input
-            id="motivation-input"
-            className="motivation-input"
-            type="text"
-            value={todayMotivation}
-            onChange={(e) => onMotivationChange(e.target.value)}
-            placeholder="Masalan: Bugun asosiy vazifa - dars va ishlarni yakunlash"
-          />
-
-          {/* Media upload */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,video/*"
-            multiple
-            onChange={handleFileSelect}
-            className="media-file-input"
-            id="media-file-input"
-          />
-          <label htmlFor="media-file-input" className="media-upload-btn">
-            {uploading ? '...' : '📷 / 🎬'}
-          </label>
-        </div>
-
-        {/* Media preview grid */}
-        {mediaItems.length > 0 && (
-          <div className="media-grid">
-            {mediaItems.map((item) => (
-              <div key={item.id} className="media-item">
-                {item.type === 'video' ? (
-                  <video src={URL.createObjectURL(item.blob)} controls className="media-preview" />
-                ) : (
-                  <img src={URL.createObjectURL(item.blob)} alt={item.name} className="media-preview" />
-                )}
-                <button
-                  type="button"
-                  className="media-delete-btn"
-                  onClick={() => handleDeleteMedia(item.id)}
-                  aria-label={`${item.name} ni o'chirish`}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="motivation-stats" aria-label="Statistika">
-        <span>
-          Ketma-ket kun: <strong>{motivationStreak}</strong>
-        </span>
-        <span>
-          Jami yozuv: <strong>{motivationEntries.length}</strong>
-        </span>
-      </div>
-
-      <input
-        className="motivation-search"
-        type="search"
-        value={motivationQuery}
-        onChange={(e) => onMotivationQueryChange(e.target.value)}
-        placeholder="Tarixdan qidirish..."
-        aria-label="Tarixdan qidirish"
-      />
-
-      <div className="motivation-history">
-        <h4>Oldingi kunlar</h4>
-        {motivationEntries.length === 0 ? (
-          <p className="motivation-empty">Hozircha saqlangan gap yo'q.</p>
-        ) : (
-          <ul>
-            {motivationEntries.map(([day, text]) => (
-              <li key={day} className="history-entry">
-                <span>{day}</span>
-                <div className="history-entry-content">
-                  <strong>{text}</strong>
-                  {allMediaMap[day] && allMediaMap[day].length > 0 && (
-                    <div className="history-media-row">
-                      {allMediaMap[day].map((item) => (
-                        item.type === 'video' ? (
-                          <video key={item.id} src={URL.createObjectURL(item.blob)} controls className="history-media-thumb" />
-                        ) : (
-                          <img key={item.id} src={URL.createObjectURL(item.blob)} alt={item.name} className="history-media-thumb" />
-                        )
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </section>
-  )
-}
-
-function LoginPage({ username, password, error, onUsernameChange, onPasswordChange, onSubmit }) {
-  return (
-    <main className="sheet login-shell">
-      <section className="login-card" aria-label="Kirish">
-        <h1>Kirish</h1>
-        <p>Faqat ruxsat etilgan login va parol bilan kirish mumkin.</p>
-        <form className="login-form" onSubmit={onSubmit}>
-          <label htmlFor="login-username">Login</label>
-          <input
-            id="login-username"
-            type="text"
-            autoComplete="username"
-            value={username}
-            onChange={(event) => onUsernameChange(event.target.value)}
-            placeholder="Login"
-            required
-          />
-
-          <label htmlFor="login-password">Parol</label>
-          <input
-            id="login-password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => onPasswordChange(event.target.value)}
-            placeholder="Parol"
-            required
-          />
-
-          {error ? <p className="login-error">{error}</p> : null}
-
-          <button type="submit">Kirish</button>
-        </form>
-      </section>
-    </main>
-  )
-}
-
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem(AUTH_SESSION_KEY) === '1')
   const [loginUsername, setLoginUsername] = useState('')
@@ -528,16 +235,15 @@ export default function App() {
 
   const [state, setState] = useState(() => loadWeekState(weekId))
   const [recurringTemplates, setRecurringTemplates] = useState(() => loadRecurringTemplates())
-  const [recurringDone, setRecurringDone] = useState(() => loadRecurringDone(dateId, loadRecurringTemplates().length))
+  const [recurringDone, setRecurringDone] = useState(() => loadRecurringDone(dateId, recurringTemplates.length))
   const [dailyQuotes, setDailyQuotes] = useState(() => loadDailyQuotes())
   const [motivationQuery, setMotivationQuery] = useState('')
   const [syncStatus, setSyncStatus] = useState(cloudSyncEnabled ? 'syncing' : 'local')
   const [syncLabel, setSyncLabel] = useState(cloudSyncEnabled ? 'Cloud ulanmoqda...' : 'Faqat shu qurilmada')
   const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine))
   const [todayMotivation, setTodayMotivation] = useState(() => {
-    const initialQuotes = loadDailyQuotes()
-    const saved = initialQuotes[getDateId()]
-    return typeof saved === 'string' && saved.trim().length > 0 ? saved : getDailyMotivation(getDateId())
+    const saved = dailyQuotes[dateId]
+    return typeof saved === 'string' && saved.trim().length > 0 ? saved : getDailyMotivation(dateId)
   })
 
   function handleLoginSubmit(event) {
@@ -662,9 +368,13 @@ export default function App() {
       setTodayMotivation(typeof todayValue === 'string' && todayValue.trim().length > 0 ? todayValue : getDailyMotivation(dateId))
     }
 
+    const templatesLength = Array.isArray(remotePayload.recurringTemplates)
+      ? remotePayload.recurringTemplates.length
+      : recurringTemplates.length
+
     setState(loadWeekState(weekId))
-    setRecurringDone(loadRecurringDone(dateId, loadRecurringTemplates().length))
-  }, [dateId, weekId])
+    setRecurringDone(loadRecurringDone(dateId, templatesLength))
+  }, [dateId, recurringTemplates.length, weekId])
 
   useEffect(() => {
     let cancelled = false
@@ -770,7 +480,6 @@ export default function App() {
 
     const totalActiveTasks = perDay.reduce((sum, day) => sum + day.active, 0)
     const doneTasks = perDay.reduce((sum, day) => sum + day.done, 0)
-    const notesCount = state.notes.filter((note) => note.trim().length > 0).length
     const percent = totalActiveTasks > 0 ? Math.round((doneTasks / totalActiveTasks) * 100) : 0
 
     const history = getHistory()
@@ -779,7 +488,6 @@ export default function App() {
       percent,
       done: doneTasks,
       total: totalActiveTasks,
-      notes: notesCount,
       updatedAt: Date.now(),
     }
     saveHistory(history)
@@ -854,7 +562,6 @@ export default function App() {
 
     const totalActiveTasks = perDay.reduce((sum, day) => sum + day.active, 0)
     const doneTasks = perDay.reduce((sum, day) => sum + day.done, 0)
-    const notesCount = state.notes.filter((note) => note.trim().length > 0).length
     const percent = totalActiveTasks > 0 ? Math.round((doneTasks / totalActiveTasks) * 100) : 0
     const goal = clampGoal(state.goal)
     const highPriorityCount = state.days
@@ -863,7 +570,7 @@ export default function App() {
     const monthlyActive = recurringTasks.filter((row) => row.text.trim().length > 0).length
     const monthlyDone = recurringTasks.filter((row) => row.text.trim().length > 0 && row.done).length
 
-    return { perDay, totalActiveTasks, doneTasks, notesCount, percent, goal, highPriorityCount, monthlyActive, monthlyDone }
+    return { perDay, totalActiveTasks, doneTasks, percent, goal, highPriorityCount, monthlyActive, monthlyDone }
   }, [state, recurringTasks])
 
   const historyEntries = Object.values(getHistory())

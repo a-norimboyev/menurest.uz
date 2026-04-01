@@ -38,7 +38,7 @@ export default [
     },
   },
   {
-    files: ['backend/**/*.js', '*.config.js', '*.config.mjs', 'eslint.config.js'],
+    files: ['backend/**/*.js', 'bot/**/*.js', '*.config.js', '*.config.mjs', 'eslint.config.js'],
     languageOptions: {
       ecmaVersion: 'latest',
       sourceType: 'module',

@@ -1,0 +1,538 @@
+/* ===== Theme Overrides ===== */
+
+/* --- Minimal --- */
+body[data-theme='minimal'] {
+  background:
+    radial-gradient(circle at 10% 16%, #ffffff 0%, transparent 38%),
+    radial-gradient(circle at 90% 82%, #f6fbff 0%, transparent 34%),
+    linear-gradient(160deg, #eef3f8 0%, #e0e9f2 100%);
+}
+
+body[data-theme='minimal'] .sheet {
+  border-color: #d4dde6;
+}
+
+body[data-theme='minimal'] .title-script {
+  color: #2d6f87;
+}
+
+body[data-theme='minimal'] .theme-btn,
+body[data-theme='minimal'] .week-btn,
+body[data-theme='minimal'] .action-btn,
+body[data-theme='minimal'] .tab-link {
+  border-color: rgba(183, 201, 219, 0.7);
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4fa 100%);
+  color: #3d546d;
+}
+
+body[data-theme='minimal'] .theme-btn.is-active {
+  border-color: #2d6f87;
+  background: linear-gradient(180deg, #348da8 0%, #2d6f87 100%);
+  color: #f5fcff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 8px rgba(45, 111, 135, 0.25);
+}
+
+body[data-theme='minimal'] .tab-link.is-active {
+  border-color: transparent;
+  background: linear-gradient(180deg, #348da8 0%, #2d6f87 100%);
+  color: #f5fcff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 10px rgba(45, 111, 135, 0.3);
+}
+
+/* --- Forest --- */
+body[data-theme='forest'] {
+  background:
+    radial-gradient(circle at 12% 14%, #eef8f0 0%, transparent 36%),
+    radial-gradient(circle at 88% 88%, #d9ebde 0%, transparent 34%),
+    linear-gradient(160deg, #d5e6d8 0%, #c7deca 100%);
+}
+
+body[data-theme='forest'] .title-script {
+  color: #2d6a4f;
+}
+
+body[data-theme='forest'] .theme-btn,
+body[data-theme='forest'] .week-btn,
+body[data-theme='forest'] .tab-link {
+  border-color: rgba(143, 179, 157, 0.7);
+  background: linear-gradient(180deg, #f2f9f4 0%, #e5f0e8 100%);
+  color: #325846;
+}
+
+body[data-theme='forest'] .theme-btn.is-active,
+body[data-theme='forest'] .tab-link.is-active {
+  border-color: transparent;
+  background: linear-gradient(180deg, #37805e 0%, #2d6a4f 100%);
+  color: #f4fff8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 8px rgba(45, 106, 79, 0.25);
+}
+
+/* --- Rose --- */
+body[data-theme='rose'] {
+  background:
+    radial-gradient(circle at 10% 20%, #fff5f7 0%, transparent 38%),
+    radial-gradient(circle at 84% 16%, #ffe6ee 0%, transparent 34%),
+    linear-gradient(160deg, #f6dee5 0%, #edd1da 100%);
+}
+
+body[data-theme='rose'] .title-script {
+  color: #b54b6e;
+}
+
+body[data-theme='rose'] .theme-btn,
+body[data-theme='rose'] .week-btn,
+body[data-theme='rose'] .tab-link {
+  border-color: rgba(210, 165, 183, 0.7);
+  background: linear-gradient(180deg, #fff6f9 0%, #faedf2 100%);
+  color: #7c3f55;
+}
+
+body[data-theme='rose'] .theme-btn.is-active,
+body[data-theme='rose'] .tab-link.is-active {
+  border-color: transparent;
+  background: linear-gradient(180deg, #c55a7c 0%, #b54b6e 100%);
+  color: #fff5f8;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 8px rgba(181, 75, 110, 0.25);
+}
+
+/* --- Sky --- */
+body[data-theme='sky'] {
+  background:
+    radial-gradient(circle at 12% 16%, #f7fbff 0%, transparent 40%),
+    radial-gradient(circle at 88% 84%, #e1f1ff 0%, transparent 34%),
+    linear-gradient(160deg, #deeef9 0%, #cfe4f4 100%);
+}
+
+body[data-theme='sky'] .title-script {
+  color: #2c6a93;
+}
+
+body[data-theme='sky'] .theme-btn,
+body[data-theme='sky'] .week-btn,
+body[data-theme='sky'] .tab-link {
+  border-color: rgba(166, 196, 218, 0.7);
+  background: linear-gradient(180deg, #f5faff 0%, #eaf3fb 100%);
+  color: #345a76;
+}
+
+body[data-theme='sky'] .theme-btn.is-active,
+body[data-theme='sky'] .tab-link.is-active {
+  border-color: transparent;
+  background: linear-gradient(180deg, #3580a8 0%, #2c6a93 100%);
+  color: #f3faff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 8px rgba(44, 106, 147, 0.25);
+}
+
+/* --- Dark --- */
+body[data-theme='dark'] {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(40, 40, 55, 0.8) 0%, transparent 40%),
+    radial-gradient(circle at 85% 80%, rgba(30, 35, 50, 0.6) 0%, transparent 34%),
+    linear-gradient(160deg, #141418 0%, #1a1a22 50%, #12121a 100%);
+  color: #d0d0de;
+}
+
+body[data-theme='dark'] .sheet {
+  background: #18181f;
+}
+
+body[data-theme='dark'] .sheet::before {
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.015) 0,
+    rgba(255, 255, 255, 0.015) 1px,
+    transparent 1px,
+    transparent 40px
+  );
+}
+
+body[data-theme='dark'] .title-wrap {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(28, 28, 38, 0.95) 0%, rgba(22, 22, 30, 0.9) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+body[data-theme='dark'] .title-main {
+  color: #e8e6f0;
+}
+
+body[data-theme='dark'] .title-script {
+  color: #7c9dff;
+}
+
+body[data-theme='dark'] .subtitle {
+  color: #8a8a9a;
+}
+
+body[data-theme='dark'] .meta-pill {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #8a8a9a;
+}
+
+body[data-theme='dark'] .meta-divider {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+body[data-theme='dark'] .theme-btn,
+body[data-theme='dark'] .week-btn,
+body[data-theme='dark'] .action-btn,
+body[data-theme='dark'] .tab-link {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(38, 38, 50, 0.9) 0%, rgba(28, 28, 38, 0.9) 100%);
+  color: #c8c8d8;
+}
+
+body[data-theme='dark'] .theme-btn:hover,
+body[data-theme='dark'] .week-btn:hover,
+body[data-theme='dark'] .action-btn:hover,
+body[data-theme='dark'] .tab-link:hover {
+  background: linear-gradient(180deg, rgba(50, 50, 65, 0.95) 0%, rgba(38, 38, 50, 0.95) 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+body[data-theme='dark'] .theme-btn.is-active {
+  border-color: transparent;
+  background: linear-gradient(180deg, #5b7cfa 0%, #4a6ae8 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 2px 8px rgba(74, 106, 232, 0.35);
+}
+
+body[data-theme='dark'] .tab-link.is-active {
+  border-color: transparent;
+  background: linear-gradient(180deg, #5b7cfa 0%, #4a6ae8 100%);
+  color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 2px 10px rgba(74, 106, 232, 0.35);
+}
+
+body[data-theme='dark'] .page-tabs {
+  background: rgba(20, 20, 28, 0.85);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+}
+
+body[data-theme='dark'] #week-label {
+  color: #d0d0de;
+}
+
+body[data-theme='dark'] .day-card,
+body[data-theme='dark'] .notes-card,
+body[data-theme='dark'] .stats-card {
+  background: linear-gradient(180deg, #1e1e28 0%, #1a1a24 100%);
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+body[data-theme='dark'] .day-card:hover,
+body[data-theme='dark'] .notes-card:hover,
+body[data-theme='dark'] .stats-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25), 0 20px 48px rgba(0, 0, 0, 0.2);
+}
+
+body[data-theme='dark'] .day-card::before,
+body[data-theme='dark'] .notes-card::before,
+body[data-theme='dark'] .stats-card::before {
+  border-color: rgba(255, 255, 255, 0.05);
+}
+
+body[data-theme='dark'] .day-card h2 {
+  color: #b8b8cc;
+}
+
+body[data-theme='dark'] .notes-card h2,
+body[data-theme='dark'] .stats-card h2 {
+  color: #d0d0de;
+}
+
+body[data-theme='dark'] .task-input,
+body[data-theme='dark'] .note-input {
+  color: #d0d0de;
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+body[data-theme='dark'] .task-input:focus,
+body[data-theme='dark'] .note-input:focus {
+  border-bottom-color: #7c9dff;
+  box-shadow: 0 2px 0 -1px rgba(124, 157, 255, 0.25);
+}
+
+body[data-theme='dark'] .task-input::placeholder,
+body[data-theme='dark'] .note-input::placeholder {
+  color: #555566;
+}
+
+body[data-theme='dark'] .check {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+body[data-theme='dark'] .check:checked {
+  border-color: #5b7cfa;
+  background: radial-gradient(circle at 30% 30%, #8ba4ff 0%, #5b7cfa 90%);
+}
+
+body[data-theme='dark'] .task-priority {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #b8b8cc;
+}
+
+body[data-theme='dark'] .day-add-btn,
+body[data-theme='dark'] .monthly-add-btn {
+  border-color: rgba(124, 157, 255, 0.25);
+  background: rgba(124, 157, 255, 0.06);
+  color: #8a8a9a;
+}
+
+body[data-theme='dark'] .day-add-btn:hover,
+body[data-theme='dark'] .monthly-add-btn:hover {
+  background: rgba(124, 157, 255, 0.12);
+}
+
+body[data-theme='dark'] .monthly-badge {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #b8b8cc;
+}
+
+body[data-theme='dark'] .stats-list li {
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #b8b8cc;
+}
+
+body[data-theme='dark'] .goal-status.is-ok {
+  color: #6fd88e;
+  background: rgba(111, 216, 142, 0.1);
+  border-color: rgba(111, 216, 142, 0.25);
+}
+
+body[data-theme='dark'] .goal-status.is-warn {
+  color: #f0a050;
+  background: rgba(240, 160, 80, 0.1);
+  border-color: rgba(240, 160, 80, 0.25);
+}
+
+body[data-theme='dark'] #goal-input {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d0d0de;
+}
+
+body[data-theme='dark'] .progress-track {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+body[data-theme='dark'] .progress-fill {
+  background: linear-gradient(90deg, #5b7cfa 0%, #8ba4ff 100%);
+}
+
+body[data-theme='dark'] .chart-bar {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+}
+
+body[data-theme='dark'] .chart-fill {
+  background: linear-gradient(180deg, #8ba4ff 0%, #5b7cfa 100%);
+}
+
+body[data-theme='dark'] .chart-label,
+body[data-theme='dark'] .chart-value {
+  color: #8a8a9a;
+}
+
+body[data-theme='dark'] .trend-svg {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+}
+
+body[data-theme='dark'] .trend-line {
+  stroke: #7c9dff;
+}
+
+body[data-theme='dark'] .trend-dot {
+  fill: #5b7cfa;
+}
+
+body[data-theme='dark'] .trend-labels {
+  color: #666678;
+}
+
+body[data-theme='dark'] .day-stats-list li,
+body[data-theme='dark'] .history-list li {
+  border-color: rgba(255, 255, 255, 0.06);
+  color: #b8b8cc;
+}
+
+body[data-theme='dark'] .history-list li.history-empty {
+  color: #555566;
+}
+
+body[data-theme='dark'] .daily-card {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(28, 28, 38, 0.85);
+}
+
+body[data-theme='dark'] .motivation-input,
+body[data-theme='dark'] .motivation-search {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d0d0de;
+}
+
+body[data-theme='dark'] .motivation-input:focus,
+body[data-theme='dark'] .motivation-search:focus {
+  border-color: #7c9dff;
+  box-shadow: 0 0 0 3px rgba(124, 157, 255, 0.15);
+}
+
+body[data-theme='dark'] .motivation-input::placeholder,
+body[data-theme='dark'] .motivation-search::placeholder {
+  color: #555566;
+}
+
+body[data-theme='dark'] .media-upload-btn {
+  border-color: rgba(124, 157, 255, 0.25);
+  background: rgba(124, 157, 255, 0.06);
+  color: #8a8a9a;
+}
+
+body[data-theme='dark'] .media-item {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+body[data-theme='dark'] .motivation-history {
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(28, 28, 38, 0.85);
+}
+
+body[data-theme='dark'] .motivation-history h4 {
+  color: #d0d0de;
+}
+
+body[data-theme='dark'] .motivation-history li {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+body[data-theme='dark'] .motivation-history li span {
+  color: #666678;
+}
+
+body[data-theme='dark'] .motivation-history li strong {
+  color: #b8b8cc;
+}
+
+body[data-theme='dark'] .motivation-stats {
+  color: #8a8a9a;
+}
+
+body[data-theme='dark'] .motivation-label {
+  color: #666678;
+}
+
+body[data-theme='dark'] .motivation-empty {
+  color: #555566;
+}
+
+body[data-theme='dark'] .history-media-thumb {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+body[data-theme='dark'] .login-card {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(28, 28, 38, 0.97) 0%, rgba(22, 22, 30, 0.95) 100%);
+}
+
+body[data-theme='dark'] .login-card h1 {
+  color: #e8e6f0;
+}
+
+body[data-theme='dark'] .login-form input {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #d0d0de;
+}
+
+body[data-theme='dark'] .login-form input::placeholder {
+  color: #555566;
+}
+
+body[data-theme='dark'] .login-form button {
+  border-color: rgba(124, 157, 255, 0.3);
+  background: linear-gradient(180deg, #5b7cfa 0%, #4a6ae8 100%);
+  color: #fff;
+}
+
+body[data-theme='dark'] .login-form button:hover {
+  background: linear-gradient(180deg, #6d8cff 0%, #5b7cfa 100%);
+  box-shadow: 0 4px 12px rgba(74, 106, 232, 0.3);
+}
+
+body[data-theme='dark'] .progress-meta {
+  color: #b8b8cc;
+}
+
+body[data-theme='dark'] .chart-header {
+  color: #b8b8cc;
+}
+
+body[data-theme='dark'] .chart-header h3,
+body[data-theme='dark'] .trend-header h3,
+body[data-theme='dark'] .day-stats-wrap h3,
+body[data-theme='dark'] .history-wrap h3 {
+  color: #d0d0de;
+}
+
+body[data-theme='dark'] .monthly-meta {
+  color: #666678;
+}
+
+body[data-theme='dark'] .monthly-card {
+  background: linear-gradient(180deg, #1e1e28 0%, #1a1a24 100%);
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+body[data-theme='dark'] .action-btn-clear {
+  border-color: rgba(255, 100, 100, 0.25);
+  background: rgba(255, 80, 80, 0.08);
+  color: #f08080;
+}
+
+body[data-theme='dark'] .chart-bar::before {
+  border-color: rgba(124, 157, 255, 0.5);
+}
+
+body[data-theme='dark'] .trend-axis {
+  stroke: rgba(255, 255, 255, 0.12);
+}
+
+body[data-theme='dark'] .login-shell {
+  background: transparent;
+}
+
+body[data-theme='dark'] .login-card p {
+  color: #8a8a9a;
+}
+
+body[data-theme='dark'] .login-card label {
+  color: #b8b8cc;
+}
+
+body[data-theme='dark'] .login-form input:focus {
+  border-color: #7c9dff;
+  box-shadow: 0 0 0 3px rgba(124, 157, 255, 0.15);
+}
+
+body[data-theme='dark'] ::selection {
+  background: rgba(124, 157, 255, 0.3);
+  color: #fff;
+}
+
+body[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+body[data-theme='dark'] ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}

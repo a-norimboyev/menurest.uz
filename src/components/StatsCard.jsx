@@ -20,10 +20,6 @@ export default function StatsCard({
           <strong>{metrics.doneTasks}</strong>
         </li>
         <li>
-          <span>Yozilgan eslatmalar</span>
-          <strong>{metrics.notesCount}</strong>
-        </li>
-        <li>
           <span>Yuqori ustuvor</span>
           <strong>{metrics.highPriorityCount}</strong>
         </li>
