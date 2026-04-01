@@ -9,6 +9,8 @@ const { Pool } = pg
 const PORT = Number(process.env.PORT || 8787)
 const DATABASE_URL = process.env.DATABASE_URL || ''
 const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || '*'
+const APP_LOGIN_USERNAME = process.env.APP_LOGIN_USERNAME || 'Azizjon'
+const APP_LOGIN_PASSWORD = process.env.APP_LOGIN_PASSWORD || 'Azizjon1'
 
 if (!DATABASE_URL) {
   console.error('DATABASE_URL is required in backend/.env')
@@ -39,6 +41,15 @@ app.use(express.json({ limit: '2mb' }))
 
 app.get('/health', async (_req, res) => {
   res.json({ ok: true })
+})
+
+app.post('/auth/login', (req, res) => {
+  const { username = '', password = '' } = req.body || {}
+  const ok = username.trim() === APP_LOGIN_USERNAME && password === APP_LOGIN_PASSWORD
+  if (!ok) {
+    return res.status(401).json({ ok: false, message: 'Invalid credentials' })
+  }
+  return res.json({ ok: true })
 })
 
 app.get('/sync/:userId', async (req, res) => {

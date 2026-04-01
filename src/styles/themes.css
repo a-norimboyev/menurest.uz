@@ -1,5 +1,236 @@
 /* ===== Theme Overrides ===== */
 
+/* Shared palette so all major UI parts change with theme */
+body[data-theme='minimal'] {
+  --paper: #f5f9fd;
+  --panel: #f8fbff;
+  --panel-2: #edf4fb;
+  --ink: #223446;
+  --muted: #5a6f84;
+  --line: #bfd1e2;
+  --dot: #95aec6;
+  --accent: #2d6f87;
+  --ring: rgba(45, 111, 135, 0.2);
+}
+
+body[data-theme='forest'] {
+  --paper: #e6f0e8;
+  --panel: #f1f8f3;
+  --panel-2: #e3efe7;
+  --ink: #223d32;
+  --muted: #4d6f5f;
+  --line: #b6d0c0;
+  --dot: #8db29f;
+  --accent: #2d6a4f;
+  --ring: rgba(45, 106, 79, 0.2);
+}
+
+body[data-theme='rose'] {
+  --paper: #f8eaf0;
+  --panel: #fff5f8;
+  --panel-2: #f8e8ee;
+  --ink: #4b2b38;
+  --muted: #7e5063;
+  --line: #dbb9c7;
+  --dot: #c996aa;
+  --accent: #b54b6e;
+  --ring: rgba(181, 75, 110, 0.2);
+}
+
+body[data-theme='sky'] {
+  --paper: #e8f3fb;
+  --panel: #f4f9ff;
+  --panel-2: #e8f1f9;
+  --ink: #213b4f;
+  --muted: #4f6f86;
+  --line: #b8cfe2;
+  --dot: #8eaec5;
+  --accent: #2c6a93;
+  --ring: rgba(44, 106, 147, 0.2);
+}
+
+body[data-theme='minimal'] .sheet {
+  background:
+    radial-gradient(circle at 12% 14%, rgba(255, 255, 255, 0.8) 0%, transparent 38%),
+    radial-gradient(circle at 86% 82%, rgba(220, 237, 250, 0.45) 0%, transparent 34%),
+    linear-gradient(160deg, #f3f8fd 0%, #e7f0f9 100%);
+}
+
+body[data-theme='forest'] .sheet {
+  background:
+    radial-gradient(circle at 14% 12%, rgba(245, 255, 247, 0.72) 0%, transparent 36%),
+    radial-gradient(circle at 84% 84%, rgba(191, 221, 199, 0.44) 0%, transparent 34%),
+    linear-gradient(160deg, #deecdf 0%, #d0e3d4 100%);
+}
+
+body[data-theme='rose'] .sheet {
+  background:
+    radial-gradient(circle at 10% 18%, rgba(255, 250, 252, 0.8) 0%, transparent 38%),
+    radial-gradient(circle at 86% 16%, rgba(242, 204, 219, 0.45) 0%, transparent 34%),
+    linear-gradient(160deg, #f6e3eb 0%, #efd7e1 100%);
+}
+
+body[data-theme='sky'] .sheet {
+  background:
+    radial-gradient(circle at 12% 14%, rgba(255, 255, 255, 0.75) 0%, transparent 38%),
+    radial-gradient(circle at 86% 82%, rgba(188, 220, 245, 0.45) 0%, transparent 34%),
+    linear-gradient(160deg, #e4f0f9 0%, #d6e8f6 100%);
+}
+
+body[data-theme='minimal'] .sheet::before,
+body[data-theme='forest'] .sheet::before,
+body[data-theme='rose'] .sheet::before,
+body[data-theme='sky'] .sheet::before {
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 10%, transparent) 0,
+    color-mix(in srgb, var(--accent) 10%, transparent) 1px,
+    transparent 1px,
+    transparent 40px
+  );
+}
+
+body[data-theme='minimal'] .title-main,
+body[data-theme='forest'] .title-main,
+body[data-theme='rose'] .title-main,
+body[data-theme='sky'] .title-main {
+  color: var(--ink);
+}
+
+body[data-theme='minimal'] .title-wrap,
+body[data-theme='forest'] .title-wrap,
+body[data-theme='rose'] .title-wrap,
+body[data-theme='sky'] .title-wrap {
+  border-color: color-mix(in srgb, var(--line) 75%, #ffffff 25%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 94%, #ffffff 6%) 0%, color-mix(in srgb, var(--panel-2) 86%, #ffffff 14%) 100%);
+}
+
+body[data-theme='minimal'] .day-card,
+body[data-theme='minimal'] .notes-card,
+body[data-theme='minimal'] .stats-card,
+body[data-theme='minimal'] .monthly-card,
+body[data-theme='forest'] .day-card,
+body[data-theme='forest'] .notes-card,
+body[data-theme='forest'] .stats-card,
+body[data-theme='forest'] .monthly-card,
+body[data-theme='rose'] .day-card,
+body[data-theme='rose'] .notes-card,
+body[data-theme='rose'] .stats-card,
+body[data-theme='rose'] .monthly-card,
+body[data-theme='sky'] .day-card,
+body[data-theme='sky'] .notes-card,
+body[data-theme='sky'] .stats-card,
+body[data-theme='sky'] .monthly-card {
+  background: linear-gradient(180deg, var(--panel) 0%, var(--panel-2) 100%);
+  border-color: color-mix(in srgb, var(--line) 78%, #ffffff 22%);
+}
+
+body[data-theme='minimal'] .task-priority,
+body[data-theme='minimal'] #goal-input,
+body[data-theme='minimal'] .motivation-input,
+body[data-theme='minimal'] .motivation-search,
+body[data-theme='minimal'] .login-form input,
+body[data-theme='forest'] .task-priority,
+body[data-theme='forest'] #goal-input,
+body[data-theme='forest'] .motivation-input,
+body[data-theme='forest'] .motivation-search,
+body[data-theme='forest'] .login-form input,
+body[data-theme='rose'] .task-priority,
+body[data-theme='rose'] #goal-input,
+body[data-theme='rose'] .motivation-input,
+body[data-theme='rose'] .motivation-search,
+body[data-theme='rose'] .login-form input,
+body[data-theme='sky'] .task-priority,
+body[data-theme='sky'] #goal-input,
+body[data-theme='sky'] .motivation-input,
+body[data-theme='sky'] .motivation-search,
+body[data-theme='sky'] .login-form input {
+  border-color: color-mix(in srgb, var(--line) 78%, #ffffff 22%);
+  background: color-mix(in srgb, var(--panel) 92%, #ffffff 8%);
+  color: var(--ink);
+}
+
+body[data-theme='minimal'] .daily-card,
+body[data-theme='minimal'] .motivation-history,
+body[data-theme='forest'] .daily-card,
+body[data-theme='forest'] .motivation-history,
+body[data-theme='rose'] .daily-card,
+body[data-theme='rose'] .motivation-history,
+body[data-theme='sky'] .daily-card,
+body[data-theme='sky'] .motivation-history {
+  background: color-mix(in srgb, var(--panel) 88%, #ffffff 12%);
+  border-color: color-mix(in srgb, var(--line) 75%, #ffffff 25%);
+}
+
+body[data-theme='minimal'] .monthly-badge,
+body[data-theme='minimal'] .media-upload-btn,
+body[data-theme='minimal'] .sync-pill,
+body[data-theme='minimal'] .storage-pill,
+body[data-theme='forest'] .monthly-badge,
+body[data-theme='forest'] .media-upload-btn,
+body[data-theme='forest'] .sync-pill,
+body[data-theme='forest'] .storage-pill,
+body[data-theme='rose'] .monthly-badge,
+body[data-theme='rose'] .media-upload-btn,
+body[data-theme='rose'] .sync-pill,
+body[data-theme='rose'] .storage-pill,
+body[data-theme='sky'] .monthly-badge,
+body[data-theme='sky'] .media-upload-btn,
+body[data-theme='sky'] .sync-pill,
+body[data-theme='sky'] .storage-pill {
+  border-color: color-mix(in srgb, var(--line) 80%, #ffffff 20%);
+  background: color-mix(in srgb, var(--panel) 88%, #ffffff 12%);
+  color: var(--ink);
+}
+
+body[data-theme='minimal'] .chart-fill,
+body[data-theme='forest'] .chart-fill,
+body[data-theme='rose'] .chart-fill,
+body[data-theme='sky'] .chart-fill {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 45%, #ffffff 55%) 0%, var(--accent) 100%);
+}
+
+body[data-theme='minimal'] .progress-fill,
+body[data-theme='forest'] .progress-fill,
+body[data-theme='rose'] .progress-fill,
+body[data-theme='sky'] .progress-fill {
+  background: linear-gradient(90deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 45%, #ffffff 55%) 100%);
+}
+
+body[data-theme='minimal'] .trend-line,
+body[data-theme='forest'] .trend-line,
+body[data-theme='rose'] .trend-line,
+body[data-theme='sky'] .trend-line {
+  stroke: var(--accent);
+}
+
+body[data-theme='minimal'] .task-input,
+body[data-theme='minimal'] .note-input,
+body[data-theme='minimal'] .subtitle,
+body[data-theme='minimal'] .monthly-meta,
+body[data-theme='minimal'] .motivation-label,
+body[data-theme='minimal'] .motivation-empty,
+body[data-theme='forest'] .task-input,
+body[data-theme='forest'] .note-input,
+body[data-theme='forest'] .subtitle,
+body[data-theme='forest'] .monthly-meta,
+body[data-theme='forest'] .motivation-label,
+body[data-theme='forest'] .motivation-empty,
+body[data-theme='rose'] .task-input,
+body[data-theme='rose'] .note-input,
+body[data-theme='rose'] .subtitle,
+body[data-theme='rose'] .monthly-meta,
+body[data-theme='rose'] .motivation-label,
+body[data-theme='rose'] .motivation-empty,
+body[data-theme='sky'] .task-input,
+body[data-theme='sky'] .note-input,
+body[data-theme='sky'] .subtitle,
+body[data-theme='sky'] .monthly-meta,
+body[data-theme='sky'] .motivation-label,
+body[data-theme='sky'] .motivation-empty {
+  color: var(--muted);
+}
+
 /* --- Minimal --- */
 body[data-theme='minimal'] {
   background:

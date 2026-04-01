@@ -18,10 +18,15 @@ const RECURRING_KEY = 'planner-recurring-v1'
 const DAILY_QUOTES_KEY = 'planner-daily-motivation-v1'
 const SYNC_TIMESTAMP_KEY = 'planner-sync-updated-at-v1'
 const AUTH_SESSION_KEY = 'planner-auth-ok-v1'
+const TASK_CARRYOVER_KEY_PREFIX = 'planner-carryover-done-'
+const TASK_CARRYOVER_SKIP_KEY_PREFIX = 'planner-carryover-skip-'
+const CARRY_SETTINGS_KEY = 'planner-carry-settings-v1'
+const CARRY_BACKLOG_KEY = 'planner-carry-backlog-v1'
+const CARRY_LOG_KEY = 'planner-carry-log-v1'
+const CARRY_LAST_RUN_DATE_KEY = 'planner-carry-last-run-date-v1'
 const SYNC_PULL_INTERVAL_MS = 60000
 const SYNC_PUSH_DEBOUNCE_MS = 900
-const AUTH_USERNAME = 'Azizjon'
-const AUTH_PASSWORD = 'Azizjon1'
+const AUTH_API_BASE_URL = (import.meta.env.VITE_SYNC_BACKEND_URL || '').replace(/\/+$/, '')
 const THEME_OPTIONS = [
   { id: 'premium', label: 'Iliq Premium' },
   { id: 'minimal', label: 'Oq Minimal' },
@@ -60,11 +65,29 @@ function getDateId(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
+function getDayIndex(date = new Date()) {
+  const day = date.getDay()
+  return day === 0 ? 6 : day - 1
+}
+
 function getPreviousDateId(dateId) {
   const [year, month, day] = dateId.split('-').map(Number)
   const date = new Date(year, month - 1, day)
   date.setDate(date.getDate() - 1)
   return getDateId(date)
+}
+
+function parseDateId(dateId) {
+  const [year, month, day] = dateId.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function getWeekStart(date = new Date()) {
+  const start = new Date(date)
+  const dayIndex = getDayIndex(start)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(start.getDate() - dayIndex)
+  return start
 }
 
 function getRecurringDoneStorageKey(dateId) {
@@ -91,7 +114,7 @@ function getEmptyWeekState(weekId) {
     weekId,
     goal: GOAL_DEFAULT,
     days: Array.from({ length: 7 }, () =>
-      Array.from({ length: ROWS_PER_DAY }, () => ({ text: '', done: false, priority: 'medium' })),
+      Array.from({ length: ROWS_PER_DAY }, () => ({ text: '', done: false, priority: 'medium', carryDays: 0 })),
     ),
   }
 }
@@ -116,6 +139,7 @@ function loadWeekState(weekId) {
             text: typeof fromStorage?.text === 'string' ? fromStorage.text : '',
             done: Boolean(fromStorage?.done),
             priority: normalizePriority(fromStorage?.priority),
+            carryDays: Number.isFinite(fromStorage?.carryDays) ? Math.max(0, Number(fromStorage.carryDays)) : 0,
           }
         })
       }),
@@ -211,6 +235,50 @@ function getDailyMotivation(dateId) {
   return MOTIVATION_QUOTES[safeIndex]
 }
 
+function loadCarrySettings() {
+  try {
+    const raw = localStorage.getItem(CARRY_SETTINGS_KEY)
+    if (!raw) return { enabled: true, limit: 3 }
+    const parsed = JSON.parse(raw)
+    return {
+      enabled: parsed?.enabled !== false,
+      limit: Math.min(10, Math.max(1, Number.parseInt(String(parsed?.limit ?? 3), 10) || 3)),
+    }
+  } catch {
+    return { enabled: true, limit: 3 }
+  }
+}
+
+function loadCarryBacklog() {
+  try {
+    const raw = localStorage.getItem(CARRY_BACKLOG_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((item) => typeof item?.text === 'string' && item.text.trim().length > 0)
+      .map((item) => ({
+        text: item.text.trim(),
+        priority: normalizePriority(item.priority),
+        carryDays: Number.isFinite(item?.carryDays) ? Math.max(1, Number(item.carryDays)) : 1,
+        fromDate: typeof item?.fromDate === 'string' ? item.fromDate : '',
+      }))
+  } catch {
+    return []
+  }
+}
+
+function loadCarryLog() {
+  try {
+    const raw = localStorage.getItem(CARRY_LOG_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem(AUTH_SESSION_KEY) === '1')
   const [loginUsername, setLoginUsername] = useState('')
@@ -224,8 +292,26 @@ export default function App() {
   const lastSyncedTimestampRef = useRef(Number(localStorage.getItem(SYNC_TIMESTAMP_KEY) || 0))
   const [theme, setTheme] = useState(resolveTheme(localStorage.getItem(THEME_KEY)))
   const [currentWeekDate, setCurrentWeekDate] = useState(new Date())
+  const [currentDate, setCurrentDate] = useState(() => new Date())
   const weekId = useMemo(() => getISOWeekId(currentWeekDate), [currentWeekDate])
-  const dateId = useMemo(() => getDateId(), [])
+  const dateId = useMemo(() => getDateId(currentDate), [currentDate])
+  const todayDate = useMemo(() => parseDateId(dateId), [dateId])
+  const todayWeekId = useMemo(() => getISOWeekId(todayDate), [todayDate])
+  const todayDayIndex = useMemo(() => getDayIndex(todayDate), [todayDate])
+  const pastDayIndices = useMemo(() => {
+    const viewedWeekStart = getWeekStart(currentWeekDate).getTime()
+    const currentWeekStart = getWeekStart(todayDate).getTime()
+
+    if (viewedWeekStart < currentWeekStart) {
+      return DAY_NAMES.map((_, index) => index)
+    }
+
+    if (viewedWeekStart > currentWeekStart) {
+      return []
+    }
+
+    return DAY_NAMES.map((_, index) => index).filter((index) => index < todayDayIndex)
+  }, [currentWeekDate, todayDate, todayDayIndex])
   const [installPromptEvent, setInstallPromptEvent] = useState(null)
   const [isStandalone, setIsStandalone] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -245,11 +331,36 @@ export default function App() {
     const saved = dailyQuotes[dateId]
     return typeof saved === 'string' && saved.trim().length > 0 ? saved : getDailyMotivation(dateId)
   })
+  const [carrySettings, setCarrySettings] = useState(() => loadCarrySettings())
+  const [carryBacklog, setCarryBacklog] = useState(() => loadCarryBacklog())
+  const [carryLog, setCarryLog] = useState(() => loadCarryLog())
+  const [carryUndo, setCarryUndo] = useState(null)
+  const [carryRefreshToken, setCarryRefreshToken] = useState(0)
 
-  function handleLoginSubmit(event) {
+  async function verifyCredentials(username, password) {
+    if (!AUTH_API_BASE_URL) return false
+
+    try {
+      const response = await fetch(`${AUTH_API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      })
+      if (!response.ok) return false
+      const data = await response.json()
+      return Boolean(data?.ok)
+    } catch {
+      return false
+    }
+  }
+
+  async function handleLoginSubmit(event) {
     event.preventDefault()
 
-    if (loginUsername.trim() === AUTH_USERNAME && loginPassword === AUTH_PASSWORD) {
+    const isValid = await verifyCredentials(loginUsername.trim(), loginPassword)
+    if (isValid) {
       sessionStorage.setItem(AUTH_SESSION_KEY, '1')
       setIsAuthenticated(true)
       setLoginError('')
@@ -257,7 +368,7 @@ export default function App() {
       return
     }
 
-    setLoginError('Login yoki parol noto‘g‘ri.')
+    setLoginError('Login yoki parol noto‘g‘ri (yoki backend ulanmagan).')
   }
 
   const recurringTasks = useMemo(
@@ -297,6 +408,205 @@ export default function App() {
     document.body.dataset.theme = resolveTheme(theme)
     localStorage.setItem(THEME_KEY, theme)
   }, [theme])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      const now = new Date()
+      if (getDateId(now) !== getDateId(currentDate)) {
+        setCurrentDate(now)
+      }
+    }, 60000)
+
+    return () => window.clearInterval(intervalId)
+  }, [currentDate])
+
+  useEffect(() => {
+    localStorage.setItem(CARRY_SETTINGS_KEY, JSON.stringify(carrySettings))
+  }, [carrySettings])
+
+  useEffect(() => {
+    localStorage.setItem(CARRY_BACKLOG_KEY, JSON.stringify(carryBacklog))
+  }, [carryBacklog])
+
+  useEffect(() => {
+    localStorage.setItem(CARRY_LOG_KEY, JSON.stringify(carryLog.slice(0, 30)))
+  }, [carryLog])
+
+  useEffect(() => {
+    if (!carryUndo) return
+    const timer = window.setTimeout(() => setCarryUndo(null), 20000)
+    return () => window.clearTimeout(timer)
+  }, [carryUndo])
+
+  useEffect(() => {
+    if (!carrySettings.enabled) return
+
+    const todayDate = parseDateId(dateId)
+    const lastRunRaw = localStorage.getItem(CARRY_LAST_RUN_DATE_KEY)
+    let runDate = lastRunRaw ? parseDateId(lastRunRaw) : parseDateId(dateId)
+    runDate.setHours(0, 0, 0, 0)
+    todayDate.setHours(0, 0, 0, 0)
+
+    if (lastRunRaw) {
+      runDate.setDate(runDate.getDate() + 1)
+    }
+
+    let backlogDraft = [...carryBacklog]
+    let changedAny = false
+    let undoPayload = null
+    const newLogs = []
+
+    while (runDate.getTime() <= todayDate.getTime()) {
+      const targetDateId = getDateId(runDate)
+      const carryKey = `${TASK_CARRYOVER_KEY_PREFIX}${targetDateId}`
+      const skipKey = `${TASK_CARRYOVER_SKIP_KEY_PREFIX}${targetDateId}`
+
+      if (localStorage.getItem(carryKey) === '1' || localStorage.getItem(skipKey) === '1') {
+        localStorage.setItem(CARRY_LAST_RUN_DATE_KEY, targetDateId)
+        runDate.setDate(runDate.getDate() + 1)
+        continue
+      }
+
+      const previousDate = new Date(runDate)
+      previousDate.setDate(previousDate.getDate() - 1)
+
+      const currentWeek = getISOWeekId(runDate)
+      const previousWeek = getISOWeekId(previousDate)
+      const currentDayIndex = getDayIndex(runDate)
+      const previousDayIndex = getDayIndex(previousDate)
+
+      const sourceWeek = loadWeekState(previousWeek)
+      const targetWeek = previousWeek === currentWeek ? sourceWeek : loadWeekState(currentWeek)
+
+      const sourceWeekBefore = structuredClone(sourceWeek)
+      const targetWeekBefore = structuredClone(targetWeek)
+      const backlogBefore = structuredClone(backlogDraft)
+
+      const sourceRows = sourceWeek.days[previousDayIndex]
+      const undone = sourceRows
+        .filter((row) => row.text.trim().length > 0 && !row.done)
+        .map((row) => ({
+          text: row.text.trim(),
+          done: false,
+          priority: normalizePriority(row.priority),
+          carryDays: Number.isFinite(row?.carryDays) ? Math.max(0, Number(row.carryDays)) : 0,
+        }))
+
+      if (undone.length === 0) {
+        localStorage.setItem(carryKey, '1')
+        localStorage.setItem(CARRY_LAST_RUN_DATE_KEY, targetDateId)
+        runDate.setDate(runDate.getDate() + 1)
+        continue
+      }
+
+      sourceWeek.days[previousDayIndex] = sourceRows.map((row) => {
+        if (row.text.trim().length > 0 && !row.done) {
+          return { text: '', done: false, priority: 'medium', carryDays: 0 }
+        }
+        return row
+      })
+
+      const nextTargetRows = [...targetWeek.days[currentDayIndex]]
+      const existingToday = new Set(
+        nextTargetRows
+          .filter((row) => row.text.trim().length > 0)
+          .map((row) => `${row.text.trim().toLowerCase()}|${normalizePriority(row.priority)}`),
+      )
+
+      const uniqueUndone = []
+      undone.forEach((task) => {
+        const nextCarryDays = task.carryDays + 1
+        const nextPriority = nextCarryDays >= 3 ? 'high' : task.priority
+        const taskKey = `${task.text.toLowerCase()}|${nextPriority}`
+        if (existingToday.has(taskKey)) {
+          return
+        }
+        uniqueUndone.push({ ...task, carryDays: nextCarryDays, priority: nextPriority })
+        existingToday.add(taskKey)
+      })
+
+      const toToday = uniqueUndone.slice(0, carrySettings.limit)
+      const toBacklog = uniqueUndone.slice(carrySettings.limit)
+
+      toToday.forEach((task) => {
+        const emptyIndex = nextTargetRows.findIndex((row) => row.text.trim().length === 0)
+        if (emptyIndex >= 0) {
+          nextTargetRows[emptyIndex] = task
+        } else {
+          nextTargetRows.push(task)
+        }
+      })
+
+      if (toBacklog.length > 0) {
+        const backlogKeySet = new Set(
+          backlogDraft.map((item) => `${item.text.toLowerCase()}|${normalizePriority(item.priority)}|${item.carryDays}`),
+        )
+        const mergedBacklog = [...backlogDraft]
+        toBacklog.forEach((task) => {
+          const key = `${task.text.toLowerCase()}|${task.priority}|${task.carryDays}`
+          if (!backlogKeySet.has(key)) {
+            mergedBacklog.unshift({
+              text: task.text,
+              priority: task.priority,
+              carryDays: task.carryDays,
+              fromDate: getDateId(previousDate),
+            })
+            backlogKeySet.add(key)
+          }
+        })
+        backlogDraft = mergedBacklog.slice(0, 120)
+      }
+
+      targetWeek.days[currentDayIndex] = nextTargetRows
+      saveWeekState(sourceWeek)
+      if (previousWeek !== currentWeek) {
+        saveWeekState(targetWeek)
+      }
+
+      if (toToday.some((task) => task.carryDays >= 3)) {
+        setSyncLabel('Eslatma: 3+ kunlik vazifa mavjud')
+      }
+
+      if (previousWeek !== currentWeek && toToday.length > 0) {
+        newLogs.push({
+          dateId: targetDateId,
+          fromWeek: previousWeek,
+          toWeek: currentWeek,
+          moved: toToday.length,
+        })
+      }
+
+      if (targetDateId === dateId) {
+        undoPayload = {
+          dateId: targetDateId,
+          sourceWeekId: previousWeek,
+          targetWeekId: currentWeek,
+          sourceWeekBefore,
+          targetWeekBefore,
+          backlogBefore,
+        }
+      }
+
+      changedAny = true
+      localStorage.setItem(carryKey, '1')
+      localStorage.setItem(CARRY_LAST_RUN_DATE_KEY, targetDateId)
+      runDate.setDate(runDate.getDate() + 1)
+    }
+
+    if (!changedAny) return
+
+    setCarryBacklog(backlogDraft)
+    if (newLogs.length > 0) {
+      setCarryLog((prev) => [...newLogs.reverse(), ...prev].slice(0, 30))
+    }
+    if (undoPayload) {
+      setCarryUndo(undoPayload)
+    }
+
+    if (weekId === todayWeekId) {
+      setState(loadWeekState(todayWeekId))
+    }
+  }, [dateId, weekId, todayWeekId, carrySettings.enabled, carrySettings.limit, carryBacklog, carryRefreshToken])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -366,6 +676,25 @@ export default function App() {
       saveDailyQuotes(remotePayload.dailyQuotes)
       const todayValue = remotePayload.dailyQuotes[dateId]
       setTodayMotivation(typeof todayValue === 'string' && todayValue.trim().length > 0 ? todayValue : getDailyMotivation(dateId))
+    }
+
+    if (remotePayload.carrySettings && typeof remotePayload.carrySettings === 'object') {
+      const incoming = {
+        enabled: remotePayload.carrySettings.enabled !== false,
+        limit: Math.min(10, Math.max(1, Number.parseInt(String(remotePayload.carrySettings.limit ?? 3), 10) || 3)),
+      }
+      setCarrySettings(incoming)
+      localStorage.setItem(CARRY_SETTINGS_KEY, JSON.stringify(incoming))
+    }
+
+    if (Array.isArray(remotePayload.carryBacklog)) {
+      setCarryBacklog(remotePayload.carryBacklog)
+      localStorage.setItem(CARRY_BACKLOG_KEY, JSON.stringify(remotePayload.carryBacklog))
+    }
+
+    if (Array.isArray(remotePayload.carryLog)) {
+      setCarryLog(remotePayload.carryLog)
+      localStorage.setItem(CARRY_LOG_KEY, JSON.stringify(remotePayload.carryLog))
     }
 
     const templatesLength = Array.isArray(remotePayload.recurringTemplates)
@@ -515,6 +844,9 @@ export default function App() {
         theme,
         dateId,
         weekState: state,
+        carrySettings,
+        carryBacklog,
+        carryLog,
         recurringTemplates,
         recurringDone,
         dailyQuotes,
@@ -550,7 +882,7 @@ export default function App() {
         clearTimeout(syncTimerRef.current)
       }
     }
-  }, [applyRemotePayload, cloudSyncEnabled, isOnline, theme, dateId, state, recurringTemplates, recurringDone, dailyQuotes])
+  }, [applyRemotePayload, cloudSyncEnabled, isOnline, theme, dateId, state, recurringTemplates, recurringDone, dailyQuotes, carrySettings, carryBacklog, carryLog])
 
   const metrics = useMemo(() => {
     const perDay = state.days.map((rows) => {
@@ -579,6 +911,8 @@ export default function App() {
   const achieved = metrics.percent >= metrics.goal
 
   function updateTask(dayIndex, rowIndex, patch) {
+    if (weekId !== todayWeekId || dayIndex !== todayDayIndex) return
+
     setState((prev) => {
       const next = structuredClone(prev)
       next.days[dayIndex][rowIndex] = { ...next.days[dayIndex][rowIndex], ...patch }
@@ -605,11 +939,60 @@ export default function App() {
   }
 
   function addTaskRow(dayIndex) {
+    if (weekId !== todayWeekId || dayIndex !== todayDayIndex) return
+
     setState((prev) => {
       const next = structuredClone(prev)
-      next.days[dayIndex].push({ text: '', done: false, priority: 'medium' })
+      next.days[dayIndex].push({ text: '', done: false, priority: 'medium', carryDays: 0 })
       return next
     })
+  }
+
+  function pullFromBacklog() {
+    if (weekId !== todayWeekId) return
+    if (carryBacklog.length === 0) return
+
+    const [first, ...rest] = carryBacklog
+    setCarryBacklog(rest)
+
+    setState((prev) => {
+      const next = structuredClone(prev)
+      const rows = [...next.days[todayDayIndex]]
+      const emptyIndex = rows.findIndex((row) => row.text.trim().length === 0)
+      const task = {
+        text: first.text,
+        done: false,
+        priority: normalizePriority(first.priority),
+        carryDays: Number.isFinite(first?.carryDays) ? Math.max(1, Number(first.carryDays)) : 1,
+      }
+      if (emptyIndex >= 0) {
+        rows[emptyIndex] = task
+      } else {
+        rows.push(task)
+      }
+      next.days[todayDayIndex] = rows
+      return next
+    })
+  }
+
+  function undoLastCarry() {
+    if (!carryUndo) return
+
+    saveWeekState(carryUndo.sourceWeekBefore)
+    if (carryUndo.sourceWeekId !== carryUndo.targetWeekId) {
+      saveWeekState(carryUndo.targetWeekBefore)
+    }
+    setCarryBacklog(carryUndo.backlogBefore)
+    localStorage.setItem(`${TASK_CARRYOVER_SKIP_KEY_PREFIX}${carryUndo.dateId}`, '1')
+    localStorage.removeItem(`${TASK_CARRYOVER_KEY_PREFIX}${carryUndo.dateId}`)
+    setCarryUndo(null)
+    setState(loadWeekState(weekId))
+  }
+
+  function retryCarryForToday() {
+    localStorage.removeItem(`${TASK_CARRYOVER_SKIP_KEY_PREFIX}${dateId}`)
+    localStorage.removeItem(`${TASK_CARRYOVER_KEY_PREFIX}${dateId}`)
+    setCarryRefreshToken((value) => value + 1)
   }
 
   function addRecurringRow() {
@@ -647,6 +1030,12 @@ export default function App() {
         theme={theme}
         themeOptions={THEME_OPTIONS}
         onThemeChange={setTheme}
+        carryEnabled={carrySettings.enabled}
+        onToggleCarry={() => setCarrySettings((prev) => ({ ...prev, enabled: !prev.enabled }))}
+        carryLimit={carrySettings.limit}
+        onCarryLimitChange={(delta) =>
+          setCarrySettings((prev) => ({ ...prev, limit: Math.min(10, Math.max(1, prev.limit + delta)) }))
+        }
         weekLabel={formatWeekLabel(weekId)}
         onPrevWeek={() => shiftWeek(-1)}
         onNextWeek={() => shiftWeek(1)}
@@ -680,6 +1069,15 @@ export default function App() {
               dayNames={DAY_NAMES}
               days={state.days}
               dateId={dateId}
+              editableDayIndex={weekId === todayWeekId ? todayDayIndex : -1}
+              pastDayIndices={pastDayIndices}
+              carryBacklog={carryBacklog}
+              onPullBacklog={pullFromBacklog}
+              carryUndo={carryUndo}
+              onUndoCarry={undoLastCarry}
+              canRetryCarry={localStorage.getItem(`${TASK_CARRYOVER_SKIP_KEY_PREFIX}${dateId}`) === '1'}
+              onRetryCarry={retryCarryForToday}
+              carryLog={carryLog}
               recurringTasks={recurringTasks}
               onTaskChange={updateTask}
               onAddTaskRow={addTaskRow}
