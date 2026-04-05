@@ -68,9 +68,37 @@
   font-size: clamp(1.6rem, 2.5vw, 2.6rem);
   line-height: 0.9;
   text-align: center;
-  margin: 2px 0 8px;
+  margin: 2px 0 0;
   text-transform: lowercase;
   color: #3f2f1f;
+}
+
+.day-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 2px 0 8px;
+}
+
+.day-date-badge {
+  flex-shrink: 0;
+  min-width: 56px;
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--line) 78%, #ffffff 22%);
+  background: color-mix(in srgb, var(--panel) 72%, #ffffff 28%);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+
+.day-date-badge.is-today {
+  border-color: color-mix(in srgb, var(--accent) 60%, #ffffff 40%);
+  background: color-mix(in srgb, var(--accent) 16%, #fff8ee 84%);
+  color: var(--ink);
 }
 
 .day-lock-badge {

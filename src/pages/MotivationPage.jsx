@@ -9,6 +9,7 @@ export default function MotivationPage({
   motivationStreak,
   motivationEntries,
   dateId,
+  todayDayName,
 }) {
   const [mediaItems, setMediaItems] = useState([])
   const [allMediaMap, setAllMediaMap] = useState({})
@@ -84,6 +85,10 @@ export default function MotivationPage({
   return (
     <section id="motivation-section" className="motivation-footer" aria-live="polite">
       <div className="daily-card">
+        <div className="motivation-day-header">
+          <strong>{todayDayName}</strong>
+          <span>{dateId}</span>
+        </div>
         <label className="motivation-label" htmlFor="motivation-input">
           Bugun uchun qisqacha yozing
         </label>

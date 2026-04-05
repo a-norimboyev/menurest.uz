@@ -99,6 +99,10 @@ function formatWeekLabel(weekId) {
   return `${yearPart} • ${Number(weekPart)}-hafta`
 }
 
+function formatDayDateLabel(date) {
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}`
+}
+
 function normalizePriority(value) {
   return value === 'high' || value === 'medium' || value === 'low' ? value : 'medium'
 }
@@ -298,6 +302,14 @@ export default function App() {
   const todayDate = useMemo(() => parseDateId(dateId), [dateId])
   const todayWeekId = useMemo(() => getISOWeekId(todayDate), [todayDate])
   const todayDayIndex = useMemo(() => getDayIndex(todayDate), [todayDate])
+  const weekDateLabels = useMemo(() => {
+    const weekStart = getWeekStart(currentWeekDate)
+    return DAY_NAMES.map((_, index) => {
+      const nextDate = new Date(weekStart)
+      nextDate.setDate(weekStart.getDate() + index)
+      return formatDayDateLabel(nextDate)
+    })
+  }, [currentWeekDate])
   const pastDayIndices = useMemo(() => {
     const viewedWeekStart = getWeekStart(currentWeekDate).getTime()
     const currentWeekStart = getWeekStart(todayDate).getTime()
@@ -928,16 +940,6 @@ export default function App() {
     }
   }
 
-  function addTaskRow(dayIndex) {
-    if (weekId !== todayWeekId || dayIndex !== todayDayIndex) return
-
-    setState((prev) => {
-      const next = structuredClone(prev)
-      next.days[dayIndex].push({ text: '', done: false, priority: 'medium', carryDays: 0 })
-      return next
-    })
-  }
-
   function pullFromBacklog() {
     if (weekId !== todayWeekId) return
     if (carryBacklog.length === 0) return
@@ -983,11 +985,6 @@ export default function App() {
     localStorage.removeItem(`${TASK_CARRYOVER_SKIP_KEY_PREFIX}${dateId}`)
     localStorage.removeItem(`${TASK_CARRYOVER_KEY_PREFIX}${dateId}`)
     setCarryRefreshToken((value) => value + 1)
-  }
-
-  function addRecurringRow() {
-    setRecurringTemplates((prev) => [...prev, { text: '' }])
-    setRecurringDone((prev) => [...prev, false])
   }
 
   function shiftWeek(delta) {
@@ -1053,6 +1050,7 @@ export default function App() {
               dayNames={DAY_NAMES}
               days={state.days}
               dateId={dateId}
+              weekDateLabels={weekDateLabels}
               editableDayIndex={weekId === todayWeekId ? todayDayIndex : -1}
               pastDayIndices={pastDayIndices}
               carryBacklog={carryBacklog}
@@ -1064,9 +1062,7 @@ export default function App() {
               carryLog={carryLog}
               recurringTasks={recurringTasks}
               onTaskChange={updateTask}
-              onAddTaskRow={addTaskRow}
               onRecurringTaskChange={updateRecurringTask}
-              onAddRecurringRow={addRecurringRow}
               normalizePriority={normalizePriority}
             />
           }
@@ -1097,6 +1093,7 @@ export default function App() {
               motivationStreak={motivationStreak}
               motivationEntries={filteredMotivations}
               dateId={dateId}
+              todayDayName={DAY_NAMES[todayDayIndex]}
             />
           }
         />

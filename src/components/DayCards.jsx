@@ -1,4 +1,4 @@
-export default function DayCards({ dayNames, days, editableDayIndex, pastDayIndices, onTaskChange, onAddTaskRow, normalizePriority }) {
+export default function DayCards({ dayNames, days, weekDateLabels, editableDayIndex, pastDayIndices, onTaskChange, normalizePriority }) {
   const pastDays = new Set(pastDayIndices || [])
 
   return (
@@ -10,7 +10,12 @@ export default function DayCards({ dayNames, days, editableDayIndex, pastDayIndi
               🔒
             </span>
           ) : null}
-          <h2>{dayName.toLowerCase()}</h2>
+          <div className="day-card-header">
+            <h2>{dayName.toLowerCase()}</h2>
+            <span className={dayIndex === editableDayIndex ? 'day-date-badge is-today' : 'day-date-badge'}>
+              {weekDateLabels?.[dayIndex]}
+            </span>
+          </div>
           <ul>
             {days[dayIndex].map((row, rowIndex) => (
               <li key={`${dayIndex}-${rowIndex}`} className={row.carryDays > 0 ? 'task-item is-carried' : 'task-item'}>
@@ -54,14 +59,6 @@ export default function DayCards({ dayNames, days, editableDayIndex, pastDayIndi
               </li>
             ))}
           </ul>
-          <button
-            type="button"
-            className="day-add-btn"
-            disabled={dayIndex !== editableDayIndex}
-            onClick={() => onAddTaskRow(dayIndex)}
-          >
-            + Vazifa qo'shish
-          </button>
         </article>
       ))}
     </>

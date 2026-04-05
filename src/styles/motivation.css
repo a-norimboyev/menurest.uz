@@ -35,6 +35,31 @@
   box-shadow: 0 1px 4px rgba(58, 33, 8, 0.04);
 }
 
+.motivation-day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed rgba(88, 64, 35, 0.12);
+}
+
+.motivation-day-header strong {
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.motivation-day-header span {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(204, 181, 150, 0.7);
+  background: #fffbf5;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
 .motivation-input-row {
   width: 100%;
   display: flex;
@@ -229,10 +254,11 @@ video.media-preview {
 
 .motivation-history li strong {
   font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.45;
 }
 
 .history-entry-content {

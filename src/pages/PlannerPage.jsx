@@ -5,6 +5,7 @@ export default function PlannerPage({
   dayNames,
   days,
   dateId,
+  weekDateLabels,
   editableDayIndex,
   pastDayIndices,
   carryUndo,
@@ -14,9 +15,7 @@ export default function PlannerPage({
   carryLog,
   recurringTasks,
   onTaskChange,
-  onAddTaskRow,
   onRecurringTaskChange,
-  onAddRecurringRow,
   normalizePriority,
 }) {
   return (
@@ -60,13 +59,13 @@ export default function PlannerPage({
       <DayCards
         dayNames={dayNames}
         days={days}
+        weekDateLabels={weekDateLabels}
         editableDayIndex={editableDayIndex}
         pastDayIndices={pastDayIndices}
         onTaskChange={onTaskChange}
-        onAddTaskRow={onAddTaskRow}
         normalizePriority={normalizePriority}
       />
-      <MonthlyCard dateId={dateId} tasks={recurringTasks} onTaskChange={onRecurringTaskChange} onAddTaskRow={onAddRecurringRow} />
+      <MonthlyCard dateId={dateId} tasks={recurringTasks} onTaskChange={onRecurringTaskChange} />
     </section>
   )
 }

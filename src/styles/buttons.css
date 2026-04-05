@@ -1,37 +1,4 @@
 /* ===== Buttons, Tabs, Switches ===== */
-.day-add-btn,
-.monthly-add-btn {
-  width: 100%;
-  margin-top: 0.55rem;
-  border: 1.5px dashed color-mix(in srgb, var(--accent) 50%, var(--line));
-  background: color-mix(in srgb, #fff8ee 82%, var(--accent) 18%);
-  color: var(--muted);
-  border-radius: var(--radius-md);
-  padding: 0.5rem 0.7rem;
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  letter-spacing: 0.01em;
-}
-
-.day-add-btn:hover,
-.monthly-add-btn:hover {
-  background: color-mix(in srgb, #fff2de 70%, var(--accent) 30%);
-  border-color: color-mix(in srgb, var(--accent) 76%, var(--line));
-}
-
-.day-add-btn:active,
-.monthly-add-btn:active {
-  transform: translateY(1px);
-}
-
-.day-add-btn:focus-visible,
-.monthly-add-btn:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--accent) 65%, #ffffff);
-  outline-offset: 2px;
-}
-
 .theme-switch,
 .week-switch,
 .action-switch {

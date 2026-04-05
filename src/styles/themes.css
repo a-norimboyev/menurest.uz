@@ -470,6 +470,18 @@ body[data-theme='dark'] .day-card h2 {
   color: #b8b8cc;
 }
 
+body[data-theme='dark'] .day-date-badge {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #b8b8cc;
+}
+
+body[data-theme='dark'] .day-date-badge.is-today {
+  border-color: rgba(124, 157, 255, 0.35);
+  background: rgba(124, 157, 255, 0.14);
+  color: #e8eeff;
+}
+
 body[data-theme='dark'] .notes-card h2,
 body[data-theme='dark'] .stats-card h2 {
   color: #d0d0de;
@@ -506,18 +518,6 @@ body[data-theme='dark'] .task-priority {
   border-color: rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
   color: #b8b8cc;
-}
-
-body[data-theme='dark'] .day-add-btn,
-body[data-theme='dark'] .monthly-add-btn {
-  border-color: rgba(124, 157, 255, 0.25);
-  background: rgba(124, 157, 255, 0.06);
-  color: #8a8a9a;
-}
-
-body[data-theme='dark'] .day-add-btn:hover,
-body[data-theme='dark'] .monthly-add-btn:hover {
-  background: rgba(124, 157, 255, 0.12);
 }
 
 body[data-theme='dark'] .monthly-badge {
@@ -601,6 +601,20 @@ body[data-theme='dark'] .history-list li.history-empty {
 body[data-theme='dark'] .daily-card {
   border-color: rgba(255, 255, 255, 0.07);
   background: rgba(28, 28, 38, 0.85);
+}
+
+body[data-theme='dark'] .motivation-day-header {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+body[data-theme='dark'] .motivation-day-header strong {
+  color: #e6e6f2;
+}
+
+body[data-theme='dark'] .motivation-day-header span {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: #b8b8cc;
 }
 
 body[data-theme='dark'] .motivation-input,
