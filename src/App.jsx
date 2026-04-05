@@ -940,33 +940,6 @@ export default function App() {
     }
   }
 
-  function pullFromBacklog() {
-    if (weekId !== todayWeekId) return
-    if (carryBacklog.length === 0) return
-
-    const [first, ...rest] = carryBacklog
-    setCarryBacklog(rest)
-
-    setState((prev) => {
-      const next = structuredClone(prev)
-      const rows = [...next.days[todayDayIndex]]
-      const emptyIndex = rows.findIndex((row) => row.text.trim().length === 0)
-      const task = {
-        text: first.text,
-        done: false,
-        priority: normalizePriority(first.priority),
-        carryDays: Number.isFinite(first?.carryDays) ? Math.max(1, Number(first.carryDays)) : 1,
-      }
-      if (emptyIndex >= 0) {
-        rows[emptyIndex] = task
-      } else {
-        rows.push(task)
-      }
-      next.days[todayDayIndex] = rows
-      return next
-    })
-  }
-
   function undoLastCarry() {
     if (!carryUndo) return
 
@@ -1053,8 +1026,6 @@ export default function App() {
               weekDateLabels={weekDateLabels}
               editableDayIndex={weekId === todayWeekId ? todayDayIndex : -1}
               pastDayIndices={pastDayIndices}
-              carryBacklog={carryBacklog}
-              onPullBacklog={pullFromBacklog}
               carryUndo={carryUndo}
               onUndoCarry={undoLastCarry}
               canRetryCarry={localStorage.getItem(`${TASK_CARRYOVER_SKIP_KEY_PREFIX}${dateId}`) === '1'}
