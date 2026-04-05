@@ -56,6 +56,17 @@ export async function deleteMedia(id) {
   })
 }
 
+/** Delete all stored media entries. */
+export async function deleteAllMedia() {
+  const db = await openDB()
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    tx.objectStore(STORE_NAME).clear()
+    tx.oncomplete = () => resolve()
+    tx.onerror = () => reject(tx.error)
+  })
+}
+
 /** Load all media entries, grouped by dateId. Returns { [dateId]: [...items] } */
 export async function loadAllMedia() {
   const db = await openDB()

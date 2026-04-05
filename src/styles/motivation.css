@@ -60,11 +60,48 @@
   font-weight: 700;
 }
 
+.motivation-day-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.motivation-clear-btn {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+}
+
 .motivation-input-row {
   width: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.motivation-action-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.motivation-inline-note {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #6f8b65;
+}
+
+.motivation-analysis-box {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(204, 181, 150, 0.7);
+  background: #fffbf5;
+  color: #5f4c39;
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
 .motivation-input {

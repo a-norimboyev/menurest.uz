@@ -1,21 +1,49 @@
 import { useEffect, useRef, useState } from 'react'
-import { deleteMedia, loadAllMedia, loadMedia, saveMedia } from '../lib/mediaStore'
+import { deleteAllMedia, deleteMedia, loadAllMedia, loadMedia, saveMedia } from '../lib/mediaStore'
+
+function buildMotivationAnalysis(text, mediaCount) {
+  const cleanText = text.trim()
+  const words = cleanText.length > 0 ? cleanText.split(/\s+/).filter(Boolean) : []
+  const lower = cleanText.toLowerCase()
+  const focusedWords = ['reja', 'vazifa', 'ish', 'dars', 'yakun', 'fokus', 'intizom']
+  const positiveWords = ['yaxshi', 'zor', 'ajoyib', 'muhim', 'oldinga', 'osad', 'o\'sad', 'baraka']
+  const tiredWords = ['qiyin', 'charcha', 'ulgurolma', 'kech', 'muammo']
+
+  const hasFocusedTone = focusedWords.some((word) => lower.includes(word))
+  const hasPositiveTone = positiveWords.some((word) => lower.includes(word))
+  const hasTiredTone = tiredWords.some((word) => lower.includes(word))
+
+  let tone = 'neytral'
+  if (hasPositiveTone) tone = 'ijobiy'
+  if (hasFocusedTone) tone = 'fokusli'
+  if (hasTiredTone && !hasPositiveTone) tone = 'bosim yuqori'
+
+  let sizeLabel = 'qisqa'
+  if (words.length >= 12) sizeLabel = 'batafsil'
+  else if (words.length >= 6) sizeLabel = 'o\'rtacha'
+
+  return `Tahlil: ${sizeLabel} yozuv, ${words.length} ta so'z, ohang ${tone}. Media: ${mediaCount} ta.`
+}
 
 export default function MotivationPage({
   todayMotivation,
   onMotivationChange,
+  onSaveEntry,
   motivationQuery,
   onMotivationQueryChange,
   motivationStreak,
   motivationEntries,
   dateId,
   todayDayName,
+  onClearAll,
 }) {
   const [mediaItems, setMediaItems] = useState([])
   const [allMediaMap, setAllMediaMap] = useState({})
   const [mediaUrls, setMediaUrls] = useState({})
   const [historyMediaUrls, setHistoryMediaUrls] = useState({})
   const [uploading, setUploading] = useState(false)
+  const [saveMessage, setSaveMessage] = useState('')
+  const [analysisMessage, setAnalysisMessage] = useState('')
   const fileInputRef = useRef(null)
 
   function refreshAllMedia() {
@@ -56,6 +84,11 @@ export default function MotivationPage({
     }
   }, [allMediaMap])
 
+  useEffect(() => {
+    setSaveMessage('')
+    setAnalysisMessage('')
+  }, [todayMotivation, dateId])
+
   async function handleFileSelect(event) {
     const files = Array.from(event.target.files || [])
     if (files.length === 0) return
@@ -82,12 +115,36 @@ export default function MotivationPage({
     refreshAllMedia()
   }
 
+  async function handleClearAll() {
+    const shouldClear = window.confirm("Bugun kuni ichidagi barcha yozuv va media tarixini o'chirasizmi?")
+    if (!shouldClear) return
+
+    await deleteAllMedia()
+    onClearAll()
+    setMediaItems([])
+    setAllMediaMap({})
+  }
+
+  function handleSave() {
+    onSaveEntry(todayMotivation)
+    setSaveMessage('Saqlandi')
+  }
+
+  function handleAnalyze() {
+    setAnalysisMessage(buildMotivationAnalysis(todayMotivation, mediaItems.length))
+  }
+
   return (
     <section id="motivation-section" className="motivation-footer" aria-live="polite">
       <div className="daily-card">
         <div className="motivation-day-header">
           <strong>{todayDayName}</strong>
-          <span>{dateId}</span>
+          <div className="motivation-day-actions">
+            <span>{dateId}</span>
+            <button type="button" className="action-btn action-btn-clear motivation-clear-btn" onClick={handleClearAll}>
+              Tozalash
+            </button>
+          </div>
         </div>
         <label className="motivation-label" htmlFor="motivation-input">
           Bugun uchun qisqacha yozing
@@ -115,6 +172,18 @@ export default function MotivationPage({
             {uploading ? '...' : '📷 / 🎬'}
           </label>
         </div>
+
+        <div className="motivation-action-row">
+          <button type="button" className="action-btn" onClick={handleSave}>
+            Saqlash
+          </button>
+          <button type="button" className="action-btn" onClick={handleAnalyze}>
+            Tahlil
+          </button>
+          {saveMessage ? <span className="motivation-inline-note">{saveMessage}</span> : null}
+        </div>
+
+        {analysisMessage ? <p className="motivation-analysis-box">{analysisMessage}</p> : null}
 
         {mediaItems.length > 0 && (
           <div className="media-grid">

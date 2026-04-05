@@ -913,6 +913,18 @@ export default function App() {
     setDailyQuotes((prev) => ({ ...prev, [dateId]: value }))
   }
 
+  function handleMotivationSave(value) {
+    const nextValue = typeof value === 'string' ? value : todayMotivation
+    setTodayMotivation(nextValue)
+    setDailyQuotes((prev) => ({ ...prev, [dateId]: nextValue }))
+  }
+
+  function clearAllMotivationData() {
+    setDailyQuotes({})
+    setTodayMotivation(getDailyMotivation(dateId))
+    setMotivationQuery('')
+  }
+
   return isAuthenticated ? (
     <main className="sheet">
       <Header
@@ -983,12 +995,14 @@ export default function App() {
             <MotivationPage
               todayMotivation={todayMotivation}
               onMotivationChange={handleMotivationChange}
+              onSaveEntry={handleMotivationSave}
               motivationQuery={motivationQuery}
               onMotivationQueryChange={setMotivationQuery}
               motivationStreak={motivationStreak}
               motivationEntries={filteredMotivations}
               dateId={dateId}
               todayDayName={DAY_NAMES[todayDayIndex]}
+              onClearAll={clearAllMotivationData}
             />
           }
         />
