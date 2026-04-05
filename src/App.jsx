@@ -6,7 +6,7 @@ import StatsPage from './pages/StatsPage'
 import HistoryPage from './pages/HistoryPage'
 import MotivationPage from './pages/MotivationPage'
 import LoginPage from './pages/LoginPage'
-import { getCloudStorageInfo, isCloudSyncEnabled, loadCloudSnapshot, saveCloudSnapshot } from './lib/cloudSync'
+import { isCloudSyncEnabled, loadCloudSnapshot, saveCloudSnapshot } from './lib/cloudSync'
 
 const DAY_NAMES = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba']
 const ROWS_PER_DAY = 7
@@ -289,7 +289,6 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const cloudSyncEnabled = isCloudSyncEnabled()
-  const cloudStorageInfo = getCloudStorageInfo()
   const syncReadyRef = useRef(!cloudSyncEnabled)
   const syncTimerRef = useRef(null)
   const skipNextPushRef = useRef(false)
@@ -324,20 +323,11 @@ export default function App() {
 
     return DAY_NAMES.map((_, index) => index).filter((index) => index < todayDayIndex)
   }, [currentWeekDate, todayDate, todayDayIndex])
-  const [installPromptEvent, setInstallPromptEvent] = useState(null)
-  const [isStandalone, setIsStandalone] = useState(() => {
-    if (typeof window === 'undefined') return false
-    const standaloneMedia = window.matchMedia?.('(display-mode: standalone)')
-    return Boolean(standaloneMedia?.matches || window.navigator.standalone)
-  })
-
   const [state, setState] = useState(() => loadWeekState(weekId))
   const [recurringTemplates, setRecurringTemplates] = useState(() => loadRecurringTemplates())
   const [recurringDone, setRecurringDone] = useState(() => loadRecurringDone(dateId, recurringTemplates.length))
   const [dailyQuotes, setDailyQuotes] = useState(() => loadDailyQuotes())
   const [motivationQuery, setMotivationQuery] = useState('')
-  const [syncStatus, setSyncStatus] = useState(cloudSyncEnabled ? 'syncing' : 'local')
-  const [syncLabel, setSyncLabel] = useState(cloudSyncEnabled ? 'Cloud ulanmoqda...' : 'Faqat shu qurilmada')
   const [isOnline, setIsOnline] = useState(() => (typeof navigator === 'undefined' ? true : navigator.onLine))
   const [todayMotivation, setTodayMotivation] = useState(() => {
     const saved = dailyQuotes[dateId]
@@ -565,10 +555,6 @@ export default function App() {
         saveWeekState(targetWeek)
       }
 
-      if (toToday.some((task) => task.carryDays >= 3)) {
-        setSyncLabel('Eslatma: 3+ kunlik vazifa mavjud')
-      }
-
       if (previousWeek !== currentWeek && toToday.length > 0) {
         newLogs.push({
           dateId: targetDateId,
@@ -609,34 +595,6 @@ export default function App() {
       setState(loadWeekState(todayWeekId))
     }
   }, [dateId, weekId, todayWeekId, carryBacklog, carryRefreshToken])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-
-    const media = window.matchMedia?.('(display-mode: standalone)')
-    const updateDisplayMode = () => {
-      setIsStandalone(Boolean(media?.matches || window.navigator.standalone))
-    }
-    const handleBeforeInstallPrompt = (event) => {
-      event.preventDefault()
-      setInstallPromptEvent(event)
-    }
-    const handleInstalled = () => {
-      setInstallPromptEvent(null)
-      setIsStandalone(true)
-    }
-
-    updateDisplayMode()
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-    window.addEventListener('appinstalled', handleInstalled)
-    media?.addEventListener?.('change', updateDisplayMode)
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
-      window.removeEventListener('appinstalled', handleInstalled)
-      media?.removeEventListener?.('change', updateDisplayMode)
-    }
-  }, [])
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true)
@@ -712,15 +670,11 @@ export default function App() {
 
     async function pullFromCloud() {
       if (!cloudSyncEnabled) {
-        setSyncStatus('local')
-        setSyncLabel('Faqat shu qurilmada')
         syncReadyRef.current = true
         return
       }
 
       if (!navigator.onLine) {
-        setSyncStatus('error')
-        setSyncLabel('Internetsiz: lokal rejim')
         syncReadyRef.current = true
         return
       }
@@ -741,12 +695,8 @@ export default function App() {
         if (latestTimestamp > 0) {
           localStorage.setItem(SYNC_TIMESTAMP_KEY, String(latestTimestamp))
         }
-
-        setSyncStatus('synced')
-        setSyncLabel('Cloud sinxron: tayyor')
       } catch {
-        setSyncStatus('error')
-        setSyncLabel('Cloud xatosi: internetni tekshiring')
+        return null
       } finally {
         if (!cancelled) {
           syncReadyRef.current = true
@@ -837,9 +787,6 @@ export default function App() {
       clearTimeout(syncTimerRef.current)
     }
 
-    setSyncStatus('syncing')
-    setSyncLabel('Cloudga saqlanmoqda...')
-
     syncTimerRef.current = setTimeout(() => {
       const payload = {
         updatedAt: Date.now(),
@@ -863,20 +810,13 @@ export default function App() {
             const remoteTimestamp = Number(result.remote.timestamp || 0)
             lastSyncedTimestampRef.current = remoteTimestamp
             localStorage.setItem(SYNC_TIMESTAMP_KEY, String(remoteTimestamp))
-            setSyncStatus('error')
-            setSyncLabel('Konflikt topildi: cloud versiya yuklandi')
             return
           }
 
           lastSyncedTimestampRef.current = payload.updatedAt
           localStorage.setItem(SYNC_TIMESTAMP_KEY, String(payload.updatedAt))
-          setSyncStatus('synced')
-          setSyncLabel('Cloud sinxron: saqlandi')
         })
-        .catch(() => {
-          setSyncStatus('error')
-          setSyncLabel('Cloudga yozilmadi: keyin yana urinadi')
-        })
+        .catch(() => null)
     }, SYNC_PUSH_DEBOUNCE_MS)
 
     return () => {
@@ -973,17 +913,6 @@ export default function App() {
     setDailyQuotes((prev) => ({ ...prev, [dateId]: value }))
   }
 
-  async function handleInstallApp() {
-    if (!installPromptEvent) return
-
-    installPromptEvent.prompt()
-    try {
-      await installPromptEvent.userChoice
-    } finally {
-      setInstallPromptEvent(null)
-    }
-  }
-
   return isAuthenticated ? (
     <main className="sheet">
       <Header
@@ -993,11 +922,6 @@ export default function App() {
         weekLabel={formatWeekLabel(weekId)}
         onPrevWeek={() => shiftWeek(-1)}
         onNextWeek={() => shiftWeek(1)}
-        canInstallApp={Boolean(installPromptEvent) && !isStandalone}
-        onInstallApp={handleInstallApp}
-        syncStatus={syncStatus}
-        syncLabel={syncLabel}
-        storageLabel={cloudStorageInfo.label}
       />
 
       <nav className="page-tabs" aria-label="Sahifalar">
