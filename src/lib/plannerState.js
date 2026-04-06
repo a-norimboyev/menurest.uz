@@ -7,7 +7,6 @@ export const HISTORY_KEY = 'planner-history-v1'
 export const RECURRING_KEY = 'planner-recurring-v1'
 export const DAILY_QUOTES_KEY = 'planner-daily-motivation-v1'
 export const SYNC_TIMESTAMP_KEY = 'planner-sync-updated-at-v1'
-export const AUTH_SESSION_KEY = 'planner-auth-ok-v1'
 export const TASK_CARRYOVER_KEY_PREFIX = 'planner-carryover-done-'
 export const TASK_CARRYOVER_SKIP_KEY_PREFIX = 'planner-carryover-skip-'
 export const CARRY_SETTINGS_KEY = 'planner-carry-settings-v1'
@@ -16,7 +15,6 @@ export const CARRY_LOG_KEY = 'planner-carry-log-v1'
 export const CARRY_LAST_RUN_DATE_KEY = 'planner-carry-last-run-date-v1'
 export const SYNC_PULL_INTERVAL_MS = 60000
 export const SYNC_PUSH_DEBOUNCE_MS = 900
-export const AUTH_API_BASE_URL = (import.meta.env.VITE_SYNC_BACKEND_URL || '').replace(/\/+$/, '')
 export const THEME_OPTIONS = [
   { id: 'premium', label: 'Iliq Premium' },
   { id: 'minimal', label: 'Oq Minimal' },

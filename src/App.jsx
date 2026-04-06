@@ -5,18 +5,14 @@ import PlannerPage from './pages/PlannerPage'
 import StatsPage from './pages/StatsPage'
 import HistoryPage from './pages/HistoryPage'
 import MotivationPage from './pages/MotivationPage'
-import LoginPage from './pages/LoginPage'
 import { isCloudSyncEnabled } from './lib/cloudSync'
 import { applyRecurringDonePatch, applyRecurringTemplatePatch, applyTaskPatch, retryCarryOperation, shiftWeekDate, undoCarryOperation } from './lib/plannerActions'
-import { verifyCredentials } from './lib/plannerAuth'
 import { runCarryover } from './lib/plannerCarryover'
 import { countMotivationStreak, filterMotivations, getAllMotivations, resolveTodayMotivation } from './lib/plannerMotivation'
 import { buildPlannerMetrics, getSortedHistoryEntries, updateWeeklyHistory } from './lib/plannerMetrics'
 import { applyRemotePayloadToApp } from './lib/plannerSync'
 import { usePlannerSync } from './lib/usePlannerSync'
 import {
-  AUTH_API_BASE_URL,
-  AUTH_SESSION_KEY,
   CARRY_BACKLOG_KEY,
   CARRY_LOG_KEY,
   CARRY_SETTINGS_KEY,
@@ -49,10 +45,6 @@ import {
 } from './lib/plannerState'
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem(AUTH_SESSION_KEY) === '1')
-  const [loginUsername, setLoginUsername] = useState('')
-  const [loginPassword, setLoginPassword] = useState('')
-  const [loginError, setLoginError] = useState('')
   const cloudSyncEnabled = isCloudSyncEnabled()
   const [theme, setTheme] = useState(resolveTheme(localStorage.getItem(THEME_KEY)))
   const [currentWeekDate, setCurrentWeekDate] = useState(new Date())
@@ -95,21 +87,6 @@ export default function App() {
   const [carryLog, setCarryLog] = useState(() => loadCarryLog())
   const [carryUndo, setCarryUndo] = useState(null)
   const [carryRefreshToken, setCarryRefreshToken] = useState(0)
-
-  async function handleLoginSubmit(event) {
-    event.preventDefault()
-
-    const isValid = await verifyCredentials(AUTH_API_BASE_URL, loginUsername.trim(), loginPassword)
-    if (isValid) {
-      sessionStorage.setItem(AUTH_SESSION_KEY, '1')
-      setIsAuthenticated(true)
-      setLoginError('')
-      setLoginPassword('')
-      return
-    }
-
-    setLoginError('Login yoki parol noto‘g‘ri (yoki backend ulanmagan).')
-  }
 
   const recurringTasks = useMemo(
     () => recurringTemplates.map((row, index) => ({ text: row.text, done: Boolean(recurringDone[index]) })),
@@ -285,7 +262,7 @@ export default function App() {
     setMotivationQuery('')
   }
 
-  return isAuthenticated ? (
+  return (
     <main className="sheet">
       <Header
         theme={theme}
@@ -369,14 +346,5 @@ export default function App() {
         <Route path="*" element={<Navigate to="/planner" replace />} />
       </Routes>
     </main>
-  ) : (
-    <LoginPage
-      username={loginUsername}
-      password={loginPassword}
-      error={loginError}
-      onUsernameChange={setLoginUsername}
-      onPasswordChange={setLoginPassword}
-      onSubmit={handleLoginSubmit}
-    />
   )
 }
