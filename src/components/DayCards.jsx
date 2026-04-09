@@ -36,9 +36,16 @@ export default function DayCards({ dayNames, days, weekDateLabels, editableDayIn
                       onChange={(e) => onTaskChange(dayIndex, rowIndex, { text: e.target.value })}
                     />
                     {row.carryDays > 0 && row.text.trim().length > 0 ? (
-                      <span className="task-carry-badge" title="Avvalgi kundan ko'chgan vazifa">
-                        +{row.carryDays} kun • ko'chgan
-                      </span>
+                      <>
+                        <span className="task-carry-badge" title="Avvalgi kundan ko'chgan vazifa">
+                          +{row.carryDays} kun • ko'chgan
+                        </span>
+                        {!row.done ? (
+                          <span className="task-carry-badge is-overdue" title="Bajarilmasa statistikani tushiradi">
+                            Statistikani tushiradi
+                          </span>
+                        ) : null}
+                      </>
                     ) : null}
                   </div>
                   <select

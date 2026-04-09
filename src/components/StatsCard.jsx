@@ -29,6 +29,10 @@ export default function StatsCard({
             {metrics.monthlyDone}/{metrics.monthlyActive}
           </strong>
         </li>
+        <li>
+          <span>Kechgan vazifalar</span>
+          <strong>{metrics.overdueTasks}</strong>
+        </li>
       </ul>
 
       <div className="goal-row">
@@ -55,6 +59,7 @@ export default function StatsCard({
           <span>Bajarilish darajasi</span>
           <strong>{metrics.percent}%</strong>
         </div>
+        {metrics.overdueTasks > 0 ? <p className="monthly-meta">Kechgan vazifalar foizni pasaytiradi.</p> : null}
         <div className="progress-track" role="img" aria-label="Bajarilish foizi">
           <span className="progress-fill" style={{ width: `${metrics.percent}%` }} />
         </div>
@@ -85,7 +90,8 @@ export default function StatsCard({
             <li key={dayNames[index]}>
               <span>{dayNames[index]}</span>
               <strong>
-                {item.done}/{item.active} ({item.percent}%)
+                {item.done}/{item.adjustedActive}
+                {item.overdueTasks > 0 ? ` • -${item.overdueTasks} kechikkan` : ''} ({item.percent}%)
               </strong>
             </li>
           ))}

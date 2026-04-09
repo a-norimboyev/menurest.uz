@@ -182,6 +182,12 @@
   color: color-mix(in srgb, var(--ink) 78%, var(--accent));
 }
 
+.task-carry-badge.is-overdue {
+  border-color: color-mix(in srgb, #bf5a3d 60%, var(--line));
+  background: color-mix(in srgb, #bf5a3d 14%, #ffffff 86%);
+  color: color-mix(in srgb, #7f2f1a 78%, var(--ink));
+}
+
 .backlog-card,
 .carry-undo-card {
   min-height: 160px;

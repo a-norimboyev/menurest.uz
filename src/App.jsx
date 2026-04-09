@@ -173,6 +173,10 @@ export default function App() {
   }, [weekId])
 
   useEffect(() => {
+    setRecurringDone(loadRecurringDone(dateId, recurringTemplates.length))
+  }, [dateId, recurringTemplates.length])
+
+  useEffect(() => {
     saveRecurringTemplates(recurringTemplates)
   }, [recurringTemplates])
 
