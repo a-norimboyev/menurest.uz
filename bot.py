@@ -14,6 +14,8 @@ Buyruqlar:
   /habits     - Kunlik doimiy vazifalar
   /addhabit   - Yangi kunlik vazifa qo'shish
   /delhabit   - Kunlik vazifani o'chirish
+  /addr       - Takrorlanuvchi eslatma (daily/weekly/monthly)
+  /stats      - Statistika
   /help       - Yordam
 """
 
@@ -55,9 +57,10 @@ load_dotenv()
 # ============================================
 # SOZLAMALAR
 # ============================================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-TIMEZONE = "Asia/Tashkent"
+BOT_TOKEN          = os.getenv("BOT_TOKEN", "")
+TIMEZONE           = "Asia/Tashkent"
 MORNING_DIGEST_HOUR = 8
+EVENING_REPORT_HOUR = 21
 # ============================================
 
 logging.basicConfig(
@@ -73,10 +76,10 @@ scheduler   = AsyncIOScheduler(timezone=TZ)
 
 MAIN_MENU = ReplyKeyboardMarkup(
     [
-        [KeyboardButton("📅 Bugun"),     KeyboardButton("📅 Ertaga")],
-        [KeyboardButton("🗓 Hafta"),     KeyboardButton("📋 Hammasi")],
-        [KeyboardButton("📌 Kunlik"),    KeyboardButton("🗑 O'chirish")],
-        [KeyboardButton("❓ Yordam")],
+        [KeyboardButton("📅 Bugun"),      KeyboardButton("📅 Ertaga")],
+        [KeyboardButton("🗓 Hafta"),      KeyboardButton("📋 Hammasi")],
+        [KeyboardButton("📌 Kunlik"),     KeyboardButton("📊 Statistika")],
+        [KeyboardButton("🗑 O'chirish"),  KeyboardButton("❓ Yordam")],
     ],
     resize_keyboard=True,
     persistent=True,
@@ -113,6 +116,63 @@ def get_active_sorted(user_id: int) -> list:
     reminders = get_user_reminders(user_id)
     active = [r for r in reminders if datetime.fromisoformat(r["datetime"]) > now]
     return sorted(active, key=lambda x: x["datetime"])
+
+
+def next_occurrence(dt: datetime, repeat: str) -> datetime:
+    """Takrorlanuvchi eslatma uchun keyingi vaqtni hisoblash."""
+    if repeat == "daily":
+        return dt + timedelta(days=1)
+    if repeat == "weekly":
+        return dt + timedelta(weeks=1)
+    if repeat == "monthly":
+        month = dt.month + 1 if dt.month < 12 else 1
+        year  = dt.year + (1 if dt.month == 12 else 0)
+        try:
+            return dt.replace(year=year, month=month)
+        except ValueError:
+            return dt.replace(year=year, month=month, day=28)
+    return dt
+
+
+# ============================================
+# STREAK HISOBLASH
+# ============================================
+def get_streak(user_id: int) -> int:
+    completed = load_habits().get(str(user_id), {}).get("completed", {})
+    if not completed:
+        return 0
+    today = datetime.now(TZ).date()
+    today_str = today.strftime("%Y-%m-%d")
+    # Bugun hech narsa bajarilmagan bo'lsa, kechagi kundan boshla
+    start = today if (today_str in completed and completed[today_str]) else today - timedelta(days=1)
+    streak = 0
+    check = start
+    while True:
+        s = check.strftime("%Y-%m-%d")
+        if s in completed and completed[s]:
+            streak += 1
+            check -= timedelta(days=1)
+        else:
+            break
+    return streak
+
+
+def get_weekly_stats(user_id: int) -> list:
+    """Oxirgi 7 kunlik bajarilish foizi."""
+    completed = load_habits().get(str(user_id), {}).get("completed", {})
+    tasks = get_user_habits(user_id)
+    if not tasks:
+        return []
+    today = datetime.now(TZ).date()
+    result = []
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
+        day_str = day.strftime("%Y-%m-%d")
+        done = len(completed.get(day_str, []))
+        total = len(tasks)
+        pct = int((done / total) * 100) if total else 0
+        result.append({"date": day_str, "done": done, "total": total, "pct": pct})
+    return result
 
 
 # ============================================
@@ -212,9 +272,12 @@ def habits_header(user_id: int) -> str:
 
     progress = int((done / total) * 10)
     bar = "🟩" * progress + "⬜" * (10 - progress)
+    streak = get_streak(user_id)
+    streak_line = f"🔥 {streak} kun ketma-ket!\n" if streak >= 2 else ""
     return (
         f"📌 *Kunlik vazifalar — {today}*\n"
-        f"{bar} {done}/{total}\n\n"
+        f"{bar} {done}/{total}\n"
+        f"{streak_line}\n"
         "Tugmani bosib belgilang:"
     )
 
@@ -548,6 +611,114 @@ async def del_habit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     )
 
 
+async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    tasks = get_user_habits(user_id)
+    weekly = get_weekly_stats(user_id)
+    streak = get_streak(user_id)
+
+    if not tasks:
+        await update.message.reply_text(
+            "📊 *Statistika*\n\nHali vazifalar yo'q.\n`/addhabit` bilan qo'shing.",
+            parse_mode="Markdown",
+        )
+        return
+
+    days_uz = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"]
+    chart = ""
+    for w in weekly:
+        d = datetime.strptime(w["date"], "%Y-%m-%d")
+        day_name = days_uz[d.weekday()]
+        blocks = int(w["pct"] / 20)
+        bar = "🟩" * blocks + "⬜" * (5 - blocks)
+        chart += f"{day_name} {bar} {w['pct']}%\n"
+
+    streak_line = f"🔥 *Streak: {streak} kun ketma-ket*\n\n" if streak >= 1 else ""
+
+    # Eng ko'p bajarilgan vazifa
+    completed_data = load_habits().get(str(user_id), {}).get("completed", {})
+    task_counts = {}
+    for task in tasks:
+        cnt = sum(1 for ids in completed_data.values() if task["id"] in ids)
+        task_counts[task["text"]] = cnt
+    best = max(task_counts, key=task_counts.get) if task_counts else None
+    best_line = f"🏅 Eng faol: *{best}* ({task_counts[best]} kun)\n\n" if best and task_counts[best] > 0 else ""
+
+    text = (
+        "📊 *Statistika — oxirgi 7 kun*\n\n"
+        f"{streak_line}"
+        f"{best_line}"
+        f"{chart}"
+    )
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+
+async def add_recurring(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = update.effective_user.id
+    args = context.args
+
+    if len(args) < 3:
+        await update.message.reply_text(
+            "❌ Format: `/addr TAKROR VAQT MATN`\n\n"
+            "Takror turlari:\n"
+            "`daily` — har kuni\n"
+            "`weekly` — har hafta\n"
+            "`monthly` — har oy\n\n"
+            "Misol:\n"
+            "`/addr daily 09:00 Sport`\n"
+            "`/addr weekly 10:00 Uy tozalash`",
+            parse_mode="Markdown",
+        )
+        return
+
+    repeat  = args[0].lower()
+    time_str = args[1]
+    text    = " ".join(args[2:])
+
+    if repeat not in ("daily", "weekly", "monthly"):
+        await update.message.reply_text(
+            "❌ Takror turi: `daily`, `weekly`, `monthly`",
+            parse_mode="Markdown",
+        )
+        return
+
+    try:
+        target_time = datetime.strptime(time_str, "%H:%M").time()
+    except ValueError:
+        await update.message.reply_text("❌ Vaqt formati: `HH:MM`", parse_mode="Markdown")
+        return
+
+    now = datetime.now(TZ)
+    target_dt = TZ.localize(datetime.combine(now.date(), target_time))
+    if target_dt <= now:
+        target_dt = next_occurrence(target_dt, repeat)
+
+    reminder_id = str(uuid.uuid4())
+    reminders = get_user_reminders(user_id)
+    reminders.append({
+        "id": reminder_id,
+        "datetime": target_dt.isoformat(),
+        "text": text,
+        "repeat": repeat,
+    })
+    set_user_reminders(user_id, reminders)
+
+    scheduler.add_job(
+        send_recurring_reminder, "date",
+        run_date=target_dt,
+        args=[context.bot, user_id, reminder_id],
+        id=f"reminder_{user_id}_{reminder_id}",
+        replace_existing=True,
+    )
+
+    repeat_uz = {"daily": "har kuni", "weekly": "har hafta", "monthly": "har oy"}
+    await update.message.reply_text(
+        f"✅ Takrorlanuvchi eslatma qo'shildi!\n\n"
+        f"🔄 {repeat_uz[repeat]}, soat {time_str}\n"
+        f"📝 {text}"
+    )
+
+
 async def habit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -629,6 +800,8 @@ async def menu_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         await list_reminders(update, context)
     elif text == "📌 Kunlik":
         await habits_command(update, context)
+    elif text == "📊 Statistika":
+        await stats_command(update, context)
     elif text == "🗑 O'chirish":
         await delete_reminder(update, context)
     elif text == "❓ Yordam":
@@ -647,6 +820,84 @@ async def send_reminder(bot, user_id: int, text: str) -> None:
         )
     except Exception as e:
         logger.error(f"Eslatma yuborishda xato: {e}")
+
+
+async def send_recurring_reminder(bot, user_id: int, reminder_id: str) -> None:
+    """Takrorlanuvchi eslatmani yuborish va keyingi vaqtga rejalashtirish."""
+    reminders = get_user_reminders(user_id)
+    reminder = next((r for r in reminders if r["id"] == reminder_id), None)
+    if not reminder:
+        return
+
+    try:
+        repeat_uz = {"daily": "har kuni", "weekly": "har hafta", "monthly": "har oy"}
+        label = repeat_uz.get(reminder.get("repeat", ""), "")
+        await bot.send_message(
+            chat_id=user_id,
+            text=f"🔔 *ESLATMA* ({label})\n\n{reminder['text']}",
+            parse_mode="Markdown",
+        )
+    except Exception as e:
+        logger.error(f"Takrorlanuvchi eslatma xatosi: {e}")
+        return
+
+    # Keyingi vaqtni hisoblash va saqlash
+    current_dt = datetime.fromisoformat(reminder["datetime"])
+    next_dt = next_occurrence(current_dt, reminder["repeat"])
+    reminder["datetime"] = next_dt.isoformat()
+    set_user_reminders(user_id, reminders)
+
+    scheduler.add_job(
+        send_recurring_reminder, "date",
+        run_date=next_dt,
+        args=[bot, user_id, reminder_id],
+        id=f"reminder_{user_id}_{reminder_id}",
+        replace_existing=True,
+    )
+
+
+async def send_evening_report(bot) -> None:
+    """Har kuni kechqurun bajarilgan/qolgan vazifalar hisoboti."""
+    habits_data = load_habits()
+    today = datetime.now(TZ).strftime("%Y-%m-%d")
+
+    for user_id_str, user_data in habits_data.items():
+        tasks = user_data.get("tasks", [])
+        if not tasks:
+            continue
+
+        completed_today = user_data.get("completed", {}).get(today, [])
+        done_tasks    = [t for t in tasks if t["id"] in completed_today]
+        missed_tasks  = [t for t in tasks if t["id"] not in completed_today]
+
+        done_count   = len(done_tasks)
+        total_count  = len(tasks)
+        streak       = get_streak(int(user_id_str))
+        streak_line  = f"\n🔥 Streak: {streak} kun ketma-ket!" if streak >= 2 else ""
+
+        text = f"🌙 *Kechki hisobot — {today}*\n\n"
+        text += f"✅ Bajarildi: {done_count}/{total_count}{streak_line}\n\n"
+
+        if done_tasks:
+            text += "*Bajardingiz:*\n"
+            for t in done_tasks:
+                text += f"  ✅ {t['text']}\n"
+        if missed_tasks:
+            text += "\n*Bajarilmadi:*\n"
+            for t in missed_tasks:
+                text += f"  ☐ {t['text']}\n"
+
+        if done_count == total_count:
+            text += "\n🎉 Ajoyib! Bugun hammasi bajarildi!"
+        elif done_count == 0:
+            text += "\n💪 Ertaga yangi imkoniyat — davom eting!"
+
+        try:
+            await bot.send_message(
+                chat_id=int(user_id_str), text=text, parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.error(f"Kechki hisobot xatosi: {e}")
 
 
 async def send_morning_digest(bot) -> None:
@@ -703,6 +954,27 @@ async def post_init(application: Application) -> None:
         replace_existing=True,
     )
 
+    scheduler.add_job(
+        send_evening_report, "cron",
+        hour=EVENING_REPORT_HOUR, minute=0,
+        args=[application.bot],
+        id="evening_report",
+        replace_existing=True,
+    )
+
+    # Takrorlanuvchi eslatmalarni qayta rejalashtirish
+    for user_id_str, reminders in load_reminders().items():
+        uid = int(user_id_str)
+        for r in reminders:
+            if r.get("repeat") and datetime.fromisoformat(r["datetime"]) > now:
+                scheduler.add_job(
+                    send_recurring_reminder, "date",
+                    run_date=datetime.fromisoformat(r["datetime"]),
+                    args=[application.bot, uid, r["id"]],
+                    id=f"reminder_{uid}_{r['id']}",
+                    replace_existing=True,
+                )
+
     scheduler.start()
     logger.info("Scheduler ishga tushdi!")
 
@@ -726,6 +998,8 @@ def main() -> None:
     app.add_handler(CommandHandler("habits",   habits_command))
     app.add_handler(CommandHandler("addhabit", add_habit))
     app.add_handler(CommandHandler("delhabit", del_habit_command))
+    app.add_handler(CommandHandler("addr",     add_recurring))
+    app.add_handler(CommandHandler("stats",    stats_command))
 
     app.add_handler(CallbackQueryHandler(delete_callback, pattern="^del_"))
     app.add_handler(CallbackQueryHandler(habit_callback,  pattern="^habit"))
