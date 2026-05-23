@@ -43,4 +43,4 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "*Ko'rish:*\n"
         "/today /tomorrow /week /list /stats"
     )
-    await update.message.reply_text(text, parse_mode="Markdown")
+    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=MAIN_MENU)

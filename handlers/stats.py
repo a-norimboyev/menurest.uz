@@ -3,6 +3,7 @@ from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from keyboards import MAIN_MENU
 from data.habits import get_streak, get_user_habits, get_weekly_stats, load_habits
 
 
@@ -16,6 +17,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text(
             "📊 *Statistika*\n\nHali vazifalar yo'q.\n`/addhabit` bilan qo'shing.",
             parse_mode="Markdown",
+            reply_markup=MAIN_MENU,
         )
         return
 
@@ -44,4 +46,5 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(
         f"📊 *Statistika — oxirgi 7 kun*\n\n{streak_line}{best_line}{chart}",
         parse_mode="Markdown",
+        reply_markup=MAIN_MENU,
     )
