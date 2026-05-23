@@ -17,7 +17,14 @@ Buyruqlar:
 import json
 import logging
 import os
+import sys
 import uuid
+
+# Windows terminali UTF-8 qo'llab-quvvatlashi uchun
+if sys.stdout.encoding != "utf-8":
+    sys.stdout.reconfigure(encoding="utf-8")
+if sys.stderr.encoding != "utf-8":
+    sys.stderr.reconfigure(encoding="utf-8")
 from datetime import datetime, timedelta
 from pathlib import Path
 

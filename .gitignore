@@ -16,4 +16,7 @@ reminders.json
 # Node
 node_modules/
 dist/
+
+# IDE / Tools
 .DS_Store
+.sixth/
