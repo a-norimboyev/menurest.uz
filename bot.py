@@ -31,7 +31,13 @@ from pathlib import Path
 import pytz
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    Update,
+)
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -60,6 +66,16 @@ logger = logging.getLogger(__name__)
 DATA_FILE = Path("reminders.json")
 TZ = pytz.timezone(TIMEZONE)
 scheduler = AsyncIOScheduler(timezone=TZ)
+
+MAIN_MENU = ReplyKeyboardMarkup(
+    [
+        [KeyboardButton("📅 Bugun"), KeyboardButton("📅 Ertaga")],
+        [KeyboardButton("🗓 Hafta"),  KeyboardButton("📋 Hammasi")],
+        [KeyboardButton("🗑 O'chirish"), KeyboardButton("❓ Yordam")],
+    ],
+    resize_keyboard=True,
+    persistent=True,
+)
 
 
 # ============================================
@@ -117,7 +133,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "`/add bugun 18:30 Onamga qo'ng'iroq`\n\n"
         f"Har kuni ertalab soat {MORNING_DIGEST_HOUR}:00 da bugungi rejangizni yuboraman! ☀️"
     )
-    await update.message.reply_text(welcome, parse_mode="Markdown")
+    await update.message.reply_text(welcome, parse_mode="Markdown", reply_markup=MAIN_MENU)
+
+
+async def menu_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Pastki menyu tugmalari bosilganda."""
+    text = update.message.text
+    if text == "📅 Bugun":
+        await today_reminders(update, context)
+    elif text == "📅 Ertaga":
+        await tomorrow_reminders(update, context)
+    elif text == "🗓 Hafta":
+        await week_reminders(update, context)
+    elif text == "📋 Hammasi":
+        await list_reminders(update, context)
+    elif text == "🗑 O'chirish":
+        await delete_reminder(update, context)
+    elif text == "❓ Yordam":
+        await help_command(update, context)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -451,6 +484,7 @@ def main() -> None:
     app.add_handler(CommandHandler("week", week_reminders))
     app.add_handler(CommandHandler("delete", delete_reminder))
     app.add_handler(CallbackQueryHandler(delete_callback, pattern="^del_"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_button_handler))
 
     print("🤖 Bot ishga tushdi! To'xtatish uchun Ctrl+C bosing.")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
