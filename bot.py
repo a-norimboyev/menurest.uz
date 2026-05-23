@@ -139,6 +139,12 @@ def get_today_completed(user_id: int) -> list:
     return load_habits().get(str(user_id), {}).get("completed", {}).get(today, [])
 
 
+def get_task_days_done(user_id: int, task_id: str) -> int:
+    """Vazifa necha kun bajarilganini hisoblash."""
+    completed = load_habits().get(str(user_id), {}).get("completed", {})
+    return sum(1 for day_ids in completed.values() if task_id in day_ids)
+
+
 def toggle_habit(user_id: int, task_id: str) -> bool:
     """Vazifani belgilash/bekor qilish. True qaytarsa — belgilandi."""
     data = load_habits()
@@ -166,39 +172,43 @@ def toggle_habit(user_id: int, task_id: str) -> bool:
 
 def build_habits_keyboard(user_id: int) -> InlineKeyboardMarkup:
     tasks = get_user_habits(user_id)
-    completed = get_today_completed(user_id)
-    today = datetime.now(TZ).strftime("%Y-%m-%d")
-    total = len(tasks)
-    done  = len([t for t in tasks if t["id"] in completed])
-
+    completed_today = get_today_completed(user_id)
     keyboard = []
-    for task in tasks:
-        checked = "✅" if task["id"] in completed else "☐"
-        keyboard.append([
-            InlineKeyboardButton(
-                f"{checked} {task['text']}",
-                callback_data=f"habit_{task['id']}",
-            )
-        ])
 
+    for task in tasks:
+        duration = task.get("duration", 0)
+        days_done = get_task_days_done(user_id, task["id"])
+
+        if duration > 0 and days_done >= duration:
+            # Tugallangan vazifa — faqat ko'rsatish
+            label = f"🏆 {task['text']} ({days_done}/{duration} kun — TUGALLANDI!)"
+            keyboard.append([InlineKeyboardButton(label, callback_data="habit_finished")])
+        elif duration > 0:
+            checked = "✅" if task["id"] in completed_today else "☐"
+            label = f"{checked} {task['text']}  ({days_done}/{duration} kun)"
+            keyboard.append([InlineKeyboardButton(label, callback_data=f"habit_{task['id']}")])
+        else:
+            checked = "✅" if task["id"] in completed_today else "☐"
+            label = f"{checked} {task['text']}"
+            keyboard.append([InlineKeyboardButton(label, callback_data=f"habit_{task['id']}")])
+
+    total = len(tasks)
+    done  = len([t for t in tasks if t["id"] in completed_today])
     keyboard.append([
-        InlineKeyboardButton(
-            f"📊 {done}/{total} bajarildi",
-            callback_data="habit_stats",
-        )
+        InlineKeyboardButton(f"📊 {done}/{total} bajarildi", callback_data="habit_stats")
     ])
     return InlineKeyboardMarkup(keyboard)
 
 
 def habits_header(user_id: int) -> str:
     tasks = get_user_habits(user_id)
-    completed = get_today_completed(user_id)
+    completed_today = get_today_completed(user_id)
     today = datetime.now(TZ).strftime("%Y-%m-%d")
     total = len(tasks)
-    done  = len([t for t in tasks if t["id"] in completed])
+    done  = len([t for t in tasks if t["id"] in completed_today])
 
     if total == 0:
-        return "📌 *Kunlik vazifalar*\n\nHali vazifalar yo'q.\n`/addhabit Matn` — vazifa qo'shish"
+        return "📌 *Kunlik vazifalar*\n\nHali vazifalar yo'q.\n`/addhabit Matn` — doimiy\n`/addhabit Matn 20` — 20 kunlik"
 
     progress = int((done / total) * 10)
     bar = "🟩" * progress + "⬜" * (10 - progress)
@@ -473,12 +483,28 @@ async def add_habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     if not args:
         await update.message.reply_text(
-            "❌ Format: `/addhabit Vazifa nomi`\n\nMisol: `/addhabit Sport`",
+            "❌ Format:\n"
+            "`/addhabit Vazifa nomi` — doimiy\n"
+            "`/addhabit Vazifa nomi 20` — 20 kunlik\n\n"
+            "Misol:\n"
+            "`/addhabit Sport`\n"
+            "`/addhabit Kitob o'qish 30`",
             parse_mode="Markdown",
         )
         return
 
-    text = " ".join(args)
+    # Oxirgi argument raqam bo'lsa — davomiylik (kun soni)
+    duration = 0
+    if args[-1].isdigit():
+        duration = int(args[-1])
+        text = " ".join(args[:-1])
+    else:
+        text = " ".join(args)
+
+    if not text:
+        await update.message.reply_text("❌ Vazifa nomini kiriting.")
+        return
+
     data = load_habits()
     uid = str(user_id)
 
@@ -486,14 +512,20 @@ async def add_habit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         data[uid] = {"tasks": [], "completed": {}}
 
     task_id = str(uuid.uuid4())
-    data[uid]["tasks"].append({"id": task_id, "text": text})
+    data[uid]["tasks"].append({
+        "id": task_id,
+        "text": text,
+        "duration": duration,
+        "started": datetime.now(TZ).strftime("%Y-%m-%d"),
+    })
     save_habits(data)
 
-    await update.message.reply_text(
-        f"✅ Kunlik vazifa qo'shildi: *{text}*\n\n"
-        "/habits — vazifalarni ko'rish",
-        parse_mode="Markdown",
-    )
+    if duration > 0:
+        msg = f"✅ *{text}* — {duration} kunlik vazifa qo'shildi!\n\n/habits — vazifalarni ko'rish"
+    else:
+        msg = f"✅ *{text}* — doimiy vazifa qo'shildi!\n\n/habits — vazifalarni ko'rish"
+
+    await update.message.reply_text(msg, parse_mode="Markdown")
 
 
 async def del_habit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -521,6 +553,11 @@ async def habit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await query.answer()
     user_id = query.from_user.id
 
+    # Tugallangan vazifaga bosilganda
+    if query.data == "habit_finished":
+        await query.answer("🏆 Bu vazifa allaqachon tugallangan!", show_alert=True)
+        return
+
     # Statistika tugmasi
     if query.data == "habit_stats":
         tasks = get_user_habits(user_id)
@@ -537,6 +574,18 @@ async def habit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if query.data.startswith("habit_"):
         task_id = query.data.replace("habit_", "", 1)
         toggle_habit(user_id, task_id)
+
+        # Shu vazifa tugallandimi tekshirish
+        tasks = get_user_habits(user_id)
+        task = next((t for t in tasks if t["id"] == task_id), None)
+        if task and task.get("duration", 0) > 0:
+            days_done = get_task_days_done(user_id, task_id)
+            if days_done >= task["duration"]:
+                await query.answer(
+                    f"🏆 Tabriklaymiz! '{task['text']}' — {task['duration']} kun bajardingiz!",
+                    show_alert=True,
+                )
+
         await query.edit_message_text(
             habits_header(user_id),
             parse_mode="Markdown",
