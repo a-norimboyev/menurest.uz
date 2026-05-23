@@ -4,6 +4,7 @@ from telegram.ext import ContextTypes
 from data.habits import (
     add_task,
     build_habits_keyboard,
+    check_milestone,
     get_task_days_done,
     get_today_completed,
     get_user_habits,
@@ -103,11 +104,19 @@ async def habit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         task  = next((t for t in tasks if t["id"] == task_id), None)
         if task and task.get("duration", 0) > 0:
             days_done = get_task_days_done(user_id, task_id)
-            if days_done >= task["duration"]:
+            dur       = task["duration"]
+            if days_done >= dur:
                 await query.answer(
-                    f"🏆 Tabriklaymiz! '{task['text']}' — {task['duration']} kun!",
+                    f"🏆 TABRIKLAYMIZ! '{task['text']}' — {dur} kunlik maqsad bajarildi!",
                     show_alert=True,
                 )
+            else:
+                milestone = check_milestone(user_id, task_id)
+                if milestone:
+                    await query.answer(
+                        f"🎉 {milestone} kun! '{task['text']}' — ajoyib natija!",
+                        show_alert=True,
+                    )
         await query.edit_message_text(
             habits_header(user_id),
             parse_mode="Markdown",

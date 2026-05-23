@@ -1,8 +1,10 @@
 import logging
 from datetime import datetime
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 from config import EVENING_REPORT_HOUR, MORNING_DIGEST_HOUR, TZ, scheduler
-from data.habits import get_streak, get_user_habits, load_habits
+from data.habits import get_streak, get_task_days_done, load_habits
 from data.reminders import (
     get_user_reminders,
     load_reminders,
@@ -56,22 +58,67 @@ async def send_recurring_reminder(bot, user_id: int, reminder_id: str) -> None:
 
 
 async def send_morning_digest(bot) -> None:
-    data  = load_reminders()
-    today = datetime.now(TZ).date()
-    for uid_str, reminders in data.items():
+    reminders_data = load_reminders()
+    habits_data    = load_habits()
+    today          = datetime.now(TZ).date()
+    today_str      = today.strftime("%Y-%m-%d")
+
+    all_uids = set(reminders_data.keys()) | set(habits_data.keys())
+
+    for uid_str in all_uids:
+        uid = int(uid_str)
+
+        reminders = reminders_data.get(uid_str, [])
         items = [
             r for r in reminders
             if datetime.fromisoformat(r["datetime"]).date() == today
         ]
-        if not items:
-            continue
         items.sort(key=lambda x: x["datetime"])
-        text = "☀️ *Xayrli tong! Bugungi rejangiz:*\n\n"
-        for r in items:
-            dt    = datetime.fromisoformat(r["datetime"])
-            text += f"🕐 {dt.strftime('%H:%M')} — {r['text']}\n"
+
+        tasks     = habits_data.get(uid_str, {}).get("tasks", [])
+        completed = habits_data.get(uid_str, {}).get("completed", {}).get(today_str, [])
+        streak    = get_streak(uid)
+
+        if not items and not tasks:
+            continue
+
+        text = f"☀️ *Xayrli tong! — {today_str}*\n"
+        if streak >= 2:
+            text += f"🔥 {streak} kun ketma-ket!\n"
+        text += "\n"
+
+        if items:
+            text += "📅 *Bugungi eslatmalar:*\n"
+            for r in items:
+                dt    = datetime.fromisoformat(r["datetime"])
+                text += f"  🕐 {dt.strftime('%H:%M')} — {r['text']}\n"
+            text += "\n"
+
+        keyboard = []
+        if tasks:
+            done = len([t for t in tasks if t["id"] in completed])
+            text += f"📌 *Kunlik vazifalar ({done}/{len(tasks)}):*\n"
+            for t in tasks:
+                check     = "✅" if t["id"] in completed else "☐"
+                dur       = t.get("duration", 0)
+                days_done = get_task_days_done(uid, t["id"])
+                if dur > 0:
+                    label = f"{check} {t['text']} ({days_done}/{dur})"
+                else:
+                    label = f"{check} {t['text']}"
+                text += f"  {label}\n"
+                keyboard.append([
+                    InlineKeyboardButton(label, callback_data=f"habit_{t['id']}")
+                ])
+
+        reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
         try:
-            await bot.send_message(chat_id=int(uid_str), text=text, parse_mode="Markdown")
+            await bot.send_message(
+                chat_id=uid,
+                text=text,
+                parse_mode="Markdown",
+                reply_markup=reply_markup,
+            )
         except Exception as e:
             logger.error(f"send_morning_digest xato: {e}")
 

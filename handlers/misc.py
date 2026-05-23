@@ -8,17 +8,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     name    = update.effective_user.first_name
     welcome = (
         f"👋 Salom, {name}!\n\n"
-        "Men sizning shaxsiy eslatma yordamchingizman.\n\n"
-        "📝 *Buyruqlar:*\n"
+        "Men sizning shaxsiy eslatma va odatlar yordamchingizman.\n\n"
+        "📅 *Eslatmalar:*\n"
         "/add — Yangi eslatma\n"
         "/today — Bugungi eslatmalar\n"
         "/week — Haftalik reja\n"
-        "/addr — Takrorlanuvchi eslatma\n"
-        "/habits — Kunlik doimiy vazifalar\n"
-        "/addhabit — Yangi kunlik vazifa\n"
-        "/stats — Statistika\n"
-        "/help — Batafsil yordam\n\n"
-        f"Har kuni soat {MORNING_DIGEST_HOUR}:00 da bugungi rejangizni yuboraman! ☀️\n\n"
+        "/addr — Takrorlanuvchi eslatma\n\n"
+        "📌 *Kunlik maqsadlar:*\n"
+        "/addhabit Ingliz tili 180 — 180 kunlik\n"
+        "/addhabit Sport 30 — 30 kunlik\n"
+        "/addhabit Kitob — doimiy\n"
+        "/habits — bugungi ro'yxat\n"
+        "/stats — haftalik statistika\n\n"
+        f"☀️ Har kuni soat {MORNING_DIGEST_HOUR}:00 da reja yuboriladi\n"
         "👇 Pastdagi *Меню* tugmasini bosing!"
     )
     await update.message.reply_text(
