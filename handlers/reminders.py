@@ -5,7 +5,6 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from config import TZ, scheduler
-from keyboards import MAIN_MENU
 from data.reminders import (
     get_active_sorted,
     get_user_reminders,
@@ -77,14 +76,14 @@ async def list_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user_id = update.effective_user.id
     active  = get_active_sorted(user_id)
     if not active:
-        await update.message.reply_text("📭 Faol eslatmalar yo'q.", reply_markup=MAIN_MENU)
+        await update.message.reply_text("📭 Faol eslatmalar yo'q.")
         return
     text = "📋 *Barcha eslatmalar:*\n\n"
     for i, r in enumerate(active, 1):
         dt    = datetime.fromisoformat(r["datetime"])
         label = "🔄 " if r.get("repeat") else "📅 "
         text += f"{i}. {label}{dt.strftime('%Y-%m-%d %H:%M')}\n   📝 {r['text']}\n\n"
-    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=MAIN_MENU)
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 async def today_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -104,7 +103,7 @@ async def week_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if now < datetime.fromisoformat(r["datetime"]) <= week_end
     ]
     if not items:
-        await update.message.reply_text("📭 Keyingi 7 kunda eslatmalar yo'q.", reply_markup=MAIN_MENU)
+        await update.message.reply_text("📭 Keyingi 7 kunda eslatmalar yo'q.")
         return
     items.sort(key=lambda x: x["datetime"])
     days_uz = ["Dushanba", "Seshanba", "Chorshanba", "Payshanba", "Juma", "Shanba", "Yakshanba"]
@@ -117,7 +116,7 @@ async def week_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             cur   = day
             text += f"\n📆 *{day} — {days_uz[dt.weekday()]}*\n"
         text += f"  🕐 {dt.strftime('%H:%M')} — {r['text']}\n"
-    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=MAIN_MENU)
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 async def _show_day(update: Update, offset: int, title: str) -> None:
@@ -128,14 +127,14 @@ async def _show_day(update: Update, offset: int, title: str) -> None:
         if datetime.fromisoformat(r["datetime"]).date() == target_date
     ]
     if not items:
-        await update.message.reply_text(f"{title}\n\n📭 Bu kunda eslatmalar yo'q.", reply_markup=MAIN_MENU)
+        await update.message.reply_text(f"{title}\n\n📭 Bu kunda eslatmalar yo'q.")
         return
     items.sort(key=lambda x: x["datetime"])
     text = f"{title}\n\n"
     for r in items:
         dt    = datetime.fromisoformat(r["datetime"])
         text += f"🕐 {dt.strftime('%H:%M')} — {r['text']}\n"
-    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=MAIN_MENU)
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 async def delete_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

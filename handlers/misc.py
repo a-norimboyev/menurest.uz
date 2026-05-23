@@ -1,8 +1,7 @@
-from telegram import Update
+from telegram import ReplyKeyboardRemove, Update
 from telegram.ext import ContextTypes
 
 from config import MORNING_DIGEST_HOUR
-from keyboards import MAIN_MENU
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -19,9 +18,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "/addhabit — Yangi kunlik vazifa\n"
         "/stats — Statistika\n"
         "/help — Batafsil yordam\n\n"
-        f"Har kuni soat {MORNING_DIGEST_HOUR}:00 da bugungi rejangizni yuboraman! ☀️"
+        f"Har kuni soat {MORNING_DIGEST_HOUR}:00 da bugungi rejangizni yuboraman! ☀️\n\n"
+        "👇 Pastdagi *Меню* tugmasini bosing!"
     )
-    await update.message.reply_text(welcome, parse_mode="Markdown", reply_markup=MAIN_MENU)
+    await update.message.reply_text(
+        welcome,
+        parse_mode="Markdown",
+        reply_markup=ReplyKeyboardRemove(),
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -43,4 +47,4 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "*Ko'rish:*\n"
         "/today /tomorrow /week /list /stats"
     )
-    await update.message.reply_text(text, parse_mode="Markdown", reply_markup=MAIN_MENU)
+    await update.message.reply_text(text, parse_mode="Markdown")

@@ -1,7 +1,6 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
-from keyboards import MAIN_MENU
 from data.habits import (
     add_task,
     build_habits_keyboard,
@@ -25,7 +24,6 @@ async def habits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "`/addhabit Sport` — doimiy\n"
             "`/addhabit Sport 30` — 30 kunlik",
             parse_mode="Markdown",
-            reply_markup=MAIN_MENU,
         )
         return
     await update.message.reply_text(

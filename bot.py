@@ -18,8 +18,6 @@ from telegram.ext import (
     Application,
     CallbackQueryHandler,
     CommandHandler,
-    MessageHandler,
-    filters,
 )
 
 from config import BOT_TOKEN
@@ -37,23 +35,6 @@ from handlers.reminders import (
 )
 from handlers.stats import stats_command
 from jobs import post_init
-
-
-async def menu_button_handler(update, context) -> None:
-    text = update.message.text
-    dispatch = {
-        "📅 Bugun":      today_reminders,
-        "📅 Ertaga":     tomorrow_reminders,
-        "🗓 Hafta":      week_reminders,
-        "📋 Hammasi":    list_reminders,
-        "📌 Kunlik":     habits_command,
-        "📊 Statistika": stats_command,
-        "🗑 O'chirish":  delete_reminder,
-        "❓ Yordam":     help_command,
-    }
-    handler = dispatch.get(text)
-    if handler:
-        await handler(update, context)
 
 
 def main() -> None:
@@ -80,7 +61,6 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(delete_callback, pattern="^del_"))
     app.add_handler(CallbackQueryHandler(habit_callback,  pattern="^habit"))
     app.add_handler(CallbackQueryHandler(habit_callback,  pattern="^habdel_"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_button_handler))
 
     print("Bot ishga tushdi! Toxtatish uchun Ctrl+C bosing.")
     app.run_polling(allowed_updates=Update.ALL_TYPES)

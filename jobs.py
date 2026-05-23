@@ -107,7 +107,23 @@ async def send_evening_report(bot) -> None:
 
 
 async def post_init(application) -> None:
-    from telegram.ext import Application
+    from telegram import BotCommand
+    commands = [
+        BotCommand("add",      "Yangi eslatma qo'shish"),
+        BotCommand("today",    "Bugungi eslatmalar"),
+        BotCommand("tomorrow", "Ertangi eslatmalar"),
+        BotCommand("week",     "Haftalik reja"),
+        BotCommand("list",     "Barcha eslatmalar"),
+        BotCommand("delete",   "Eslatma o'chirish"),
+        BotCommand("addr",     "Takrorlanuvchi eslatma"),
+        BotCommand("habits",   "Kunlik vazifalar"),
+        BotCommand("addhabit", "Yangi kunlik vazifa"),
+        BotCommand("delhabit", "Vazifa o'chirish"),
+        BotCommand("stats",    "Statistika"),
+        BotCommand("help",     "Yordam"),
+    ]
+    await application.bot.set_my_commands(commands)
+
     data = load_reminders()
     now  = datetime.now(TZ)
 
