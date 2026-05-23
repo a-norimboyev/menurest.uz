@@ -1,7 +1,19 @@
+# Environment
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Data
+reminders.json
+
+# Node
 node_modules/
 dist/
-.vscode/
-.env
 .DS_Store
-bot/.env
-backend/.env
