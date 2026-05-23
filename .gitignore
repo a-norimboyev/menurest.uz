@@ -12,6 +12,7 @@ env/
 
 # Data
 reminders.json
+habits.json
 
 # Node
 node_modules/
