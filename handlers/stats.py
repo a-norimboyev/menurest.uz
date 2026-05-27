@@ -4,6 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from data.habits import get_streak, get_user_habits, get_weekly_stats, load_habits
+from keyboards import MAIN_MENU
 
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -5,6 +5,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import ContextTypes
 
 from config import TZ, scheduler
+from keyboards import MAIN_MENU
 from data.reminders import (
     get_active_sorted,
     get_user_reminders,
