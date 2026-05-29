@@ -1,7 +1,19 @@
-from telegram import ReplyKeyboardRemove, Update
+from telegram import Update
 from telegram.ext import ContextTypes
 
 from config import MORNING_DIGEST_HOUR
+from handlers.ai_motivate import motivate_command
+from handlers.badges import badges_command
+from handlers.books import books_command
+from handlers.expense import budget_command
+from handlers.goals import goals_command
+from handlers.habits import habits_command
+from handlers.mood import mood_command
+from handlers.pomodoro import focus_command
+from handlers.reminders import delete_reminder, today_reminders
+from handlers.sleep import sleepstats_command
+from handlers.stats import stats_command
+from handlers.water import water_command
 from keyboards import MAIN_MENU
 
 
@@ -106,46 +118,28 @@ _MENU_MAP: dict[str, str] = {
     "❓ yordam":      "help",
 }
 
+_DISPATCH = {
+    "today":      today_reminders,
+    "habits":     habits_command,
+    "stats":      stats_command,
+    "mood":       mood_command,
+    "budget":     budget_command,
+    "goals":      goals_command,
+    "books":      books_command,
+    "sleepstats": sleepstats_command,
+    "water":      water_command,
+    "focus":      focus_command,
+    "badges":     badges_command,
+    "motivate":   motivate_command,
+    "delete":     delete_reminder,
+    "help":       help_command,
+}
+
 
 async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text = update.message.text.strip().lower()
-    cmd  = _MENU_MAP.get(text)
+    cmd = _MENU_MAP.get(update.message.text.strip().lower())
     if not cmd:
-        return  # boshqa matnlar e'tiborga olinmaydi
-
-    # Tegishli handler-ni chaqirish
-    from handlers.reminders import (
-        today_reminders, delete_reminder,
-    )
-    from handlers.habits  import habits_command
-    from handlers.stats   import stats_command
-    from handlers.mood    import mood_command
-    from handlers.expense import budget_command
-    from handlers.goals   import goals_command
-    from handlers.books   import books_command
-    from handlers.sleep   import sleepstats_command
-    from handlers.water   import water_command
-    from handlers.pomodoro import focus_command
-    from handlers.badges  import badges_command
-    from handlers.ai_motivate import motivate_command
-
-    dispatch = {
-        "today":      today_reminders,
-        "habits":     habits_command,
-        "stats":      stats_command,
-        "mood":       mood_command,
-        "budget":     budget_command,
-        "goals":      goals_command,
-        "books":      books_command,
-        "sleepstats": sleepstats_command,
-        "water":      water_command,
-        "focus":      focus_command,
-        "badges":     badges_command,
-        "motivate":   motivate_command,
-        "delete":     delete_reminder,
-        "help":       help_command,
-    }
-
-    handler = dispatch.get(cmd)
+        return
+    handler = _DISPATCH.get(cmd)
     if handler:
         await handler(update, context)

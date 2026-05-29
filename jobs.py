@@ -11,7 +11,7 @@ from config import (
     WEEKLY_REPORT_HOUR,
     scheduler,
 )
-from data.habits import get_streak, get_task_days_done, load_habits
+from data.habits import get_streak, get_task_days_done, get_weekly_stats, load_habits
 from data.mood import get_mood_avg, get_weekly_mood
 from data.expense import get_month_expenses, get_total
 from data.sleep import get_avg_sleep
@@ -174,23 +174,21 @@ async def send_evening_report(bot) -> None:
 
 async def send_weekly_report(bot) -> None:
     """Har yakshanba kechki haftalik xulosa."""
-    from data.habits import get_weekly_stats
-    from data.mood import get_weekly_mood
     from data.books import get_user_books
 
     habits_data = load_habits()
     for uid_str in habits_data:
         uid = int(uid_str)
         try:
-            streak  = get_streak(uid)
-            weekly  = get_weekly_stats(uid)
-            tasks   = habits_data.get(uid_str, {}).get("tasks", [])
-            if not tasks and not weekly:
+            streak = get_streak(uid)
+            weekly = get_weekly_stats(uid)
+            tasks  = habits_data.get(uid_str, {}).get("tasks", [])
+            if not tasks:
                 continue
 
-            total_pct  = sum(w["pct"] for w in weekly) / len(weekly) if weekly else 0
-            days_uz    = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"]
-            chart      = ""
+            total_pct = round(sum(w["pct"] for w in weekly) / len(weekly), 0) if weekly else 0
+            days_uz   = ["Du", "Se", "Ch", "Pa", "Ju", "Sh", "Ya"]
+            chart     = ""
             for w in weekly:
                 d        = datetime.strptime(w["date"], "%Y-%m-%d")
                 day_name = days_uz[d.weekday()]
@@ -198,13 +196,11 @@ async def send_weekly_report(bot) -> None:
                 bar      = "🟩" * blocks + "⬜" * (5 - blocks)
                 chart   += f"`{day_name}` {bar} {w['pct']}%\n"
 
-            # Kayfiyat o'rtachasi
+            # Kayfiyat o'rtachasi — bo'sh bo'lsa xato chiqmasin
             mood_weekly = get_weekly_mood(uid)
             mood_scores = [w["entry"]["score"] for w in mood_weekly if w["entry"]]
-            mood_line   = (
-                f"\n😊 Haftalik kayfiyat o'rtachasi: *{sum(mood_scores)/len(mood_scores):.1f}/5*"
-                if mood_scores else ""
-            )
+            mood_avg    = sum(mood_scores) / len(mood_scores) if mood_scores else None
+            mood_line   = f"\n😊 Haftalik kayfiyat o'rtachasi: *{mood_avg:.1f}/5*" if mood_avg else ""
 
             # Uyqu o'rtachasi
             avg_sleep = get_avg_sleep(uid)
@@ -301,6 +297,26 @@ async def post_init(application) -> None:
                     id=f"reminder_{uid}_{r['id']}",
                     replace_existing=True,
                 )
+
+    # Pomodoro taymerlarini tiklash
+    from handlers.pomodoro import _send_done, get_all_active
+    active_pomodoros = get_all_active()
+    for uid_str, entry in active_pomodoros.items():
+        uid      = int(uid_str)
+        end_time = datetime.fromisoformat(entry["end_time"])
+        minutes  = entry["minutes"]
+        if end_time > now:
+            scheduler.add_job(
+                _send_done, "date",
+                run_date=end_time,
+                args=[application.bot, uid, minutes],
+                id=f"pomodoro_{uid}",
+                replace_existing=True,
+            )
+        else:
+            # Vaqt o'tib ketgan — fayldan o'chirib yuboramiz
+            from handlers.pomodoro import _remove
+            _remove(uid)
 
     # Suv eslatmalarini tiklash
     water_users = get_all_enabled_users()
