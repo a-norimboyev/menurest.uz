@@ -10,14 +10,17 @@ __pycache__/
 venv/
 env/
 
-# Data
+# User data (JSON files)
 reminders.json
 habits.json
+mood.json
+expenses.json
+books.json
+water.json
+goals.json
+sleep.json
+achievements.json
 
-# Node
-node_modules/
-dist/
-
-# IDE / Tools
-.DS_Store
+# Tools
 .sixth/
+.DS_Store
