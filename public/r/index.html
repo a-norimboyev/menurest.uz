@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>QR Menyu</title>
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#ff5722">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/r/style.css">
+</head>
+<body>
+
+  <!-- Top bar: Stol raqami va Til tanlash -->
+  <header class="top-nav">
+    <div class="table-badge" id="tableBadge">
+      <i class="fa-solid fa-chair"></i>
+      <span id="tableText">Stol 1</span>
+    </div>
+    <div class="lang-selector">
+      <button class="lang-btn active" onclick="setLanguage('uz')">UZ</button>
+      <button class="lang-btn" onclick="setLanguage('ru')">RU</button>
+      <button class="lang-btn" onclick="setLanguage('en')">EN</button>
+    </div>
+  </header>
+
+  <!-- Restoran ma'lumotlari va banneri -->
+  <section class="restaurant-header">
+    <div class="banner-wrapper">
+      <img id="restBanner" class="banner-img" src="/images/default-banner.jpg" alt="Banner">
+    </div>
+    <div class="header-content">
+      <div class="logo-wrapper">
+        <img id="restLogo" class="restaurant-logo" src="/images/default-logo.png" alt="Logo">
+      </div>
+      <h1 id="restName" class="restaurant-title">Restoran Nomi</h1>
+      <p id="restDesc" class="restaurant-desc">Restoran tavsifi</p>
+      
+      <div class="restaurant-meta">
+        <div class="meta-item" id="restStatusWrapper">
+          <span id="restStatusDot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#10b981;"></span>
+          <span id="restStatusText">Ochiq</span>
+        </div>
+        <div class="meta-item" id="restWifiWrapper" style="display: none; cursor: pointer; background: #f0fdf4; border-color: #86efac;" onclick="copyWifiPassword()" title="Parolni nusxalash uchun bosing">
+          <i class="fa-solid fa-wifi" style="color: #16a34a;"></i>
+          <span id="restWifiText" style="color: #166534; font-weight: 700;">Wi-Fi</span>
+        </div>
+        <div class="meta-item" id="restPhoneWrapper">
+          <i class="fa-solid fa-phone"></i>
+          <span id="restPhone">+998 00 000-00-00</span>
+        </div>
+        <div class="meta-item" id="restAddressWrapper">
+          <i class="fa-solid fa-location-dot"></i>
+          <span id="restAddress">Toshkent sh.</span>
+        </div>
+      </div>
+
+      <!-- Tezkor tugmalar: Ofitsiant chaqirish va Hisob -->
+      <div class="quick-actions">
+        <button class="btn-action" onclick="callWaiter('waiter')">
+          <i class="fa-solid fa-bell"></i>
+          <span id="btnCallWaiterText">Ofitsiant</span>
+        </button>
+        <button class="btn-action" onclick="callWaiter('bill')">
+          <i class="fa-solid fa-receipt"></i>
+          <span id="btnRequestBillText">Hisob</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Jonli Buyurtma Kuzatuvchisi va Stol Hisobi (Mijoz uchun) -->
+  <div id="liveOrderTracker" style="display: none; margin: 12px 16px 0; padding: 12px 16px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 14px; align-items: center; justify-content: space-between; cursor: pointer; box-shadow: 0 4px 12px rgba(16,185,129,0.12);" onclick="openTableBillModal()">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div id="trackerIcon" style="width: 36px; height: 36px; border-radius: 50%; background: #22c55e; color: white; display: flex; align-items: center; justify-content: center; font-size: 16px;">
+        <i class="fa-solid fa-utensils"></i>
+      </div>
+      <div>
+        <div id="trackerTitle" style="font-size: 13px; font-weight: 800; color: #166534;">Buyurtma holati</div>
+        <div id="trackerDesc" style="font-size: 12px; color: #15803d;">Tayyorlanmoqda...</div>
+      </div>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-size: 11px; color: #475569;">Stol hisobi:</div>
+      <div id="trackerAmount" style="font-size: 14px; font-weight: 800; color: #166534;">0 so'm</div>
+    </div>
+  </div>
+
+  <!-- Qidiruv maydoni -->
+  <div class="search-container">
+    <div class="search-box">
+      <i class="fa-solid fa-magnifying-glass search-icon"></i>
+      <input type="text" id="searchInput" class="search-input" placeholder="Taom yoki ichimlik qidirish...">
+    </div>
+  </div>
+
+  <!-- Yopishqoq kategoriyalar navigatsiyasi -->
+  <nav class="categories-nav" id="categoriesNav">
+    <!-- JS orqali to'ldiriladi -->
+  </nav>
+
+  <!-- Asosiy menyu ro'yxati -->
+  <main class="menu-container" id="menuContainer">
+    <!-- JS orqali to'ldiriladi -->
+  </main>
+
+  <!-- Pastdagi qalqib chiquvchi savatcha paneli -->
+  <div class="bottom-cart-bar" id="bottomCartBar" onclick="openCartModal()">
+    <div class="cart-bar-content">
+      <div class="cart-bar-info">
+        <div class="cart-bar-count" id="cartBarCount">0</div>
+        <div class="cart-bar-price" id="cartBarPrice">0 so'm</div>
+      </div>
+      <div class="cart-bar-btn">
+        <span id="viewCartText">Savatcha</span>
+        <i class="fa-solid fa-chevron-right"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- Savatcha modali (Modal Sheet) -->
+  <div class="modal-overlay" id="cartModal" onclick="closeModalOnOverlay(event, 'cartModal')">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="modal-title" id="cartModalTitle">Sizning buyurtmangiz</h3>
+        <button class="btn-close-modal" onclick="closeCartModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="cartModalBody">
+        <!-- Savatcha elementlari -->
+      </div>
+      <div class="modal-footer" id="cartModalFooter">
+        <button class="btn-primary" onclick="submitOrder()">
+          <i class="fa-solid fa-check"></i>
+          <span id="btnOrderNowText">Buyurtma berish</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Taom tafsilotlari modali -->
+  <div class="modal-overlay" id="dishModal" onclick="closeModalOnOverlay(event, 'dishModal')">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalDishName">Taom nomi</h3>
+        <button class="btn-close-modal" onclick="closeDishModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div style="width: 100%; height: 220px; border-radius: 12px; overflow: hidden; margin-bottom: 14px;">
+          <img id="modalDishImg" src="" style="width: 100%; height: 100%; object-fit: cover;" alt="Dish">
+        </div>
+        <p id="modalDishDesc" style="font-size: 14px; color: var(--gray-600); margin-bottom: 16px; line-height: 1.5;"></p>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span id="modalDishPrice" style="font-size: 20px; font-weight: 800; color: var(--primary);"></span>
+          <span id="modalDishWeight" style="font-size: 13px; color: var(--gray-400);"></span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="modalAddBtn" onclick="addCurrentModalDish()">
+          <i class="fa-solid fa-plus"></i>
+          <span id="modalAddBtnText">Savatchaga qo'shish</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stol hisob-kitobi va buyurtmalar tarixi modali -->
+  <div class="modal-overlay" id="tableBillModal" onclick="closeModalOnOverlay(event, 'tableBillModal')">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fa-solid fa-receipt" style="color: var(--primary);"></i> Stol Hisobi</h3>
+        <button class="btn-close-modal" onclick="closeTableBillModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" id="tableBillModalBody">
+        <!-- JS orqali to'ldiriladi -->
+      </div>
+      <div class="modal-footer" style="flex-direction: column; gap: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%;">
+          <button type="button" class="btn-primary" style="background: #0284c7; padding: 12px 8px; font-size: 13px;" onclick="openOnlinePayModal('click')">
+            <i class="fa-solid fa-mobile-screen"></i> Click To'lov
+          </button>
+          <button type="button" class="btn-primary" style="background: #059669; padding: 12px 8px; font-size: 13px;" onclick="openOnlinePayModal('payme')">
+            <i class="fa-solid fa-credit-card"></i> Payme To'lov
+          </button>
+        </div>
+        <button class="btn-primary" style="background: var(--gray-600);" onclick="callWaiter('bill')">
+          <i class="fa-solid fa-receipt"></i>
+          <span>Ofitsiantdan Chek So'rash</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Online To'lov Modali (Click / Payme) -->
+  <div class="modal-overlay" id="onlinePayModal" onclick="closeModalOnOverlay(event, 'onlinePayModal')">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="modal-title" id="onlinePayTitle">Online To'lov</h3>
+        <button class="btn-close-modal" onclick="closeOnlinePayModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 20px 16px;">
+        <div id="onlinePayIcon" style="font-size: 44px; color: #0284c7; margin-bottom: 10px;">
+          <i class="fa-solid fa-wallet"></i>
+        </div>
+        <div style="font-size: 13px; color: var(--gray-600);">To'lov miqdori:</div>
+        <div id="onlinePayAmount" style="font-size: 26px; font-weight: 900; color: #16a34a; margin: 4px 0 16px;">0 so'm</div>
+
+        <div style="background: var(--gray-100); padding: 14px; border-radius: 12px; margin-bottom: 16px; text-align: left; font-size: 13px;">
+          <div style="display:flex; justify-content:space-between; margin-bottom: 4px;">
+            <span>Stol raqami:</span>
+            <b id="onlinePayTable">Stol 1</b>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <span>To'lov tizimi:</span>
+            <b id="onlinePayProvider">Click</b>
+          </div>
+        </div>
+
+        <p style="font-size: 12px; color: var(--gray-400); margin-bottom: 16px;">
+          To'lov tasdiqlangach, stol hisobi avtomatik yopiladi va kassa cheki shakllanadi.
+        </p>
+
+        <button type="button" class="btn-primary" id="btnConfirmOnlinePay" style="width: 100%; padding: 14px;" onclick="confirmOnlinePayment()">
+          <i class="fa-solid fa-check"></i> To'lovni Tasdiqlash
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fikr-Mulohaza va Reyting Modali (NPS) -->
+  <div class="modal-overlay" id="ratingModal" onclick="closeModalOnOverlay(event, 'ratingModal')">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h3 class="modal-title">Fikr-mulohaza qoldiring</h3>
+        <button class="btn-close-modal" onclick="closeRatingModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="text-align: center; padding: 20px 16px;">
+        <p style="font-size: 14px; color: var(--gray-600); margin-bottom: 14px;">
+          Xizmat va taomlarimiz sifatini baholang:
+        </p>
+        <div style="display: flex; justify-content: center; gap: 8px; font-size: 32px; cursor: pointer; margin-bottom: 16px;">
+          <span class="star-btn" onclick="setRatingStar(1)">⭐</span>
+          <span class="star-btn" onclick="setRatingStar(2)">⭐</span>
+          <span class="star-btn" onclick="setRatingStar(3)">⭐</span>
+          <span class="star-btn" onclick="setRatingStar(4)">⭐</span>
+          <span class="star-btn" onclick="setRatingStar(5)">⭐</span>
+        </div>
+        <input type="hidden" id="ratingValue" value="5">
+
+        <textarea id="ratingComment" class="cart-notes" rows="3" placeholder="Fikringiz yoki takliflaringizni yozib qoldiring..."></textarea>
+
+        <button type="button" class="btn-primary" style="margin-top: 14px; width: 100%;" onclick="submitRating()">
+          <i class="fa-solid fa-paper-plane"></i> Fikrni yuborish
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skriptlar -->
+  <script src="/r/i18n.js"></script>
+  <script src="/r/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW error:', err));
+      });
+    }
+  </script>
+</body>
+</html>
