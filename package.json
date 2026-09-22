@@ -1,0 +1,19 @@
+{
+  "name": "qr-menyu-platform",
+  "version": "1.0.0",
+  "description": "Ko'p restoranli zamonaviy QR Menyu SaaS platformasi",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js"
+  },
+  "keywords": ["qr-menu", "restaurant", "multi-tenant", "express", "nodejs"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "qrcode": "^1.5.3"
+  }
+}
