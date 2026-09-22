@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/admin/admin.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/admin/admin-i18n.js"></script>
 </head>
 <body>
 
@@ -136,14 +137,21 @@
           <h2 class="page-title" id="pageTitle" style="margin: 0;">Jonli Buyurtmalar</h2>
         </div>
         <div class="topbar-actions" style="display: flex; align-items: center; gap: 12px;">
+          <!-- Til Tanlash Switcher -->
+          <div style="display: flex; align-items: center; gap: 4px; background: #fff; padding: 4px 6px; border-radius: 10px; border: 1.5px solid var(--gray-300);">
+            <button type="button" class="admin-lang-btn active" data-lang="uz" onclick="setAdminLanguage('uz')">UZ</button>
+            <button type="button" class="admin-lang-btn" data-lang="ru" onclick="setAdminLanguage('ru')">RU</button>
+            <button type="button" class="admin-lang-btn" data-lang="en" onclick="setAdminLanguage('en')">EN</button>
+          </div>
+
           <!-- Tezkor Rol Almashtirgich -->
           <div style="display: flex; align-items: center; gap: 6px; background: #fff; padding: 4px 10px; border-radius: 10px; border: 1.5px solid var(--gray-300);">
-            <span style="font-size: 12px; font-weight: 700; color: var(--gray-600);"><i class="fa-solid fa-user-shield" style="color:var(--primary);"></i> Rol:</span>
+            <span id="lblRoleTitle" style="font-size: 12px; font-weight: 700; color: var(--gray-600);"><i class="fa-solid fa-user-shield" style="color:var(--primary);"></i> Rol:</span>
             <select id="topRoleSwitcher" class="form-control" style="width: auto; padding: 4px 8px; font-size: 13px; font-weight: 700; border: none; background: transparent; cursor: pointer;" onchange="switchRole(this.value)">
-              <option value="manager">👔 Menejer</option>
-              <option value="boss">📈 Boshliq</option>
-              <option value="cashier">💳 Kassa</option>
-              <option value="waiter">🛎️ Ofitsiant</option>
+              <option value="manager" id="optRoleManager">👔 Menejer</option>
+              <option value="boss" id="optRoleBoss">📈 Boshliq</option>
+              <option value="cashier" id="optRoleCashier">💳 Kassa</option>
+              <option value="waiter" id="optRoleWaiter">🛎️ Ofitsiant</option>
             </select>
           </div>
 

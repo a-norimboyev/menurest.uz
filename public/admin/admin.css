@@ -573,3 +573,24 @@ body {
   border-color: var(--primary);
 }
 
+/* Admin Til Tanlash Tugmalari */
+.admin-lang-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.admin-lang-btn:hover {
+  color: var(--primary);
+  background: var(--gray-100);
+}
+.admin-lang-btn.active {
+  background: var(--primary);
+  color: white;
+}
+
