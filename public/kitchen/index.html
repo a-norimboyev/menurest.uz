@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oshxona Ekrani (KDS) - QR Menyu</title>
+  <link rel="icon" type="image/png" href="/images/logo.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#090d16">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/kitchen/kitchen.css">
+</head>
+<body>
+
+  <!-- KDS Topbar -->
+  <header class="kds-topbar">
+    <div class="kds-brand">
+      <img id="kdsLogo" src="/images/logo.png" alt="Logo" class="kds-logo">
+      <div>
+        <div class="kds-title" id="kdsRestName">Oshxona Ekrani (KDS)</div>
+        <div class="kds-subtitle">Jonli Buyurtmalar Chiptalari</div>
+      </div>
+    </div>
+
+    <div class="kds-stats">
+      <div class="stat-badge">
+        <i class="fa-solid fa-fire-burner"></i>
+        <span>Faol chiptalar: <b id="activeTicketsCount">0</b></span>
+      </div>
+      <div class="clock-badge" id="kdsClock">00:00:00</div>
+    </div>
+
+    <div class="kds-actions">
+      <button class="kds-btn-icon" id="btnSoundToggle" onclick="toggleSound()" title="Ovozni yoqish/o'chirish">
+        <i class="fa-solid fa-volume-high"></i>
+      </button>
+      <button class="kds-btn-icon" onclick="toggleFullscreen()" title="To'liq ekran">
+        <i class="fa-solid fa-expand"></i>
+      </button>
+      <a href="/admin" class="kds-btn-exit" title="Boshqaruv paneliga qaytish">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i> Admin
+      </a>
+    </div>
+  </header>
+
+  <!-- Chiptalar filtri -->
+  <div class="kds-filters">
+    <button class="filter-chip active" onclick="setKdsFilter('active', this)">
+      <i class="fa-solid fa-fire"></i> Faol chiptalar (<span id="countActive">0</span>)
+    </button>
+    <button class="filter-chip" onclick="setKdsFilter('new', this)">
+      <i class="fa-solid fa-clock"></i> Yangi (<span id="countNew">0</span>)
+    </button>
+    <button class="filter-chip" onclick="setKdsFilter('preparing', this)">
+      <i class="fa-solid fa-utensils"></i> Tayyorlanmoqda (<span id="countPrep">0</span>)
+    </button>
+    <button class="filter-chip" onclick="setKdsFilter('ready', this)">
+      <i class="fa-solid fa-circle-check"></i> Bugun tayyorlangan (<span id="countReady">0</span>)
+    </button>
+  </div>
+
+  <!-- Chiptalar Setkasi -->
+  <main class="kds-main">
+    <div class="tickets-grid" id="ticketsGrid">
+      <!-- JS orqali chiptalar chiqadi -->
+    </div>
+  </main>
+
+  <script src="/kitchen/kitchen.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW error:', err));
+      });
+    }
+  </script>
+</body>
+</html>
