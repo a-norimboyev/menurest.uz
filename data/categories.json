@@ -1,0 +1,65 @@
+[
+  {
+    "id": "mubesmvd8k8r0",
+    "restaurantId": "mubesmv83xt4t",
+    "nameUz": "Milliy Taomlar",
+    "nameRu": "Национальные блюда",
+    "nameEn": "National Dishes",
+    "icon": "fa-solid fa-bowl-rice",
+    "sortOrder": 1
+  },
+  {
+    "id": "mubesmverjx33",
+    "restaurantId": "mubesmv83xt4t",
+    "nameUz": "Shashlik & Kaboblar",
+    "nameRu": "Шашлыки",
+    "nameEn": "Barbecue & Kebabs",
+    "icon": "fa-solid fa-fire-burner",
+    "sortOrder": 2
+  },
+  {
+    "id": "mubesmvf06m9v",
+    "restaurantId": "mubesmv83xt4t",
+    "nameUz": "Salatlar",
+    "nameRu": "Салаты",
+    "nameEn": "Salads",
+    "icon": "fa-solid fa-carrot",
+    "sortOrder": 3
+  },
+  {
+    "id": "mubesmvfnqeye",
+    "restaurantId": "mubesmv83xt4t",
+    "nameUz": "Ichimliklar",
+    "nameRu": "Напитки",
+    "nameEn": "Drinks",
+    "icon": "fa-solid fa-mug-hot",
+    "sortOrder": 4
+  },
+  {
+    "id": "mubesmvmazvre",
+    "restaurantId": "mubesmvl24qqi",
+    "nameUz": "Burgerlar & Sendvichlar",
+    "nameRu": "Бургеры и Сэндвичи",
+    "nameEn": "Burgers & Sandwiches",
+    "icon": "fa-solid fa-burger",
+    "sortOrder": 1
+  },
+  {
+    "id": "mubesmvm9075w",
+    "restaurantId": "mubesmvl24qqi",
+    "nameUz": "Lavash & Doner",
+    "nameRu": "Лаваш и Донер",
+    "nameEn": "Lavash & Shawarma",
+    "icon": "fa-solid fa-bread-slice",
+    "sortOrder": 2
+  },
+  {
+    "id": "mubesmvnpgfk4",
+    "restaurantId": "mubesmvl24qqi",
+    "nameUz": "Muzdek Ichimliklar",
+    "nameRu": "Прохладительные напитки",
+    "nameEn": "Cold Drinks",
+    "icon": "fa-solid fa-bottle-water",
+    "sortOrder": 3
+  }
+]
