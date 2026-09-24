@@ -26,9 +26,36 @@ function getParams() {
 
 const { slug, table } = getParams();
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // Raqamlarni chiroyli formatlash (masalan 38000 -> 38 000)
 function formatMoney(amount) {
   return amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
+let tableSocket = null;
+function initTableSocket() {
+  if (!restaurant) return;
+  if (tableSocket) {
+    tableSocket.disconnect();
+    tableSocket = null;
+  }
+  if (typeof io !== 'undefined') {
+    tableSocket = io();
+    tableSocket.emit('join:table', { restaurantId: restaurant.id, tableNumber: Number(table) });
+
+    tableSocket.on('order:created', () => { checkTableOrders(); });
+    tableSocket.on('order:status_updated', () => { checkTableOrders(); });
+    tableSocket.on('orders:paid', () => { checkTableOrders(); });
+  }
 }
 
 // Boshlang'ich yuklash
@@ -56,6 +83,7 @@ async function init() {
 
     renderAll();
     setupEventListeners();
+    initTableSocket();
   } catch (err) {
     console.error("Ma'lumotlarni yuklashda xatolik:", err);
   }
@@ -821,6 +849,6 @@ window.closeTableBillModal = closeTableBillModal;
 window.renderAll = renderAll;
 init();
 checkTableOrders();
-setInterval(checkTableOrders, 5000);
+setInterval(checkTableOrders, 20000);
 
 

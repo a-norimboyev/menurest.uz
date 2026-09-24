@@ -6,7 +6,8 @@
     "nameRu": "Национальные блюда",
     "nameEn": "National Dishes",
     "icon": "fa-solid fa-bowl-rice",
-    "sortOrder": 1
+    "sortOrder": 10,
+    "isActive": true
   },
   {
     "id": "mubesmverjx33",
@@ -15,7 +16,7 @@
     "nameRu": "Шашлыки",
     "nameEn": "Barbecue & Kebabs",
     "icon": "fa-solid fa-fire-burner",
-    "sortOrder": 2
+    "sortOrder": 20
   },
   {
     "id": "mubesmvf06m9v",
@@ -24,7 +25,7 @@
     "nameRu": "Салаты",
     "nameEn": "Salads",
     "icon": "fa-solid fa-carrot",
-    "sortOrder": 3
+    "sortOrder": 30
   },
   {
     "id": "mubesmvfnqeye",
@@ -33,7 +34,7 @@
     "nameRu": "Напитки",
     "nameEn": "Drinks",
     "icon": "fa-solid fa-mug-hot",
-    "sortOrder": 4
+    "sortOrder": 40
   },
   {
     "id": "mubesmvmazvre",

@@ -100,5 +100,128 @@
     "waiterAction": null,
     "createdAt": "2026-09-22T08:11:30.135Z",
     "updatedAt": "2026-09-22T08:11:54.372Z"
+  },
+  {
+    "id": "ORD-738248",
+    "restaurantId": "mubesmv83xt4t",
+    "tableNumber": 1,
+    "items": [],
+    "subtotal": 0,
+    "serviceFee": 0,
+    "totalPrice": 0,
+    "status": "delivered",
+    "type": "call_waiter",
+    "note": "Mijoz ofitsiantni chaqirmoqda",
+    "paymentStatus": "unpaid",
+    "paymentMethod": null,
+    "receiptId": null,
+    "paidAt": null,
+    "waiterAction": "acknowledged",
+    "createdAt": "2026-09-22T10:30:03.317Z",
+    "waiterName": "Ofitsiant",
+    "updatedAt": "2026-09-22T11:00:38.291Z"
+  },
+  {
+    "id": "ORD-456906",
+    "restaurantId": "mubesmv83xt4t",
+    "tableNumber": 1,
+    "items": [],
+    "subtotal": 0,
+    "serviceFee": 0,
+    "totalPrice": 0,
+    "status": "delivered",
+    "type": "call_waiter",
+    "note": "Mijoz ofitsiantni chaqirmoqda",
+    "paymentStatus": "unpaid",
+    "paymentMethod": null,
+    "receiptId": null,
+    "paidAt": null,
+    "waiterAction": "acknowledged",
+    "createdAt": "2026-09-23T06:13:54.885Z",
+    "waiterName": "Ofitsiant",
+    "updatedAt": "2026-09-24T06:17:43.831Z"
+  },
+  {
+    "id": "ORD-684509",
+    "restaurantId": "mubesmv83xt4t",
+    "tableNumber": 5,
+    "items": [
+      {
+        "id": "test1",
+        "name": "Osh",
+        "price": 38000,
+        "quantity": 2
+      }
+    ],
+    "subtotal": 76000,
+    "serviceFee": 7600,
+    "totalPrice": 83600,
+    "status": "ready",
+    "type": "order",
+    "note": "Iltimos piyoz bilan bo'lsin",
+    "paymentStatus": "unpaid",
+    "paymentMethod": null,
+    "receiptId": null,
+    "paidAt": null,
+    "waiterAction": null,
+    "createdAt": "2026-09-24T05:09:20.459Z",
+    "updatedAt": "2026-09-24T06:34:38.009Z"
+  },
+  {
+    "id": "ORD-281120",
+    "restaurantId": "mubesmv83xt4t",
+    "tableNumber": 1,
+    "items": [
+      {
+        "id": "test-item-1",
+        "name": "Osh",
+        "price": 35000,
+        "quantity": 2
+      }
+    ],
+    "subtotal": 70000,
+    "serviceFee": 7000,
+    "totalPrice": 77000,
+    "status": "cooking",
+    "type": "order",
+    "note": "Iltimos, piyozsiz bo'lsin",
+    "paymentStatus": "unpaid",
+    "paymentMethod": null,
+    "receiptId": null,
+    "paidAt": null,
+    "waiterAction": null,
+    "createdAt": "2026-09-24T05:31:24.206Z",
+    "updatedAt": "2026-09-24T05:31:24.218Z"
+  },
+  {
+    "id": "ORD-757737",
+    "restaurantId": "mubesmv83xt4t",
+    "tableNumber": 1,
+    "items": [
+      {
+        "id": "mubesmvkvnpu9",
+        "name": "Ko'k Choy (Choynakda)",
+        "price": 6000,
+        "quantity": 5
+      },
+      {
+        "id": "mubesmvhwzezw",
+        "name": "Uyg'ur Lag'mon",
+        "price": 36000,
+        "quantity": 1
+      }
+    ],
+    "subtotal": 66000,
+    "serviceFee": 6600,
+    "totalPrice": 72600,
+    "status": "new",
+    "type": "order",
+    "note": "",
+    "paymentStatus": "unpaid",
+    "paymentMethod": null,
+    "receiptId": null,
+    "paidAt": null,
+    "waiterAction": null,
+    "createdAt": "2026-09-24T06:37:07.869Z"
   }
 ]

@@ -11,7 +11,36 @@
 </head>
 <body>
 
-  <div class="super-layout">
+  <!-- Super Admin Kirish (Login) Oynasi -->
+  <div class="auth-wrapper" id="superAuthWrapper" style="display: flex;">
+    <div class="auth-card" style="max-width: 400px; width: 100%;">
+      <img src="/images/logo.png" alt="Logo" style="width: 70px; height: 70px; border-radius: 16px; margin-bottom: 12px; object-fit: contain;">
+      <h2 class="auth-title">Super Admin Kirish</h2>
+      <p class="auth-subtitle">Platformani boshqarish uchun tizimga kiring</p>
+      
+      <form id="superLoginForm" onsubmit="handleSuperLogin(event)">
+        <div class="form-group">
+          <label class="form-label">Login</label>
+          <input type="text" id="superLoginUser" class="form-control" placeholder="admin" value="admin" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Parol</label>
+          <input type="password" id="superLoginPass" class="form-control" placeholder="admin123" value="admin123" required>
+        </div>
+        <button type="submit" class="btn-submit" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+          <i class="fa-solid fa-shield-halved"></i> Xavfsiz Kirish
+        </button>
+      </form>
+      <div style="margin-top: 20px; font-size: 13px;">
+        <a href="/" style="color: var(--primary); text-decoration: none; font-weight: 600;">
+          <i class="fa-solid fa-arrow-left"></i> Asosiy saytga qaytish
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Super Admin Asosiy Paneli (Login qilgandan keyin ko'rinadi) -->
+  <div class="super-layout" id="superLayout" style="display: none;">
     <aside class="super-sidebar">
       <div class="super-logo">
         <img src="/images/logo.png" alt="Logo" style="width: 36px; height: 36px; border-radius: 8px; object-fit: cover;">
@@ -31,15 +60,24 @@
           <i class="fa-solid fa-kitchen-set"></i>
           <span>Restoran Admini</span>
         </a>
+        <a class="super-nav-link" href="#leadsSection" onclick="showLeads()">
+          <i class="fa-solid fa-envelope-open-text"></i>
+          <span>Arizalar</span>
+        </a>
       </nav>
     </aside>
 
     <main class="super-main">
-      <header class="super-topbar">
+      <header class="super-topbar" style="display: flex; justify-content: space-between; align-items: center;">
         <h2 style="font-size: 20px; font-weight: 800;">Platforma Boshqaruvi</h2>
-        <button class="btn-primary-super" onclick="openAddRestModal()">
-          <i class="fa-solid fa-plus"></i> Yangi Restoran Qo'shish
-        </button>
+        <div style="display: flex; gap: 10px; align-items: center;">
+          <button class="btn-primary-super" onclick="openAddRestModal()">
+            <i class="fa-solid fa-plus"></i> Yangi Restoran Qo'shish
+          </button>
+          <button onclick="handleSuperLogout()" style="background: #fee2e2; color: #ef4444; border: 1px solid #fca5a5; padding: 10px 14px; border-radius: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+            <i class="fa-solid fa-right-from-bracket"></i> Chiqish
+          </button>
+        </div>
       </header>
 
       <div class="super-content">
@@ -60,52 +98,94 @@
             </div>
           </div>
           <div class="stat-card">
-            <div class="stat-icon orders"><i class="fa-solid fa-receipt"></i></div>
+            <div class="stat-icon order"><i class="fa-solid fa-receipt"></i></div>
             <div>
               <div class="stat-value" id="statOrdersCount">0</div>
               <div class="stat-label">Jami Buyurtmalar</div>
             </div>
           </div>
+          <div class="stat-card">
+            <div class="stat-icon lead"><i class="fa-solid fa-paper-plane"></i></div>
+            <div>
+              <div class="stat-value" id="statLeadsCount">0</div>
+              <div class="stat-label">Yangi Arizalar</div>
+            </div>
+          </div>
         </div>
 
-        <!-- Restoranlar jadvali -->
-        <div class="card-table">
-          <table class="super-table">
-            <thead>
-              <tr>
-                <th>Logotip</th>
-                <th>Restoran Nomi</th>
-                <th>Slug (Havola)</th>
-                <th>Telefon</th>
-                <th>Stollar</th>
-                <th>Taomlar</th>
-                <th>Holat</th>
-                <th style="text-align: right;">Amallar</th>
-              </tr>
-            </thead>
-            <tbody id="superRestTableBody">
-              <!-- JS orqali to'ldiriladi -->
-            </tbody>
-          </table>
+        <!-- Restoranlar ro'yxati -->
+        <div class="table-card">
+          <div class="card-header">
+            <h3>Barcha Restoranlar</h3>
+            <div class="search-box">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="restSearch" placeholder="Restoran qidirish..." oninput="filterRestaurants()">
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="super-table">
+              <thead>
+                <tr>
+                  <th>Logotip</th>
+                  <th>Nomi</th>
+                  <th>Slug (Havola)</th>
+                  <th>Telefon</th>
+                  <th>Taomlar</th>
+                  <th>Buyurtmalar</th>
+                  <th>Holati</th>
+                  <th>Amallar</th>
+                </tr>
+              </thead>
+              <tbody id="superRestTableBody">
+                <!-- Dinamik to'ldiriladi -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Arizalar ro'yxati (Leads) -->
+        <div class="table-card" id="leadsSection" style="margin-top: 30px;">
+          <div class="card-header">
+            <h3>Mijozlar Arizalari (Demo va Ulanish so'rovlari)</h3>
+            <button class="btn-action" style="padding: 6px 14px; font-size: 13px;" onclick="loadLeads()">
+              <i class="fa-solid fa-rotate-right"></i> Yangilash
+            </button>
+          </div>
+          <div class="table-responsive">
+            <table class="super-table">
+              <thead>
+                <tr>
+                  <th>Restoran</th>
+                  <th>Mas'ul shaxs</th>
+                  <th>Telefon</th>
+                  <th>Tarif</th>
+                  <th>Xabar</th>
+                  <th>Vaqt</th>
+                </tr>
+              </thead>
+              <tbody id="leadsTableBody">
+                <!-- Dinamik to'ldiriladi -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </main>
   </div>
 
-  <!-- Yangi restoran qo'shish / tahrirlash modali -->
-  <div class="modal-overlay" id="restModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center;">
-    <div style="background: white; border-radius: 16px; padding: 26px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-        <h3 id="restModalTitle" style="font-size: 18px; font-weight: 800;">Yangi Restoran Ochish</h3>
-        <button class="btn-icon" onclick="closeAddRestModal()"><i class="fa-solid fa-xmark"></i></button>
+  <!-- Restoran qo'shish modali -->
+  <div class="modal-overlay" id="addRestModal" onclick="closeModalOnOverlay(event)">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalRestTitle">Yangi Restoran Qo'shish</h3>
+        <button class="btn-close" onclick="closeAddRestModal()">&times;</button>
       </div>
-
-      <form id="addRestForm" onsubmit="saveRestaurant(event)">
-        <input type="hidden" id="restEditId">
+      <form id="addRestForm" onsubmit="handleSaveRestaurant(event)">
+        <input type="hidden" id="editRestId">
         
         <div class="form-group">
           <label class="form-label">Restoran Nomi *</label>
-          <input type="text" id="restNameInput" class="form-control" placeholder="Masalan: Rayhon Milliy Taomlar" required oninput="autoGenerateSlug(this.value)">
+          <input type="text" id="restNameInput" class="form-control" placeholder="masalan: Caravan Milliy Taomlar" required oninput="generateSlug()">
         </div>
 
         <div class="form-group">

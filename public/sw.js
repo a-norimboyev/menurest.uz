@@ -1,7 +1,9 @@
 // Service Worker for QR Menyu PWA
-const CACHE_NAME = 'qrmenu-v1';
+const CACHE_NAME = 'qrmenu-v2';
 const ASSETS_TO_CACHE = [
   '/',
+  '/css/landing.css',
+  '/js/landing.js',
   '/favicon.png',
   '/images/logo.png',
   '/manifest.json'

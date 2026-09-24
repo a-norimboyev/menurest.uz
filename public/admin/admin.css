@@ -150,6 +150,37 @@ body {
   background: var(--white);
 }
 
+.sidebar-avatar-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+.sidebar-avatar-box.role-boss {
+  background: linear-gradient(135deg, #f59e0b 0%, #b45309 100%);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+.sidebar-avatar-box.role-manager {
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+.sidebar-avatar-box.role-cashier {
+  background: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+.sidebar-avatar-box.role-waiter {
+  background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.4);
+}
+
 .sidebar-brand {
   font-size: 16px;
   font-weight: 700;
@@ -458,72 +489,254 @@ body {
   border-color: #fca5a5;
 }
 
-/* QR Code Stickers (Print View) */
+/* QR Code Stickers (Print View & Themes) */
 .qr-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 20px;
 }
 
 .qr-card {
-  background: var(--white);
-  border: 2px solid var(--gray-200);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: 20px 16px;
   text-align: center;
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+}
+
+.qr-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* 1. Klassik Oq tema */
+.qr-card.theme-classic {
+  background: var(--white);
+  border: 2px solid var(--gray-200);
+  color: var(--gray-900);
+}
+.qr-card.theme-classic .qr-rest-title {
+  color: var(--gray-800);
+}
+.qr-card.theme-classic .qr-table-badge {
+  color: var(--primary);
+  background: var(--primary-light);
+  border: 1px solid rgba(249, 115, 22, 0.2);
+}
+
+/* 2. Premium Qora tema */
+.qr-card.theme-dark {
+  background: linear-gradient(145deg, #18181b 0%, #09090b 100%);
+  border: 2px solid #eab308;
+  color: #f8fafc;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+}
+.qr-card.theme-dark .qr-rest-title {
+  color: #fef08a;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.qr-card.theme-dark .qr-table-badge {
+  color: #facc15;
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.4);
+}
+.qr-card.theme-dark .qr-instruction {
+  color: #cbd5e1;
+}
+.qr-card.theme-dark .qr-wifi-box {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #e2e8f0;
+}
+.qr-card.theme-dark .qr-action-btn {
+  background: #27272a;
+  color: #e4e4e7;
+  border-color: #3f3f46;
+}
+.qr-card.theme-dark .qr-action-btn:hover {
+  background: #eab308;
+  color: #09090b;
+  border-color: #eab308;
+}
+
+/* 3. T-Stand / Akril tema */
+.qr-card.theme-tstand {
+  background: var(--white);
+  border: 3px double #0f172a;
+  border-radius: 4px;
+  padding: 24px 18px;
+  color: #0f172a;
+}
+.qr-card.theme-tstand .qr-rest-title {
+  font-family: serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.qr-card.theme-tstand .qr-table-badge {
+  color: #0f172a;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  font-family: serif;
+}
+
+/* Umumiy elementlar */
+.qr-zone-pill {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  letter-spacing: 0.5px;
+  display: inline-block;
+}
+.qr-zone-pill.zone-main {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.qr-zone-pill.zone-terrace {
+  background: #dcfce7;
+  color: #15803d;
+}
+.qr-zone-pill.zone-vip {
+  background: #fef3c7;
+  color: #b45309;
 }
 
 .qr-rest-title {
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 4px;
+  font-size: 15px;
+  font-weight: 800;
+  margin-bottom: 6px;
+  line-height: 1.2;
 }
 
 .qr-table-badge {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 900;
-  color: var(--primary);
+  padding: 4px 14px;
+  border-radius: 8px;
   margin-bottom: 12px;
+  letter-spacing: 0.5px;
 }
 
 .qr-image {
   width: 160px;
   height: 160px;
   margin-bottom: 10px;
+  border-radius: 8px;
+  background: white;
+  padding: 4px;
 }
 
 .qr-instruction {
   font-size: 11px;
   color: var(--gray-600);
   text-transform: uppercase;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.5px;
+}
+
+.qr-wifi-box {
+  margin-top: 10px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.qr-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(150, 150, 150, 0.25);
+  width: 100%;
+}
+
+.qr-action-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--gray-300);
+  background: var(--white);
+  color: var(--gray-700);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.qr-action-btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+  transform: scale(1.05);
 }
 
 /* Print Specific CSS */
 @media print {
   body {
-    background: white;
+    background: white !important;
   }
-  .sidebar, .admin-topbar, .no-print {
+  .sidebar, .admin-topbar, .no-print, .qr-card-actions {
     display: none !important;
   }
   .content-body {
-    padding: 0;
+    padding: 0 !important;
   }
   .qr-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 15px !important;
   }
   .qr-card {
-    page-break-inside: avoid;
-    border: 2px dashed #94a3b8;
-    box-shadow: none;
+    page-break-inside: avoid !important;
+    border: 2px dashed #64748b !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+  .qr-card.theme-dark {
+    background: white !important;
+    color: black !important;
+    border: 2px dashed black !important;
+  }
+  .qr-card.theme-dark .qr-rest-title {
+    color: black !important;
+    text-shadow: none !important;
+  }
+  .qr-card.theme-dark .qr-table-badge {
+    color: black !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+  .qr-card.theme-dark .qr-instruction {
+    color: #475569 !important;
+  }
+  .qr-card.theme-dark .qr-wifi-box {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+    color: #0f172a !important;
+  }
+  .print-selected-only .qr-card:not(.print-include) {
+    display: none !important;
   }
 }
 
@@ -550,8 +763,8 @@ body {
   border-color: var(--primary);
 }
 
-/* Boss Panel Davr Tanlash Tugmalari */
-.boss-period-btn {
+/* Boss Panel va Taomlar Reytingi Davr Tanlash Tugmalari */
+.boss-period-btn, .dish-period-btn {
   padding: 6px 14px;
   border: 1px solid var(--gray-300);
   background: var(--white);
@@ -562,12 +775,12 @@ body {
   transition: all 0.2s;
   color: var(--gray-600);
 }
-.boss-period-btn:hover {
+.boss-period-btn:hover, .dish-period-btn:hover {
   border-color: var(--primary);
   color: var(--primary);
   background: var(--gray-100);
 }
-.boss-period-btn.active {
+.boss-period-btn.active, .dish-period-btn.active {
   background: var(--primary);
   color: white;
   border-color: var(--primary);
@@ -593,4 +806,191 @@ body {
   background: var(--primary);
   color: white;
 }
+
+/* Admin Theme Toggle Tugmasi (Qora / Oq rejim) */
+.admin-theme-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1.5px solid var(--gray-300);
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.admin-theme-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.08);
+}
+
+/* =========================================================
+   DARK THEME (QORA / TUNGI REJIM)
+========================================================= */
+body.dark-theme {
+  --primary-light: #431407;
+  --sidebar-bg: #090d16;
+  --sidebar-hover: #151d2f;
+  --dark: #f8fafc;
+  --gray-100: #101726;
+  --gray-200: #1e293b;
+  --gray-300: #334155;
+  --gray-400: #94a3b8;
+  --gray-600: #cbd5e1;
+  --white: #151d2e;
+  --shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+  background-color: #0b0f19;
+  color: #f1f5f9;
+}
+
+body.dark-theme .admin-topbar {
+  background: #101726;
+  border-bottom: 1px solid #1e293b;
+}
+
+body.dark-theme .topbar-box {
+  background: #151d2e !important;
+  border-color: #334155 !important;
+}
+
+body.dark-theme .topbar-box select,
+body.dark-theme .topbar-box span {
+  color: #f1f5f9 !important;
+}
+
+body.dark-theme .topbar-box select option {
+  background: #151d2e;
+  color: #f1f5f9;
+}
+
+body.dark-theme .admin-theme-btn {
+  background: #151d2e;
+  border-color: #334155;
+  color: #fbbf24;
+}
+body.dark-theme .admin-theme-btn:hover {
+  border-color: #fbbf24;
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.35);
+}
+
+body.dark-theme .admin-lang-btn {
+  color: #94a3b8;
+}
+body.dark-theme .admin-lang-btn:hover {
+  background: #1e293b;
+  color: #fff;
+}
+body.dark-theme .admin-lang-btn.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+body.dark-theme .form-control {
+  background: #151d2e;
+  border-color: #334155;
+  color: #f8fafc;
+}
+body.dark-theme .form-control:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
+}
+
+body.dark-theme .form-control option {
+  background: #151d2e;
+  color: #f8fafc;
+}
+
+body.dark-theme .table-card {
+  background: #101726;
+  border-color: #1e293b;
+}
+
+body.dark-theme .custom-table th {
+  background: #0b0f19;
+  color: #94a3b8;
+  border-bottom-color: #1e293b;
+}
+
+body.dark-theme .custom-table td {
+  border-bottom-color: #1e293b;
+  color: #f1f5f9;
+}
+
+body.dark-theme .custom-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+body.dark-theme .order-card {
+  background: #101726;
+  border-color: #1e293b;
+}
+
+body.dark-theme .order-header {
+  border-bottom-color: #1e293b;
+}
+
+body.dark-theme .order-total-row {
+  border-top-color: #334155;
+}
+
+body.dark-theme .order-note-box {
+  background: #0b0f19;
+  color: #cbd5e1;
+}
+
+body.dark-theme .modal-overlay > div {
+  background: #101726 !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+body.dark-theme .boss-period-btn,
+body.dark-theme .dish-period-btn,
+body.dark-theme .discount-btn {
+  background: #151d2e;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+body.dark-theme .boss-period-btn:hover,
+body.dark-theme .dish-period-btn:hover,
+body.dark-theme .discount-btn:hover {
+  background: #1e293b;
+  color: var(--primary);
+}
+
+body.dark-theme .boss-period-btn.active,
+body.dark-theme .dish-period-btn.active,
+body.dark-theme .discount-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+body.dark-theme .kpi-card,
+body.dark-theme .boss-kpi-card,
+body.dark-theme .dish-kpi-card,
+body.dark-theme .stat-card {
+  background: #101726;
+  border-color: #1e293b;
+}
+
+body.dark-theme #paymentOrderDetails {
+  background: #0b0f19 !important;
+  border: 1px solid #1e293b;
+  color: #f8fafc !important;
+}
+
+body.dark-theme .btn-icon {
+  color: #cbd5e1;
+}
+body.dark-theme .btn-icon:hover {
+  color: #fff;
+}
+
 

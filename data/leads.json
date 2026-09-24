@@ -1,0 +1,12 @@
+[
+  {
+    "id": "mucstrx3j8uib",
+    "restaurantName": "Test Restoran",
+    "ownerName": "Ali",
+    "phone": "+998901234567",
+    "plan": "standard",
+    "message": "Test",
+    "status": "new",
+    "createdAt": "2026-09-22T14:58:12.759Z"
+  }
+]

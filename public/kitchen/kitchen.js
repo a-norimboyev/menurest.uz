@@ -5,19 +5,135 @@ let soundEnabled = true;
 let previousNewOrdersCount = 0;
 let dishItemStates = {}; // { "orderId-dishIdx": boolean }
 
+// KDS 3 tilli tarjima tizimi (UZ / RU / EN)
+const kdsTranslations = {
+  uz: {
+    title: "Oshxona Ekrani (KDS)",
+    subtitle: "Jonli Buyurtmalar Chiptalari",
+    active_tickets: "Faol chiptalar",
+    filter_active: "Faol chiptalar",
+    filter_new: "Yangi",
+    filter_prep: "Tayyorlanmoqda",
+    filter_ready: "Bugun tayyorlangan",
+    table: "STOL",
+    time: "Vaqt",
+    btn_start: "Boshlash (Tayyorlanmoqda)",
+    btn_ready: "Tayyor bo'ldi!",
+    ready_waiter: "Oshxonada tayyor (Ofitsiant kutilmoqda)",
+    no_tickets: "Ushbu bo'limda chiptalar yo'q",
+    no_tickets_desc: "Yangi buyurtmalar kelishi bilan ekranda aks etadi."
+  },
+  ru: {
+    title: "Кухонный Экран (KDS)",
+    subtitle: "Текущие Заказы и Тикеты",
+    active_tickets: "Активных тикетов",
+    filter_active: "Активные тикеты",
+    filter_new: "Новые",
+    filter_prep: "Готовятся",
+    filter_ready: "Готовые за сегодня",
+    table: "СТОЛ",
+    time: "Время",
+    btn_start: "Начать готовить",
+    btn_ready: "Готово!",
+    ready_waiter: "Готово на кухне (Ожидание официанта)",
+    no_tickets: "В этом разделе нет заказов",
+    no_tickets_desc: "Новые заказы появятся на экране сразу после оформления."
+  },
+  en: {
+    title: "Kitchen Display (KDS)",
+    subtitle: "Live Order Tickets",
+    active_tickets: "Active tickets",
+    filter_active: "Active tickets",
+    filter_new: "New",
+    filter_prep: "In Preparation",
+    filter_ready: "Ready Today",
+    table: "TABLE",
+    time: "Time",
+    btn_start: "Start Cooking",
+    btn_ready: "Ready!",
+    ready_waiter: "Ready in Kitchen (Waiting for Waiter)",
+    no_tickets: "No tickets in this view",
+    no_tickets_desc: "Incoming orders will appear on screen instantly."
+  }
+};
+
+let currentKdsLang = localStorage.getItem('kds_lang') || 'uz';
+
+function kt(key) {
+  if (kdsTranslations[currentKdsLang] && kdsTranslations[currentKdsLang][key]) {
+    return kdsTranslations[currentKdsLang][key];
+  }
+  return kdsTranslations.uz[key] || key;
+}
+
+function setKdsLanguage(lang) {
+  if (kdsTranslations[lang]) {
+    currentKdsLang = lang;
+    localStorage.setItem('kds_lang', lang);
+    applyKdsLanguage();
+    renderTickets();
+  }
+}
+window.setKdsLanguage = setKdsLanguage;
+window.kt = kt;
+
+function applyKdsLanguage() {
+  document.querySelectorAll('.kds-lang-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('data-lang') === currentKdsLang);
+  });
+
+  const restName = currentRestaurant?.name || 'Restoran';
+  const titleEl = document.getElementById('kdsRestName');
+  if (titleEl) titleEl.innerText = `${restName} - ${kt('title')}`;
+
+  const subEl = document.querySelector('.kds-subtitle');
+  if (subEl) subEl.innerText = kt('subtitle');
+
+  const lblActive = document.getElementById('lblActiveTickets');
+  if (lblActive) lblActive.innerText = kt('active_tickets');
+
+  const fActive = document.getElementById('lblFilterActive');
+  if (fActive) fActive.innerText = kt('filter_active');
+  const fNew = document.getElementById('lblFilterNew');
+  if (fNew) fNew.innerText = kt('filter_new');
+  const fPrep = document.getElementById('lblFilterPrep');
+  if (fPrep) fPrep.innerText = kt('filter_prep');
+  const fReady = document.getElementById('lblFilterReady');
+  if (fReady) fReady.innerText = kt('filter_ready');
+}
+
+let kitchenSocket = null;
+
+function initKitchenSocket() {
+  if (!currentRestaurant) return;
+  if (kitchenSocket) {
+    kitchenSocket.disconnect();
+    kitchenSocket = null;
+  }
+  if (typeof io !== 'undefined') {
+    kitchenSocket = io();
+    kitchenSocket.emit('join:kitchen', currentRestaurant.id);
+
+    kitchenSocket.on('order:new', (order) => {
+      playKitchenChime();
+      loadKdsOrders();
+    });
+
+    kitchenSocket.on('order:status_updated', () => {
+      loadKdsOrders();
+    });
+  }
+}
+
 // Boshlang'ich yuklash
 async function init() {
-  const saved = localStorage.getItem('admin_restaurant');
-  if (saved) {
-    try {
-      currentRestaurant = JSON.parse(saved);
-    } catch (e) {}
-  }
+  // 1. URL dan restoran slug ini tekshirish (?r=slug yoki ?slug=slug)
+  const urlParams = new URLSearchParams(window.location.search);
+  const slugParam = urlParams.get('r') || urlParams.get('slug');
 
-  // Agar saqlanmagan bo'lsa, namunaviy 'rayhon' ni olish
-  if (!currentRestaurant) {
+  if (slugParam) {
     try {
-      const res = await fetch('/api/r/rayhon');
+      const res = await fetch(`/api/r/${slugParam}`);
       const data = await res.json();
       if (data.success) {
         currentRestaurant = data.restaurant;
@@ -25,16 +141,42 @@ async function init() {
     } catch (e) {}
   }
 
-  if (currentRestaurant) {
-    document.getElementById('kdsRestName').innerText = `${currentRestaurant.name} - Oshxona (KDS)`;
-    if (currentRestaurant.logo) {
-      document.getElementById('kdsLogo').src = currentRestaurant.logo;
+  // 2. Agar URL da bo'lmasa, localStorage dan olish
+  if (!currentRestaurant) {
+    const saved = localStorage.getItem('admin_restaurant');
+    if (saved) {
+      try {
+        currentRestaurant = JSON.parse(saved);
+      } catch (e) {}
     }
   }
 
+  // 3. Agar hali ham yo'q bo'lsa, birinchi namunaviy restoranni olish
+  if (!currentRestaurant) {
+    try {
+      const res = await fetch('/api/public/restaurants');
+      const data = await res.json();
+      if (data.success && data.restaurants.length > 0) {
+        currentRestaurant = data.restaurants[0];
+      }
+    } catch (e) {}
+  }
+
+  if (currentRestaurant) {
+    if (currentRestaurant.logo) {
+      document.getElementById('kdsLogo').src = currentRestaurant.logo;
+    }
+    const nameEl = document.getElementById('kdsRestName');
+    if (nameEl) nameEl.innerText = `${currentRestaurant.name} - ${kt('title')}`;
+  }
+
+  applyKdsLanguage();
   startClock();
   loadKdsOrders();
-  setInterval(loadKdsOrders, 4000);
+  initKitchenSocket();
+
+  // Zaxira yangilanish (Fallback 20 soniya)
+  setInterval(loadKdsOrders, 20000);
   setInterval(updateTimers, 1000);
 }
 
@@ -85,11 +227,10 @@ function toggleFullscreen() {
 async function loadKdsOrders() {
   if (!currentRestaurant) return;
   try {
-    const res = await fetch(`/api/admin/orders/${currentRestaurant.id}`);
+    const res = await fetch(`/api/kds/orders/${currentRestaurant.slug}`);
     const data = await res.json();
     if (data.success) {
-      // Faqat taomli buyurtmalar (chaqiruvlarsiz)
-      currentOrders = data.orders.filter(o => o.type !== 'call_waiter' && o.type !== 'bill_request' && o.status !== 'cancelled');
+      currentOrders = data.orders || [];
 
       // Yangi buyurtma soni oshsa ovoz berish
       const newOrdersCount = currentOrders.filter(o => o.status === 'new').length;
@@ -147,8 +288,8 @@ function renderTickets() {
     grid.innerHTML = `
       <div style="grid-column: 1 / -1; text-align:center; padding: 60px 20px; color: var(--text-muted);">
         <i class="fa-solid fa-utensils" style="font-size: 48px; margin-bottom: 12px; color:#334155;"></i>
-        <h3 style="color:#cbd5e1; font-size: 20px; margin-bottom: 6px;">Ushbu bo'limda chiptalar yo'q</h3>
-        <p style="font-size: 14px;">Yangi buyurtmalar kelishi bilan ekranda aks etadi.</p>
+        <h3 style="color:#cbd5e1; font-size: 20px; margin-bottom: 6px;">${kt('no_tickets')}</h3>
+        <p style="font-size: 14px;">${kt('no_tickets_desc')}</p>
       </div>
     `;
     return;
@@ -175,7 +316,7 @@ function renderTickets() {
         <div class="ticket-header">
           <div class="ticket-table-num">
             <i class="fa-solid fa-chair" style="color:var(--primary);"></i>
-            <span>STOL ${o.tableNumber}</span>
+            <span>${kt('table')} ${o.tableNumber}</span>
           </div>
           <div class="ticket-timer ${timerClass}">
             <i class="fa-solid fa-clock"></i>
@@ -185,7 +326,7 @@ function renderTickets() {
 
         <div class="ticket-meta">
           <span>ID: <b>#${o.id}</b></span>
-          <span>Vaqt: <b>${timeStr}</b></span>
+          <span>${kt('time')}: <b>${timeStr}</b></span>
         </div>
 
         ${o.note ? `
@@ -211,17 +352,17 @@ function renderTickets() {
         <div class="ticket-footer">
           ${o.status === 'new' ? `
             <button class="btn-kds-action btn-start" onclick="updateOrderStatus('${o.id}', 'preparing')">
-              <i class="fa-solid fa-fire"></i> Boshlash (Tayyorlanmoqda)
+              <i class="fa-solid fa-fire"></i> ${kt('btn_start')}
             </button>
           ` : ''}
           ${o.status === 'preparing' ? `
             <button class="btn-kds-action btn-ready" onclick="updateOrderStatus('${o.id}', 'ready')">
-              <i class="fa-solid fa-check"></i> Tayyor bo'ldi!
+              <i class="fa-solid fa-check"></i> ${kt('btn_ready')}
             </button>
           ` : ''}
           ${o.status === 'ready' ? `
             <div style="width:100%; text-align:center; padding:8px; color:#34d399; font-weight:800; font-size:13px;">
-              <i class="fa-solid fa-circle-check"></i> Oshxonada tayyor (Ofitsiant kutilmoqda)
+              <i class="fa-solid fa-circle-check"></i> ${kt('ready_waiter')}
             </div>
           ` : ''}
         </div>
@@ -270,7 +411,7 @@ function updateTimers() {
 
 async function updateOrderStatus(orderId, status) {
   try {
-    const res = await fetch(`/api/admin/orders/${orderId}/status`, {
+    const res = await fetch(`/api/kds/orders/${orderId}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status })

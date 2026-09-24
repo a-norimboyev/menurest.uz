@@ -11,6 +11,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/kitchen/kitchen.css">
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 
@@ -27,12 +28,17 @@
     <div class="kds-stats">
       <div class="stat-badge">
         <i class="fa-solid fa-fire-burner"></i>
-        <span>Faol chiptalar: <b id="activeTicketsCount">0</b></span>
+        <span><span id="lblActiveTickets">Faol chiptalar</span>: <b id="activeTicketsCount">0</b></span>
       </div>
       <div class="clock-badge" id="kdsClock">00:00:00</div>
     </div>
 
     <div class="kds-actions">
+      <div class="kds-lang-switcher">
+        <button type="button" class="kds-lang-btn active" data-lang="uz" onclick="setKdsLanguage('uz')">UZ</button>
+        <button type="button" class="kds-lang-btn" data-lang="ru" onclick="setKdsLanguage('ru')">RU</button>
+        <button type="button" class="kds-lang-btn" data-lang="en" onclick="setKdsLanguage('en')">EN</button>
+      </div>
       <button class="kds-btn-icon" id="btnSoundToggle" onclick="toggleSound()" title="Ovozni yoqish/o'chirish">
         <i class="fa-solid fa-volume-high"></i>
       </button>
@@ -47,17 +53,17 @@
 
   <!-- Chiptalar filtri -->
   <div class="kds-filters">
-    <button class="filter-chip active" onclick="setKdsFilter('active', this)">
-      <i class="fa-solid fa-fire"></i> Faol chiptalar (<span id="countActive">0</span>)
+    <button class="filter-chip active" id="chipActive" onclick="setKdsFilter('active', this)">
+      <i class="fa-solid fa-fire"></i> <span id="lblFilterActive">Faol chiptalar</span> (<span id="countActive">0</span>)
     </button>
-    <button class="filter-chip" onclick="setKdsFilter('new', this)">
-      <i class="fa-solid fa-clock"></i> Yangi (<span id="countNew">0</span>)
+    <button class="filter-chip" id="chipNew" onclick="setKdsFilter('new', this)">
+      <i class="fa-solid fa-clock"></i> <span id="lblFilterNew">Yangi</span> (<span id="countNew">0</span>)
     </button>
-    <button class="filter-chip" onclick="setKdsFilter('preparing', this)">
-      <i class="fa-solid fa-utensils"></i> Tayyorlanmoqda (<span id="countPrep">0</span>)
+    <button class="filter-chip" id="chipPrep" onclick="setKdsFilter('preparing', this)">
+      <i class="fa-solid fa-utensils"></i> <span id="lblFilterPrep">Tayyorlanmoqda</span> (<span id="countPrep">0</span>)
     </button>
-    <button class="filter-chip" onclick="setKdsFilter('ready', this)">
-      <i class="fa-solid fa-circle-check"></i> Bugun tayyorlangan (<span id="countReady">0</span>)
+    <button class="filter-chip" id="chipReady" onclick="setKdsFilter('ready', this)">
+      <i class="fa-solid fa-circle-check"></i> <span id="lblFilterReady">Bugun tayyorlangan</span> (<span id="countReady">0</span>)
     </button>
   </div>
 
