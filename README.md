@@ -102,3 +102,9 @@ QR-menyu-main/
 │   └── uploads/              # Yuklangan taom rasmlari
 └── README.md                 # Qo'llanma
 ```
+
+---
+
+## 👥 Mualliflar va Hamkorlar (Contributors)
+- **Azizjon Norimboyev** ([@a-norimboyev](https://github.com/a-norimboyev)) — *Frontend / Full-stack Developer*
+- **Muhammadqodir Abdujabbarov** ([@muhammadqodirabdujabbarov110](mailto:muhammadqodirabdujabbarov110@gmail.com)) — *Collaborator*
