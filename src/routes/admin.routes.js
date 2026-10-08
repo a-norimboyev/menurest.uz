@@ -36,11 +36,15 @@ router.put('/menu/:id', authenticateToken, requireRoles('boss', 'manager'), uplo
 router.patch('/menu/:id/toggle-availability', authenticateToken, menuController.toggleAvailability);
 router.delete('/menu/:id', authenticateToken, requireRoles('boss', 'manager'), menuController.deleteMenuItem);
 
-// Buyurtmalar
+// Buyurtmalar / Tashriflar
 router.get('/orders/:restaurantId', authenticateToken, requireRestaurantAccess, orderController.adminGetOrders);
+router.get('/visits/:restaurantId/active', authenticateToken, requireRestaurantAccess, orderController.adminGetActiveVisits);
 router.put('/orders/:id/status', authenticateToken, orderController.adminUpdateStatus);
 router.post('/orders/:id/pay', authenticateToken, requireRoles('boss', 'manager', 'cashier'), orderController.adminPayOrder);
-router.get('/cashier/z-report/:restaurantId', authenticateToken, requireRestaurantAccess, requireRoles('boss', 'manager', 'cashier'), orderController.adminGetZReport);
+router.post('/visits/:id/pay', authenticateToken, requireRoles('boss', 'manager', 'cashier'), orderController.adminPayVisit);
+router.post('/visits/:id/close', authenticateToken, requireRoles('boss', 'manager', 'cashier', 'waiter'), orderController.adminCloseVisit);
+router.post('/tables/:id/clean', authenticateToken, requireRoles('boss', 'manager', 'cashier', 'waiter'), orderController.adminCleanTable);
+router.get('/cashier/smena-hisoboti/:restaurantId', authenticateToken, requireRestaurantAccess, requireRoles('boss', 'manager', 'cashier'), orderController.adminGetZReport);
 router.post('/orders/:id/acknowledge-call', authenticateToken, orderController.adminAcknowledgeCall);
 
 // Statistika va Analitika

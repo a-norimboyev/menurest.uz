@@ -1,32 +1,92 @@
-const storage = require('../services/storage.service');
+const prisma = require('../services/db.service');
 const socketService = require('../services/socket.service');
 
 const kdsController = {
-  getKdsOrders(req, res) {
-    const slug = req.params.slug.toLowerCase();
-    const restaurant = storage.getRestaurantBySlug(slug);
-    if (!restaurant) return res.status(404).json({ success: false, message: 'Restoran topilmadi' });
+  async getKdsOrders(req, res) {
+    try {
+      const slug = req.params.slug.toLowerCase();
+      const restaurant = await prisma.restaurant.findUnique({
+        where: { slug }
+      });
+      if (!restaurant) return res.status(404).json({ success: false, message: 'Restoran topilmadi' });
 
-    const orders = storage.getOrders(restaurant.id)
-      .filter(o => o.type !== 'call_waiter' && o.type !== 'bill_request' && o.status !== 'cancelled');
+      const orders = await prisma.order.findMany({
+        where: {
+          restaurantId: restaurant.id,
+          type: { notIn: ['call_waiter', 'bill_request'] },
+          status: { not: 'cancelled' }
+        },
+        include: {
+          items: true,
+          visit: {
+            include: {
+              table: true
+            }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      });
 
-    res.json({
-      success: true,
-      restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug, logo: restaurant.logo },
-      orders
-    });
+      // Map it to have tableNumber and other flat fields if needed
+      const mappedOrders = orders.map(o => ({
+        ...o,
+        tableNumber: o.visit?.table?.tableNumber,
+        subtotal: Number(o.subtotal),
+        serviceFeeAmount: Number(o.serviceFeeAmount),
+        totalAmount: Number(o.totalAmount),
+        totalPrice: Number(o.totalAmount) // map for frontend
+      }));
+
+      res.json({
+        success: true,
+        restaurant: { id: restaurant.id, name: restaurant.name, slug: restaurant.slug, logo: restaurant.logo },
+        orders: mappedOrders
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
   },
 
-  updateKdsOrderStatus(req, res) {
-    const { status, reason } = req.body;
-    const order = storage.updateOrderStatus(req.params.id, status, reason);
-    if (!order) return res.status(404).json({ success: false, message: 'Buyurtma topilmadi' });
+  async updateKdsOrderStatus(req, res) {
+    try {
+      const { status, reason } = req.body;
+      const { id } = req.params;
 
-    socketService.emitToRestaurant(order.restaurantId, 'order:status_updated', order);
-    socketService.emitToKitchen(order.restaurantId, 'order:status_updated', order);
-    socketService.emitToTable(order.restaurantId, order.tableNumber, 'order:status_updated', order);
+      const orderData = { status };
+      if (reason) orderData.cancellationNote = reason;
 
-    res.json({ success: true, order });
+      const order = await prisma.order.update({
+        where: { id },
+        data: orderData,
+        include: {
+          items: true,
+          visit: {
+            include: { table: true }
+          }
+        }
+      });
+
+      if (!order) return res.status(404).json({ success: false, message: 'Buyurtma topilmadi' });
+
+      const mappedOrder = {
+        ...order,
+        tableNumber: order.visit?.table?.tableNumber,
+        subtotal: Number(order.subtotal),
+        serviceFeeAmount: Number(order.serviceFeeAmount),
+        totalAmount: Number(order.totalAmount),
+        totalPrice: Number(order.totalAmount) // map for frontend
+      };
+
+      socketService.emitToRestaurant(mappedOrder.restaurantId, 'order:status_updated', mappedOrder);
+      socketService.emitToKitchen(mappedOrder.restaurantId, 'order:status_updated', mappedOrder);
+      if (mappedOrder.tableNumber) {
+        socketService.emitToTable(mappedOrder.restaurantId, mappedOrder.tableNumber, 'order:status_updated', mappedOrder);
+      }
+
+      res.json({ success: true, order: mappedOrder });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
   }
 };
 

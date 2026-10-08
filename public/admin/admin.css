@@ -1,25 +1,4 @@
-:root {
-  --primary: #f97316;
-  --primary-hover: #ea580c;
-  --primary-light: #ffedd5;
-  --sidebar-bg: #0f172a;
-  --sidebar-hover: #1e293b;
-  --dark: #0f172a;
-  --gray-100: #f8fafc;
-  --gray-200: #e2e8f0;
-  --gray-300: #cbd5e1;
-  --gray-400: #94a3b8;
-  --gray-600: #64748b;
-  --white: #ffffff;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #3b82f6;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
-  --shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-}
+:root { --primary: var(--primary-color, #166534); --primary-hover: var(--primary-hover, #14532D); --primary-light: var(--primary-light, #EAF5EE); --dark: var(--text-primary, #17212B); --gray-50: var(--bg-main, #F6F7F9); --gray-100: #f1f5f9; --gray-200: var(--border-color, #E3E8EF); --gray-300: #cbd5e1; --gray-400: #94a3b8; --gray-600: var(--text-secondary, #5F6B7A); --white: var(--bg-card, #FFFFFF); --success: var(--success-color, #10b981); --danger: var(--danger-color, #B91C1C); --warning: var(--warning-color, #B45309); --radius-sm: var(--radius-sm, 8px); --radius-md: var(--radius-md, 12px); --shadow-sm: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05)); --shadow-md: var(--shadow-md, 0 4px 6px -1px rgba(0,0,0,0.1)); }
 
 * {
   box-sizing: border-box;
@@ -992,5 +971,6 @@ body.dark-theme .btn-icon {
 body.dark-theme .btn-icon:hover {
   color: #fff;
 }
+
 
 

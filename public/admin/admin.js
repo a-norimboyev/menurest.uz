@@ -3290,215 +3290,165 @@ let currentPayFinalAmount = 0;
 async function loadCashierData() {
   if (!currentRestaurant) return;
   try {
-    const res = await fetch(`/api/admin/orders/${currentRestaurant.id}`);
+    const res = await fetch(`/api/admin/visits/${currentRestaurant.id}/active`);
     const data = await res.json();
     if (data.success) {
-      const orders = data.orders;
-
-      // 1. To'lanmagan stollar (unpaid)
-      const unpaidOrders = orders.filter(o => o.paymentStatus !== 'paid' && o.type !== 'call_waiter' && o.type !== 'bill_request' && o.status !== 'cancelled');
+      const visits = data.visits;
       const unpaidGrid = document.getElementById('cashierUnpaidGrid');
 
-      if (unpaidOrders.length === 0) {
+      if (visits.length === 0) {
         unpaidGrid.innerHTML = `
           <div style="grid-column: 1 / -1; background: var(--white); padding: 24px; border-radius: var(--radius-md); text-align: center; color: var(--gray-400); border: 1px solid var(--gray-200);">
             <i class="fa-solid fa-circle-check" style="font-size: 32px; color: #10b981; margin-bottom: 8px;"></i>
             <p style="font-weight: 700; color: var(--dark);">Barcha stollar hisob-kitob qilingan!</p>
-            <span style="font-size: 12px;">Hozirda to'lov kutilayotgan stollar mavjud emas.</span>
+            <span style="font-size: 12px;">Hozirda faol to'lov kutilayotgan ochiq tashriflar mavjud emas.</span>
           </div>
         `;
       } else {
         let html = '';
-        unpaidOrders.forEach(o => {
+        visits.forEach(v => {
+          const isFullyPaid = v.isPaid || (v.remaining <= 0 && v.totalPrice > 0);
+          const borderColor = isFullyPaid ? '#10b981' : '#fdba74';
+          const badgeHtml = isFullyPaid 
+            ? `<span style="background:#dcfce7; color:#166534; font-size:11px; padding:2px 8px; border-radius:12px; font-weight:700;">TO'LANGAN</span>`
+            : `<span style="background:#ffedd5; color:#c2410c; font-size:11px; padding:2px 8px; border-radius:12px; font-weight:700;">QOLDIQ: ${formatMoney(v.remaining)}</span>`;
+
           html += `
-            <div class="order-card" style="border: 2px solid #fdba74;">
-              <div class="order-header">
-                <div class="order-table-num" style="background:#ffedd5; padding:4px 10px; border-radius:8px; color:#ea580c;">
-                  <i class="fa-solid fa-chair"></i>
-                  <span style="font-weight:900; font-size:16px;">STOL ${o.tableNumber}</span>
+            <div class="order-card" style="border: 2px solid ${borderColor};">
+              <div class="order-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="order-table-num">
+                  <i class="fa-solid fa-chair" style="color:var(--primary);"></i> Stol ${v.tableNumber}
                 </div>
-                <span class="order-status-badge badge-preparing">To'lanmagan</span>
+                ${badgeHtml}
               </div>
-              <div style="font-size: 12px; color: var(--gray-600); margin: 8px 0;">
-                ${o.items.map(it => `<div>${it.quantity}x ${it.name} (${formatMoney(it.price * it.quantity)} so'm)</div>`).join('')}
+              <div style="font-size:12px; margin: 8px 0; color:var(--gray-600); line-height: 1.6;">
+                Ochilgan vaqt: <b>${new Date(v.openedAt).toLocaleTimeString()}</b><br>
+                Buyurtmalar: <b>${v.ordersCount} ta</b><br>
+                Jami: <b>${formatMoney(v.totalPrice)} so'm</b><br>
+                To'langan: <b>${formatMoney(v.paidAmount)} so'm</b><br>
+                Qoldiq: <b style="color: ${isFullyPaid ? '#166534' : '#c2410c'};">${formatMoney(v.remaining)} so'm</b>
               </div>
-              <div class="order-total-row" style="margin-top: 10px; font-size: 16px;">
-                <span>Jami to'lov:</span>
-                <span>${formatMoney(o.totalPrice)} so'm</span>
-              </div>
-              <button class="btn-submit" style="margin-top: 12px; background: #16a34a;" onclick="openPaymentModal('${o.id}')">
-                <i class="fa-solid fa-money-bill-wave"></i> To'lovni qabul qilish
-              </button>
+              
+              ${v.remaining > 0 ? `
+                <button class="btn-submit" style="padding: 8px; font-size: 13px; margin-top: auto;" onclick='openVisitPaymentModal(${JSON.stringify(v)})'>
+                  <i class="fa-solid fa-cash-register"></i> To'lov Qabul Qilish
+                </button>
+              ` : `
+                <div style="display:flex; gap:8px; margin-top:auto;">
+                  <button class="btn btn-outline" style="flex:1; padding: 7px; font-size: 12px; color:#166534; border-color:#166534;" onclick='openVisitPaymentModal(${JSON.stringify(v)})'>
+                    <i class="fa-solid fa-receipt"></i> Hisob
+                  </button>
+                  <button class="btn-submit" style="flex:1; padding: 7px; font-size: 12px; background:#166534;" onclick='closeVisitByStaff("${v.id}", ${v.tableNumber})'>
+                    <i class="fa-solid fa-door-open"></i> Bo'shatish
+                  </button>
+                </div>
+              `}
             </div>
           `;
         });
         unpaidGrid.innerHTML = html;
       }
-
-      // 2. Bugun to'langan cheklar (paid)
-      const paidOrders = orders.filter(o => o.paymentStatus === 'paid');
-      const paidTbody = document.getElementById('cashierPaidTableBody');
-
-      if (paidOrders.length === 0) {
-        paidTbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--gray-400);">Hozircha yopilgan cheklar yo'q</td></tr>`;
-      } else {
-        let html = '';
-        paidOrders.slice(0, 15).forEach(o => {
-          let methodIcon = '💵 Naqd';
-          if (o.paymentMethod === 'card') methodIcon = '💳 Karta';
-          if (o.paymentMethod === 'click') methodIcon = '📱 Click';
-
-          const finalPaid = o.finalAmount !== undefined ? o.finalAmount : o.totalPrice;
-
-          html += `
-            <tr>
-              <td><code style="background:#e2e8f0; padding:2px 6px; border-radius:4px; font-weight:700;">${o.receiptId || o.id}</code></td>
-              <td><b>Stol ${o.tableNumber}</b></td>
-              <td>${formatDate(o.paidAt || o.createdAt)}</td>
-              <td><b>${formatMoney(finalPaid)} so'm</b></td>
-              <td><span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700;">${methodIcon}</span></td>
-              <td style="text-align:right;">
-                <button class="btn-icon" title="Chekni ko'rish / chop etish" onclick="openReceiptModalById('${o.id}')">
-                  <i class="fa-solid fa-print"></i>
-                </button>
-              </td>
-            </tr>
-          `;
-        });
-        paidTbody.innerHTML = html;
-      }
     }
   } catch (e) {
-    console.error("Kassa ma'lumotlarini yuklashda xatolik:", e);
+    console.error(e);
   }
 }
 
-function openPaymentModal(orderId) {
-  const order = currentOrders.find(o => o.id === orderId);
-  if (!order) return;
+window.closeVisitByStaff = async function(visitId, tableNumber) {
+  if (!confirm(`Stol ${tableNumber} mijozlari ketdimi? Tashrif yopilsin va stol tozalashga (DIRTY) o'tkazilsinmi?`)) {
+    return;
+  }
+  try {
+    const res = await fetch(`/api/admin/visits/${visitId}/close`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(data.message || "Tashrif yopildi!");
+      loadCashierData();
+      if (typeof loadOrders === 'function') loadOrders();
+    } else {
+      alert("Xatolik: " + data.message);
+    }
+  } catch (e) {
+    alert("Xatolik: " + e.message);
+  }
+};
 
-  currentPayOrder = order;
+let currentPayVisit = null;
+
+window.openVisitPaymentModal = function(visit) {
+  currentPayVisit = visit;
   currentPayDiscount = 0;
-  currentPayFinalAmount = order.totalPrice;
+  currentPayFinalAmount = visit.remaining > 0 ? visit.remaining : visit.totalPrice;
 
-  document.getElementById('paymentOrderId').value = order.id;
-  document.getElementById('paymentModalTitle').innerText = `Stol ${order.tableNumber} - To'lov Qabul Qilish`;
+  document.getElementById('paymentModalTitle').innerText = `Stol ${visit.tableNumber} - Tashrif Hisobi`;
 
-  let itemsHtml = order.items.map(it => `
+  let itemsHtml = visit.items.map(it => `
     <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
       <span>${it.quantity}x ${it.name}</span>
       <b>${formatMoney(it.price * it.quantity)} so'm</b>
     </div>
   `).join('');
 
-  if (order.serviceFee > 0) {
+  if (visit.paidAmount > 0) {
     itemsHtml += `
-      <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:6px; border-top:1px dashed #cbd5e1; color:var(--gray-600);">
-        <span>Xizmat haqi:</span>
-        <span>${formatMoney(order.serviceFee)} so'm</span>
+      <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:4px; border-top:1px dashed #cbd5e1; color:#166534;">
+        <span>Avval to'langan:</span>
+        <b>-${formatMoney(visit.paidAmount)} so'm</b>
       </div>
     `;
   }
 
-  itemsHtml += `
-    <div style="display:flex; justify-content:space-between; margin-top:8px; padding-top:8px; border-top:2px solid #cbd5e1; font-size:15px; font-weight:900; color:var(--primary);">
-      <span>Jami Summa:</span>
-      <span>${formatMoney(order.totalPrice)} so'm</span>
-    </div>
-  `;
-
-  document.getElementById('paymentOrderDetails').innerHTML = itemsHtml;
-  document.getElementById('payDiscountPercent').value = '0';
-  document.getElementById('paymentDiscountAmountText').innerText = "0 so'm";
-  document.getElementById('payFinalAmountText').innerText = `${formatMoney(currentPayFinalAmount)} so'm`;
+  document.getElementById('paymentOrderItems').innerHTML = itemsHtml;
+  document.getElementById('paymentTotalAmountText').innerText = `${formatMoney(visit.totalPrice)} so'm`;
+  document.getElementById('payDiscountPercent').value = 0;
+  document.querySelectorAll('.discount-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('payReceivedInput').value = '';
+  document.getElementById('paymentDiscountAmountText').innerText = "0 so'm (0%)";
+  document.getElementById('payFinalAmountText').innerText = `${formatMoney(currentPayFinalAmount)} so'm`;
   document.getElementById('payChangeText').innerText = "0 so'm";
-
-  const savedCashier = localStorage.getItem('cashier_name') || 'Kassir';
-  document.getElementById('payCashierName').value = savedCashier;
-
   selectPayMethod('cash');
-  document.getElementById('paymentModal').style.display = 'flex';
-}
 
-function closePaymentModal() {
-  document.getElementById('paymentModal').style.display = 'none';
-  currentPayOrder = null;
-}
-
-function setDiscount(percent, btn) {
-  currentPayDiscount = percent;
-  document.getElementById('payDiscountPercent').value = percent;
-
-  document.querySelectorAll('.discount-btn').forEach(b => {
-    b.classList.toggle('active', b === btn);
-  });
-
-  if (currentPayOrder) {
-    const discountAmount = Math.round((currentPayOrder.totalPrice * percent) / 100);
-    currentPayFinalAmount = Math.max(0, currentPayOrder.totalPrice - discountAmount);
-    document.getElementById('paymentDiscountAmountText').innerText = `${formatMoney(discountAmount)} so'm (${percent}%)`;
-    document.getElementById('payFinalAmountText').innerText = `${formatMoney(currentPayFinalAmount)} so'm`;
-    calcChange();
-  }
-}
-
-function calcChange() {
-  const recInput = document.getElementById('payReceivedInput');
-  const received = Number(recInput.value) || 0;
-  const change = Math.max(0, received - currentPayFinalAmount);
-  document.getElementById('payChangeText').innerText = `${formatMoney(change)} so'm`;
-}
-
-function selectPayMethod(method) {
-  selectedPayMethodType = method;
-  ['cash', 'card', 'click'].forEach(m => {
-    const btn = document.getElementById(`payMethod-${m}`);
-    if (btn) {
-      btn.style.border = (m === method ? '2px solid var(--primary)' : '1px solid var(--gray-200)');
-      btn.style.background = (m === method ? 'var(--primary-light)' : 'var(--white)');
-    }
-  });
-
-  // Naqd bo'lsa qaytim kalkulyatorini ko'rsatish
-  const cashBlock = document.getElementById('cashCalcBlock');
-  if (cashBlock) cashBlock.style.display = (method === 'cash' ? 'block' : 'none');
+  document.getElementById('paymentModal').classList.add('active');
 }
 
 async function confirmPayment() {
-  const orderId = document.getElementById('paymentOrderId').value;
-  if (!orderId) return;
-
-  const cashierName = document.getElementById('payCashierName')?.value.trim() || 'Kassir';
-  localStorage.setItem('cashier_name', cashierName);
-
-  const discountPercent = Number(document.getElementById('payDiscountPercent')?.value) || 0;
-  const receivedAmount = Number(document.getElementById('payReceivedInput')?.value) || currentPayFinalAmount;
+  if (!currentPayVisit) return;
+  const btn = document.getElementById('btnConfirmPayment');
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kuting...';
+  btn.disabled = true;
 
   try {
-    const res = await fetch(`/api/admin/orders/${orderId}/pay`, {
+    const res = await fetch(`/api/admin/visits/${currentPayVisit.id}/pay`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        paymentMethod: selectedPayMethodType,
-        discountPercent,
-        receivedAmount,
-        cashierName
+        paymentMethod: selectedPayMethodType.toUpperCase(),
+        discountPercent: currentPayDiscount,
+        receivedAmount: Number(document.getElementById('payReceivedInput').value) || currentPayFinalAmount,
+        idempotencyKey: 'pay_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
       })
     });
     const data = await res.json();
     if (data.success) {
-      closePaymentModal();
+      document.getElementById('paymentModal').classList.remove('active');
       loadCashierData();
-      loadOrders();
-      openReceiptModal(data.order);
+      if (typeof loadOrders === 'function') loadOrders();
+      alert(data.message || "To'lov muvaffaqiyatli qabul qilindi!");
     } else {
       alert("Xatolik: " + data.message);
     }
   } catch (e) {
     alert("To'lovni tasdiqlashda xatolik: " + e.message);
+  } finally {
+    btn.innerHTML = oldText;
+    btn.disabled = false;
   }
 }
+
 
 function openReceiptModalById(orderId) {
   const order = currentOrders.find(o => o.id === orderId);
@@ -3599,11 +3549,11 @@ function printReceipt() {
   printWindow.document.close();
 }
 
-// Z-Hisobot (Smena Yopish)
+// Smena Hisoboti (Smena Yopish)
 async function openZReportModal() {
   if (!currentRestaurant) return;
   try {
-    const res = await fetch(`/api/admin/cashier/z-report/${currentRestaurant.id}`);
+    const res = await fetch(`/api/admin/cashier/smena-hisoboti/${currentRestaurant.id}`);
     const data = await res.json();
     if (data.success) {
       const z = data.report;
@@ -3611,7 +3561,7 @@ async function openZReportModal() {
       printable.innerHTML = `
         <div style="text-align:center; margin-bottom:12px;">
           <h3 style="margin:0; font-size:15px; font-weight:900;">${currentRestaurant.name}</h3>
-          <p style="margin:2px 0 0; font-size:11px;">KUNLIK SMENA YOPISH (Z-HISOBOT)</p>
+          <p style="margin:2px 0 0; font-size:11px;">KUNLIK SMENA YOPISH (Smena Hisoboti)</p>
           <p style="margin:0; font-size:10px;">ID: <b>${z.reportId}</b></p>
         </div>
         <div style="border-top:1px dashed #000; border-bottom:1px dashed #000; padding:6px 0; margin-bottom:8px; font-size:11px;">
@@ -3648,7 +3598,7 @@ async function openZReportModal() {
       document.getElementById('zReportModal').style.display = 'flex';
     }
   } catch (e) {
-    alert("Z-Hisobot olishda xatolik: " + e.message);
+    alert("Smena Hisoboti olishda xatolik: " + e.message);
   }
 }
 
@@ -3662,7 +3612,7 @@ function printZReport() {
   printWindow.document.write(`
     <html>
       <head>
-        <title>Z-Hisobot</title>
+        <title>Smena Hisoboti</title>
         <style>
           body { font-family: monospace; font-size: 12px; margin: 20px; line-height: 1.4; color: #000; }
         </style>

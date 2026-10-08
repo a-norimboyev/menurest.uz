@@ -3,17 +3,126 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Restoran Admin Paneli - QR Menyu</title>
+  <title>Restoran Admin Paneli - Menurest</title>
   <link rel="icon" type="image/png" href="/images/logo.png">
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#ff5722">
+  <meta name="theme-color" content="#166534">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/admin/admin.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/admin/admin-i18n.js"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-family: 'Inter', -apple-system, sans-serif;
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.05), 0 2px 6px rgba(0,0,0,0.03);
+      --shadow-lg: 0 12px 24px rgba(0,0,0,0.08);
+      --border-color: #E2E8F0;
+    }
+    body {
+      font-family: var(--font-family) !important;
+      background-color: #F8FAFC !important;
+      color: #0F172A !important;
+    }
+    /* Buttons */
+    .btn, .btn-submit, .btn-primary, .qr-action-btn, button {
+      font-family: 'Inter', sans-serif !important;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+    .btn:hover, .btn-submit:hover, .btn-primary:hover, button:hover {
+      transform: translateY(-1px);
+    }
+    .btn:active, .btn-submit:active, .btn-primary:active, button:active {
+      transform: translateY(0);
+    }
+    /* Cards */
+    .card, .order-card, .table-card, .auth-card {
+      border: 1px solid var(--border-color) !important;
+      box-shadow: var(--shadow-sm) !important;
+      border-radius: var(--radius-md) !important;
+      transition: all 0.25s ease !important;
+      background: #FFFFFF !important;
+    }
+    .card:hover, .order-card:hover, .table-card:hover {
+      box-shadow: var(--shadow-md) !important;
+    }
+    /* Inputs */
+    input, select, textarea, .form-control, .form-input {
+      font-family: 'Inter', sans-serif !important;
+      border-radius: 10px !important;
+      border: 1px solid #CBD5E1 !important;
+      padding: 12px 16px !important;
+      transition: all 0.2s !important;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.02) inset !important;
+    }
+    input:focus, select:focus, textarea:focus, .form-control:focus, .form-input:focus {
+      border-color: var(--primary-color) !important;
+      box-shadow: 0 0 0 3px var(--primary-light) !important;
+      outline: none !important;
+    }
+    /* Tables */
+    .custom-table th {
+      background: #F1F5F9 !important;
+      color: #475569 !important;
+      font-weight: 600 !important;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      font-size: 11px !important;
+      border-bottom: 2px solid #E2E8F0 !important;
+    }
+    .custom-table td {
+      border-bottom: 1px solid #F1F5F9 !important;
+      color: #1E293B !important;
+    }
+    .custom-table tr:hover td {
+      background: #F8FAFC !important;
+    }
+    /* Sidebar Links */
+    .nav-link {
+      border-radius: 10px !important;
+      margin: 2px 6px !important;
+      padding: 10px 14px !important;
+    }
+    .nav-link:hover {
+      background: rgba(255, 255, 255, 0.06) !important;
+      color: #FFFFFF !important;
+    }
+    .nav-link.active {
+      background: var(--primary-color) !important;
+      color: #FFFFFF !important;
+      box-shadow: 0 4px 10px rgba(22, 101, 52, 0.3) !important;
+    }
+    
+    /* Topbar */
+    .admin-topbar {
+      background: rgba(255, 255, 255, 0.8) !important;
+      backdrop-filter: blur(12px) !important;
+      border-bottom: 1px solid var(--border-color) !important;
+    }
+    
+    /* Client Menu Tweaks */
+    .bottom-cart-bar {
+      background: rgba(255, 255, 255, 0.9) !important;
+      backdrop-filter: blur(16px) !important;
+      border-top: 1px solid rgba(0,0,0,0.05) !important;
+    }
+    .dish-card {
+      border: 1px solid var(--border-color) !important;
+      border-radius: var(--radius-md) !important;
+      overflow: hidden !important;
+      background: #FFFFFF !important;
+    }
+  </style>
+  
 </head>
 <body>
 
@@ -851,7 +960,7 @@
             </div>
             <div style="display: flex; gap: 10px; align-items: center;">
               <button class="btn-submit" style="width: auto; margin:0; padding: 9px 16px; background: #4338ca;" onclick="openZReportModal()">
-                <i class="fa-solid fa-file-invoice-dollar"></i> Z-Hisobot (Smena Yopish)
+                <i class="fa-solid fa-file-invoice-dollar"></i> Smena Hisoboti
               </button>
               <button class="btn-icon" onclick="loadCashierData()" title="Yangilash">
                 <i class="fa-solid fa-rotate"></i>
@@ -1033,11 +1142,11 @@
     </div>
   </div>
 
-  <!-- KASSA: Z-HISOBOT MODALI (SMENA YOPISH) -->
+  <!-- KASSA: SMENA HISOBOTI MODALI (SMENA YOPISH) -->
   <div class="modal-overlay" id="zReportModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200; align-items: center; justify-content: center;">
     <div style="background: white; border-radius: 14px; padding: 24px; width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto;">
       <div class="no-print" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-        <h3 style="font-size: 17px; font-weight: 800;"><i class="fa-solid fa-file-invoice-dollar" style="color: var(--primary);"></i> Kunlik Z-Hisobot</h3>
+        <h3 style="font-size: 17px; font-weight: 800;"><i class="fa-solid fa-file-invoice-dollar" style="color: var(--primary);"></i> Kunlik Smena Hisoboti</h3>
         <button class="btn-icon" onclick="closeZReportModal()"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
@@ -1047,7 +1156,7 @@
 
       <div class="no-print" style="margin-top: 16px; display: flex; gap: 10px;">
         <button class="btn-submit" style="flex:1; margin:0; background:#4338ca;" onclick="printZReport()">
-          <i class="fa-solid fa-print"></i> Z-Hisobotni Chop Etish
+          <i class="fa-solid fa-print"></i> Smena Hisobotini Chop Etish
         </button>
         <button class="btn-submit" style="width:auto; margin:0; background: var(--gray-600);" onclick="closeZReportModal()">
           Yopish
@@ -1282,3 +1391,6 @@
   </script>
 </body>
 </html>
+
+
+

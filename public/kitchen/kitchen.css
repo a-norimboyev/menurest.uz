@@ -1,15 +1,4 @@
-:root {
-  --bg-dark: #090d16;
-  --card-bg: #151d2e;
-  --card-border: #26334d;
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
-  --primary: #f97316;
-  --green: #10b981;
-  --yellow: #f59e0b;
-  --red: #ef4444;
-  --blue: #3b82f6;
-}
+:root { --primary: var(--primary-color, #166534); --primary-hover: var(--primary-hover, #14532D); --bg-dark: var(--bg-main, #0F172A); --card-bg: var(--bg-card, #1E293B); --text-main: var(--text-primary, #F8FAFC); --text-muted: var(--text-secondary, #94A3B8); --border-color: var(--border-color, #334155); --accent: var(--primary-color, #22C55E); --warning: var(--warning-color, #F59E0B); --danger: var(--danger-color, #EF4444); --success: var(--success-color, #10B981); --radius-sm: var(--radius-sm, 8px); --radius-md: var(--radius-md, 12px); --shadow: var(--shadow-sm, 0 4px 6px -1px rgba(0,0,0,0.1)); }
 
 * {
   margin: 0;
@@ -420,3 +409,4 @@ body {
 .btn-ready:hover {
   background: #059669;
 }
+

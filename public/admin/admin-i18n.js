@@ -125,7 +125,7 @@ const adminTranslations = {
     cashier_all_paid: "Barcha stollar hisob-kitob qilingan!",
     cashier_all_paid_desc: "Hozirda to'lov kutilayotgan stollar mavjud emas.",
     cashier_paid_history: "Bugun To'langan Cheklar (Kassa Jurnali):",
-    btn_z_report: "Z-Hisobot (Smena Yopish)",
+    btn_z_report: "Smena hisoboti",
     btn_accept_pay: "To'lovni qabul qilish",
 
     // Ofitsiant
@@ -372,7 +372,7 @@ const adminTranslations = {
     cashier_all_paid: "Все столы рассчитаны!",
     cashier_all_paid_desc: "На данный момент нет столов, ожидающих оплаты.",
     cashier_paid_history: "Оплаченные чеки за сегодня (Журнал кассы):",
-    btn_z_report: "Z-Отчёт (Закрыть смену)",
+    btn_z_report: "Smena hisoboti",
     btn_accept_pay: "Принять оплату",
 
     // Официант
@@ -619,7 +619,7 @@ const adminTranslations = {
     cashier_all_paid: "All tables are settled!",
     cashier_all_paid_desc: "There are currently no tables awaiting payment.",
     cashier_paid_history: "Today's Paid Receipts (Register Log):",
-    btn_z_report: "Z-Report (Close Shift)",
+    btn_z_report: "Smena hisoboti",
     btn_accept_pay: "Accept Payment",
 
     // Waiter

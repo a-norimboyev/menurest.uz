@@ -3,22 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR Menyu Platformasi - Restoran va Kafelar uchun Zamonaviy Elektron Menyu</title>
+  <title>Menurest.uz Platformasi - Restoran va Kafelar uchun Zamonaviy Elektron Menyu</title>
   <link rel="icon" type="image/png" href="/images/logo.png">
   <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#ff5722">
+  <meta name="theme-color" content="#166534">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/landing.css">
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif !important; }
+    .btn, button, .pricing-card { font-family: 'Inter', sans-serif !important; transition: all 0.3s ease !important; }
+    .pricing-card:hover { transform: translateY(-4px) !important; box-shadow: 0 12px 30px rgba(0,0,0,0.1) !important; }
+  </style>
+
 </head>
 <body>
 
   <!-- Navbar -->
   <header class="navbar">
     <a href="/" class="nav-brand">
-      <img src="/images/logo.png" alt="QR Menyu" style="width: 42px; height: 42px; border-radius: 10px; object-fit: cover; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.25);">
-      <span>QR Menyu</span>
+      <img src="/images/logo.png" alt="Menurest" style="width: 42px; height: 42px; border-radius: 10px; object-fit: cover; box-shadow: 0 4px 12px rgba(249, 115, 22, 0.25);">
+      <span>Menurest</span>
     </a>
 
     <ul class="nav-menu">
@@ -56,7 +65,7 @@
         </div>
         <h1 class="hero-title" id="lblHeroTitle">
           Restoran va Kafelar uchun<br>
-          <span>Zamonaviy Elektron QR Menyu</span>
+          <span>Zamonaviy Elektron Menurest</span>
         </h1>
         <p class="hero-desc" id="lblHeroDesc">
           Mijozlar stol ustidagi QR kodni skanerlab menyuni ko'rishadi va buyurtma berishadi. Har bir restoran uchun mustaqil kabinet, oshpazlar uchun oshxona ekrani va chop etishga tayyor QR stikerlar.
@@ -148,7 +157,7 @@
             <i class="fa-solid fa-star"></i> <span>4.9 Reyting & Fikrlar</span>
           </div>
           <div class="phone-floating-badge">
-            <i class="fa-solid fa-bolt"></i> <span>1 soniyada buyurtma!</span>
+            <i class="fa-solid fa-bolt"></i> <span>Tezkor buyurtma</span>
           </div>
         </div>
       </div>
@@ -223,12 +232,12 @@
     </div>
   </section>
 
-  <!-- Taqqoslash (Qog'oz vs QR Menyu) -->
+  <!-- Taqqoslash (Qog'oz vs Menurest) -->
   <section class="section-container" id="comparison" style="background: white; border-top: 1px solid var(--gray-200); border-bottom: 1px solid var(--gray-200);">
     <div class="section-header">
       <div class="section-subtitle" id="lblSecCompSub">Yangi avlod yondashuvi</div>
-      <h2 class="section-title" id="lblSecCompTitle">Qog'oz Menyu vs Bizning QR Menyu</h2>
-      <p class="section-desc" id="lblSecCompDesc">Nega an'anaviy qog'oz menyulardan elektron QR menyuga o'tish restoraningiz daromadini oshiradi?</p>
+      <h2 class="section-title" id="lblSecCompTitle">Qog'oz Menyu vs Bizning Menurest</h2>
+      <p class="section-desc" id="lblSecCompDesc">Nega an'anaviy qog'oz menyulardan elektron Menurestga o'tish restoraningiz daromadini oshiradi?</p>
     </div>
 
     <div class="comparison-grid">
@@ -260,18 +269,18 @@
         </ul>
       </div>
 
-      <!-- Zamonaviy QR menyu -->
+      <!-- Zamonaviy Menurest -->
       <div class="comparison-card card-modern">
         <div class="comparison-card-badge badge-modern">
           <i class="fa-solid fa-circle-check"></i> <span id="lblCompNewBadge">Zamonaviy yechim</span>
         </div>
-        <h3 style="font-size: 20px; font-weight: 800; color: #9a3412; margin-bottom: 6px;" id="lblCompNewTitle">Bizning Zamonaviy QR Menyu</h3>
+        <h3 style="font-size: 20px; font-weight: 800; color: #9a3412; margin-bottom: 6px;" id="lblCompNewTitle">Bizning Zamonaviy Menurest</h3>
         <p style="font-size: 13px; color: #7c2d12;" id="lblCompNewDesc">0 so'm qayta chop etish, tezkor yangilash va 2 barobar tezroq xizmat</p>
 
         <ul class="comparison-list">
           <li class="comparison-item pass">
             <i class="fa-solid fa-circle-check"></i>
-            <div><strong id="lblCompNew1Title">0 so'm bosma xarajati:</strong> <span id="lblCompNew1Desc">Stikerlar 1 marta chop etiladi, narxlar va taomlar esa admin paneldan 1 soniyada o'zgartiriladi.</span></div>
+            <div><strong id="lblCompNew1Title">Bosma xarajatlarni qisqartirish:</strong> <span id="lblCompNew1Desc">Stikerlar 1 marta chop etiladi, narxlar va taomlar esa admin paneldan 1 soniyada o'zgartiriladi.</span></div>
           </li>
           <li class="comparison-item pass">
             <i class="fa-solid fa-circle-check"></i>
@@ -404,7 +413,7 @@
     <div class="section-header">
       <div class="section-subtitle" id="lblSecFaqSub">Ko'p so'raladigan savollar</div>
       <h2 class="section-title" id="lblSecFaqTitle">Tez-tez Beriladigan Savollar (FAQ)</h2>
-      <p class="section-desc" id="lblSecFaqDesc">QR Menyu platformasi haqida eng muhim savollarga ochiq va tushunarli javoblar</p>
+      <p class="section-desc" id="lblSecFaqDesc">Menurest.uz Platformasi haqida eng muhim savollarga ochiq va tushunarli javoblar</p>
     </div>
 
     <div class="faq-container">
@@ -575,7 +584,7 @@
   <!-- Footer -->
   <footer class="footer">
     <div style="margin-bottom: 12px; font-weight: 800; color: var(--dark); font-size: 18px;">
-      <i class="fa-solid fa-qrcode" style="color: var(--primary);"></i> QR Menyu Platformasi
+      <i class="fa-solid fa-qrcode" style="color: var(--primary);"></i> Menurest.uz Platformasi
     </div>
     <div style="display: flex; justify-content: center; gap: 24px; margin-bottom: 16px; font-size: 14px; font-weight: 600; flex-wrap: wrap;">
       <a href="tel:+998933642030" style="color: var(--gray-600); text-decoration: none; display: flex; align-items: center; gap: 6px;">
@@ -606,3 +615,8 @@
   <script src="/js/landing.js"></script>
 </body>
 </html>
+
+
+
+
+

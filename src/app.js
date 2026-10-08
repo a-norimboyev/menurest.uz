@@ -10,6 +10,7 @@ const clientRoutes = require('./routes/client.routes');
 const kdsRoutes = require('./routes/kds.routes');
 const adminRoutes = require('./routes/admin.routes');
 const superRoutes = require('./routes/super.routes');
+const waiterRoutes = require('./routes/waiter.routes');
 const leadController = require('./controllers/lead.controller');
 const { leadLimiter } = require('./middlewares/rateLimiter.middleware');
 
@@ -28,6 +29,7 @@ app.use('/api/r', clientRoutes);
 app.use('/api/kds', kdsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/super', superRoutes);
+app.use('/api/waiter', waiterRoutes);
 app.post('/api/leads', leadLimiter, leadController.createLead);
 
 // HTML Sahifalar Routing

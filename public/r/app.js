@@ -67,9 +67,9 @@ async function init() {
     if (!data.success) {
       document.body.innerHTML = `
         <div style="text-align:center; padding: 60px 20px;">
-          <h2 style="color:#ef4444; margin-bottom:10px;">Restoran topilmadi</h2>
-          <p style="color:#64748b;">Kiritilgan havola bo'yicha restoran mavjud emas.</p>
-          <a href="/" style="display:inline-block; margin-top:20px; color:#f97316; font-weight:700;">Bosh sahifaga qaytish</a>
+          <h2 style="color:var(--danger-color); margin-bottom:10px;">Restoran topilmadi</h2>
+          <p style="color:var(--text-secondary);">Kiritilgan havola bo'yicha restoran mavjud emas.</p>
+          <a href="/" style="display:inline-block; margin-top:20px; color:var(--primary-color); font-weight:700; text-decoration:none;">Bosh sahifaga qaytish</a>
         </div>
       `;
       return;
@@ -141,10 +141,10 @@ function renderAll() {
 
     const isOpen = currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
     if (isOpen) {
-      statusDot.style.background = '#10b981';
+      statusWrapper.className = 'meta-item badge badge-primary';
       statusText.innerText = `Ochiq (${openTime} - ${closeTime})`;
     } else {
-      statusDot.style.background = '#ef4444';
+      statusWrapper.className = 'meta-item badge badge-danger';
       statusText.innerText = `Yopiq (${openTime} da ochiladi)`;
     }
   }
@@ -224,10 +224,10 @@ function renderMenu() {
 
   if (filteredItems.length === 0) {
     container.innerHTML = `
-      <div class="empty-state">
-        <i class="fa-solid fa-utensils"></i>
-        <h4>Hech narsa topilmadi</h4>
-        <p>Boshqa qidiruv so'zini sinab ko'ring yoki boshqa kategoriyani tanlang.</p>
+      <div class="card text-center" style="margin-top:24px; padding:32px 16px;">
+        <i class="fa-solid fa-utensils" style="font-size:32px; color:var(--text-secondary); margin-bottom:12px;"></i>
+        <h4 style="margin:0 0 8px;">Hech narsa topilmadi</h4>
+        <p style="margin:0; font-size:var(--font-size-sm); color:var(--text-secondary);">Boshqa qidiruv so'zini sinab ko'ring yoki boshqa kategoriyani tanlang.</p>
       </div>
     `;
     return;
@@ -248,7 +248,7 @@ function renderMenu() {
     html += `
       <div class="category-section">
         <h2 class="category-section-title">
-          <i class="${cat.icon || 'fa-solid fa-utensils'}" style="color:var(--primary);"></i>
+          <i class="${cat.icon || 'fa-solid fa-utensils'}" style="color:var(--primary-color);"></i>
           ${catName}
         </h2>
         <div class="dishes-grid">
@@ -261,19 +261,20 @@ function renderMenu() {
       const isAvail = dish.isAvailable !== false;
 
       html += `
-        <div class="dish-card" ${isAvail ? `onclick="openDishModal('${dish.id}')"` : 'style="opacity: 0.65; filter: grayscale(20%);"'}>
+        <div class="card dish-card" ${isAvail ? `onclick="openDishModal('${dish.id}')"` : 'style="opacity: 0.65; filter: grayscale(1);"'}>
           <div class="dish-img-wrapper">
             <img class="dish-img" src="${dish.image}" alt="${name}" loading="lazy">
-            ${!isAvail ? `<span class="dish-badge" style="background:#ef4444; color:#ffffff;">Bugun tugagan</span>` : (dish.isPopular ? `<span class="dish-badge">${t('popular')}</span>` : '')}
-            ${dish.weight ? `<span class="dish-weight">${dish.weight}</span>` : ''}
+            ${!isAvail ? `<span class="badge badge-danger dish-badge">Tugagan</span>` : (dish.isPopular ? `<span class="badge badge-info dish-badge">${t('popular')}</span>` : '')}
           </div>
           <div class="dish-body">
-            <h3 class="dish-name">${name}</h3>
-            <p class="dish-desc">${desc || ''}</p>
+            <div>
+              <h3 class="dish-name">${name}</h3>
+              <p class="dish-desc">${desc || ''}</p>
+            </div>
             <div class="dish-footer" onclick="event.stopPropagation()">
-              <span class="dish-price">${formatMoney(dish.price)} ${restaurant.currency || t('currency')}</span>
+              <span class="price-text" style="color:var(--primary-color);">${formatMoney(dish.price)} ${restaurant.currency || t('currency')}</span>
               ${!isAvail ? `
-                <button class="btn-add" disabled style="background:var(--gray-200); color:var(--gray-400); cursor:not-allowed; box-shadow:none;">
+                <button class="btn btn-sm" disabled style="background:var(--bg-main); color:var(--text-secondary); padding: 4px 8px;">
                   <span>Tugagan</span>
                 </button>
               ` : (inCart ? `
@@ -283,9 +284,8 @@ function renderMenu() {
                   <button class="qty-btn" onclick="changeQty('${dish.id}', 1)">+</button>
                 </div>
               ` : `
-                <button class="btn-add" onclick="addToCart('${dish.id}')">
-                  <i class="fa-solid fa-plus"></i>
-                  <span>${t('add_to_cart')}</span>
+                <button class="btn btn-primary btn-add-sm" onclick="addToCart('${dish.id}')">
+                  <i class="fa-solid fa-plus"></i> ${t('add_to_cart') || 'Qo\'shish'}
                 </button>
               `)}
             </div>
@@ -305,6 +305,12 @@ function renderMenu() {
 
 // Savatcha amallari
 function addToCart(dishId) {
+  const dish = menuItems.find(d => d.id === dishId);
+  if (!dish || dish.isAvailable === false) {
+    alert("Bu taom vaqtincha tugagan!");
+    return;
+  }
+
   const dish = menuItems.find(d => d.id === dishId);
   if (!dish || dish.isAvailable === false) return;
 
@@ -363,10 +369,10 @@ function renderCartModal() {
 
   if (items.length === 0) {
     body.innerHTML = `
-      <div class="empty-state">
-        <i class="fa-solid fa-cart-shopping"></i>
-        <h4>${t('empty_cart')}</h4>
-        <p>${t('empty_cart_desc')}</p>
+      <div class="text-center" style="padding:40px 0;">
+        <i class="fa-solid fa-cart-shopping" style="font-size:32px; color:var(--text-secondary); margin-bottom:12px;"></i>
+        <h4 style="margin:0 0 8px;">${t('empty_cart')}</h4>
+        <p style="margin:0; font-size:var(--font-size-sm); color:var(--text-secondary);">${t('empty_cart_desc')}</p>
       </div>
     `;
     footer.style.display = 'none';
@@ -386,9 +392,9 @@ function renderCartModal() {
 
     html += `
       <div class="cart-item">
-        <div class="cart-item-details">
+        <div>
           <div class="cart-item-name">${name}</div>
-          <div class="cart-item-price">${formatMoney(dish.price)} ${restaurant.currency || t('currency')}</div>
+          <div class="cart-item-price price-text">${formatMoney(dish.price)} ${restaurant.currency || t('currency')}</div>
         </div>
         <div class="qty-counter">
           <button class="qty-btn" onclick="changeQty('${dish.id}', -1)">-</button>
@@ -410,55 +416,81 @@ function renderCartModal() {
     <div class="cart-summary">
       <div class="summary-row">
         <span>${t('subtotal')}</span>
-        <span>${formatMoney(subtotal)} ${restaurant.currency || t('currency')}</span>
+        <span class="price-text">${formatMoney(subtotal)} ${restaurant.currency || t('currency')}</span>
       </div>
       ${feePercent > 0 ? `
         <div class="summary-row">
           <span>${t('service_fee')} (${feePercent}%)</span>
-          <span>${formatMoney(serviceFee)} ${restaurant.currency || t('currency')}</span>
+          <span class="price-text">${formatMoney(serviceFee)} ${restaurant.currency || t('currency')}</span>
         </div>
       ` : ''}
       <div class="summary-row total">
         <span>${t('total')}</span>
-        <span>${formatMoney(total)} ${restaurant.currency || t('currency')}</span>
+        <span class="price-text" style="color:var(--primary-color);">${formatMoney(total)} ${restaurant.currency || t('currency')}</span>
       </div>
     </div>
 
-    <textarea id="orderNotes" class="cart-notes" rows="2" placeholder="${t('notes_placeholder')}"></textarea>
+    <textarea id="orderNotes" class="form-input" rows="2" placeholder="${t('notes_placeholder')}" style="margin-bottom:var(--spacing-4);"></textarea>
   `;
 
   body.innerHTML = html;
 }
 
 // Buyurtmani yuborish
+let isSubmittingOrder = false;
+let currentOrderIdempotencyKey = null;
+
 async function submitOrder() {
+  if (isSubmittingOrder) return;
+  const clientToken = localStorage.getItem('clientToken_' + slug);
+  if (!clientToken) {
+    closeCart();
+    document.getElementById('joinVisitModal').classList.add('active');
+    return;
+  }
+  
   const items = Object.values(cart);
-  if (items.length === 0) return;
+  if (items.length === 0) return alert(t('cart_empty'));
 
-  const subtotal = items.reduce((sum, i) => sum + (i.dish.price * i.quantity), 0);
-  const feePercent = restaurant.serviceFeePercent || 0;
-  const serviceFee = Math.round((subtotal * feePercent) / 100);
-  const totalPrice = subtotal + serviceFee;
-  const note = document.getElementById('orderNotes')?.value || '';
-
-  const orderPayload = {
-    tableNumber: Number(table),
-    items: items.map(i => ({
-      id: i.dish.id,
-      name: i.dish.nameUz,
-      price: i.dish.price,
-      quantity: i.quantity
-    })),
-    subtotal,
-    serviceFee,
-    totalPrice,
-    note
-  };
-
+  isSubmittingOrder = true;
+  const btn = document.getElementById('btnOrderNowText').parentElement;
+  const oldText = btn.innerHTML;
+  btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kuting...';
+  btn.disabled = true;
+  
   try {
+    if (!currentOrderIdempotencyKey) {
+      currentOrderIdempotencyKey = 'order_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+    const idempotencyKey = currentOrderIdempotencyKey; // Simple idempotency for frontend
+
+    const subtotal = items.reduce((sum, i) => sum + (i.dish.price * i.quantity), 0);
+    const feePercent = restaurant.serviceFeePercent || 0;
+    const serviceFee = Math.round((subtotal * feePercent) / 100);
+    const totalPrice = subtotal + serviceFee;
+    const note = document.getElementById('orderNotes')?.value || '';
+
+    const orderPayload = {
+      tableNumber: Number(table),
+      items: items.map(i => ({
+        id: i.dish.id,
+        name: i.dish['name' + currentLang.toUpperCase()] || i.dish.nameUz || i.dish.name,
+        price: i.dish.price,
+        quantity: i.quantity
+      })),
+      subtotal,
+      serviceFee,
+      totalPrice,
+      note,
+      idempotencyKey
+    };
+
     const res = await fetch(`/api/r/${slug}/order`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('clientToken_' + slug)
+        },
       body: JSON.stringify(orderPayload)
     });
     const result = await res.json();
@@ -472,36 +504,54 @@ async function submitOrder() {
       const footer = document.getElementById('cartModalFooter');
 
       body.innerHTML = `
-        <div class="success-screen">
-          <div class="success-icon">
+        <div class="text-center" style="padding:40px 0;">
+          <div style="width:64px; height:64px; background:var(--primary-light); color:var(--primary-color); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:32px; margin:0 auto 16px;">
             <i class="fa-solid fa-check"></i>
           </div>
-          <h3 class="success-title">${t('order_success')}</h3>
-          <p class="success-desc">${t('order_success_desc')}</p>
-          <div style="background:var(--gray-100); padding:12px; border-radius:10px; font-weight:700;">
+          <h3 style="margin:0 0 8px;">${t('order_success')}</h3>
+          <p style="margin:0 0 16px; color:var(--text-secondary); font-size:var(--font-size-sm);">${t('order_success_desc')}</p>
+          <div class="badge badge-primary" style="padding: 8px 12px; font-size: 14px;">
             ${t('table')} ${table} | ID: #${result.order.id}
           </div>
         </div>
       `;
 
       footer.innerHTML = `
-        <button class="btn-primary" onclick="closeCartModal()">
+        <button class="btn btn-outline" style="width: 100%; border-radius: var(--radius-full);" onclick="closeCartModal()">
           <span>${t('close')}</span>
         </button>
       `;
     }
   } catch (err) {
     alert("Buyurtma yuborishda xatolik yuz berdi: " + err.message);
+  } finally {
+    isSubmittingOrder = false;
+    const btn = document.getElementById('btnOrderNowText').parentElement;
+    btn.innerHTML = oldText;
+    btn.disabled = false;
   }
 }
 
 // Ofitsiant chaqirish
+let isCallingWaiter = false;
 async function callWaiter(callType) {
+  if (isCallingWaiter) return;
+  const clientToken = localStorage.getItem('clientToken_' + slug);
+  if (!clientToken) {
+    document.getElementById('joinVisitModal').classList.add('active');
+    return;
+  }
+
+  isCallingWaiter = true;
+  const idempotencyKey = 'call_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
   try {
     const res = await fetch(`/api/r/${slug}/call-waiter`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tableNumber: Number(table), callType })
+      headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('clientToken_' + slug)
+        },
+      body: JSON.stringify({ tableNumber: Number(table), callType, idempotencyKey })
     });
     const result = await res.json();
     if (result.success) {
@@ -513,6 +563,8 @@ async function callWaiter(callType) {
     }
   } catch (err) {
     alert("Xatolik: " + err.message);
+  } finally {
+    isCallingWaiter = false;
   }
 }
 
@@ -529,7 +581,14 @@ function openDishModal(dishId) {
   document.getElementById('modalDishImg').src = dish.image;
   document.getElementById('modalDishDesc').innerText = desc || "Tavsif mavjud emas.";
   document.getElementById('modalDishPrice').innerText = `${formatMoney(dish.price)} ${restaurant.currency || t('currency')}`;
-  document.getElementById('modalDishWeight').innerText = dish.weight || '';
+  
+  const wEl = document.getElementById('modalDishWeight');
+  if (dish.weight) {
+    wEl.innerText = dish.weight;
+    wEl.style.display = 'inline-block';
+  } else {
+    wEl.style.display = 'none';
+  }
 
   document.getElementById('dishModal').classList.add('active');
 }
@@ -591,22 +650,22 @@ async function checkTableOrders() {
     const descEl = document.getElementById('trackerDesc');
 
     if (latest.status === 'new') {
-      iconEl.style.background = '#3b82f6';
+      iconEl.style.background = 'var(--info-color)';
       iconEl.innerHTML = '<i class="fa-solid fa-clock"></i>';
       titleEl.innerText = "⏳ Qabul qilindi";
       descEl.innerText = "Buyurtmangiz oshpazga uzatildi";
     } else if (latest.status === 'preparing') {
-      iconEl.style.background = '#f59e0b';
+      iconEl.style.background = 'var(--warning-color)';
       iconEl.innerHTML = '<i class="fa-solid fa-fire-burner"></i>';
       titleEl.innerText = "🍳 Tayyorlanmoqda";
       descEl.innerText = "Oshxonada taomlar pishirilmoqda";
     } else if (latest.status === 'ready') {
-      iconEl.style.background = '#10b981';
+      iconEl.style.background = 'var(--primary-hover)';
       iconEl.innerHTML = '<i class="fa-solid fa-bell-concierge"></i>';
       titleEl.innerText = "🛎️ Taom tayyor!";
       descEl.innerText = "Ofitsiant stolingizga olib kelmoqda";
     } else if (latest.status === 'delivered') {
-      iconEl.style.background = '#059669';
+      iconEl.style.background = 'var(--primary-color)';
       iconEl.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
       titleEl.innerText = "✅ Stolga yetkazildi";
       descEl.innerText = "Yoqimli ishtaha!";
@@ -624,7 +683,7 @@ function openTableBillModal() {
 
   if (activeTableOrders.length === 0) {
     body.innerHTML = `
-      <div style="text-align:center; padding: 30px 10px; color: var(--gray-400);">
+      <div class="text-center" style="padding: 30px 10px; color: var(--text-secondary);">
         <i class="fa-solid fa-receipt" style="font-size: 36px; margin-bottom: 10px;"></i>
         <p>Hozircha ushbu stolda faol buyurtmalar yo'q.</p>
       </div>
@@ -634,38 +693,38 @@ function openTableBillModal() {
     activeTableOrders.forEach(o => {
       const timeStr = o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
       let statusBadge = '';
-      if (o.status === 'new') statusBadge = `<span style="background:#dbeafe; color:#1e40af; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">${t('status_new')}</span>`;
-      else if (o.status === 'preparing') statusBadge = `<span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">${t('status_preparing')}</span>`;
-      else if (o.status === 'ready') statusBadge = `<span style="background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">${t('status_ready')}</span>`;
-      else if (o.status === 'delivered') statusBadge = `<span style="background:#e0e7ff; color:#3730a3; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:700;">${t('status_delivered')}</span>`;
+      if (o.status === 'new') statusBadge = `<span class="badge badge-info">${t('status_new')}</span>`;
+      else if (o.status === 'preparing') statusBadge = `<span class="badge badge-warning">${t('status_preparing')}</span>`;
+      else if (o.status === 'ready') statusBadge = `<span class="badge badge-primary">${t('status_ready')}</span>`;
+      else if (o.status === 'delivered') statusBadge = `<span class="badge" style="background:var(--primary-light); color:var(--primary-color);">${t('status_delivered')}</span>`;
 
       html += `
-        <div style="background:var(--gray-100); border-radius:12px; padding:12px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:12px; color:var(--gray-600);">
+        <div class="card" style="padding:12px;">
+          <div class="d-flex justify-between align-center" style="margin-bottom:8px; font-size:var(--font-size-sm); color:var(--text-secondary);">
             <span><b>#${o.id}</b> • ${timeStr}</span>
             ${statusBadge}
           </div>
           <div style="display:flex; flex-direction:column; gap:4px;">
             ${(o.items || []).map(it => `
-              <div style="display:flex; justify-content:space-between; font-size:13px;">
-                <span>${it.name} <b style="color:var(--primary);">x${it.quantity}</b></span>
-                <span style="font-weight:600;">${formatMoney(it.price * it.quantity)} ${restaurant.currency || t('currency')}</span>
+              <div class="d-flex justify-between" style="font-size:13px;">
+                <span>${it.name} <b style="color:var(--primary-color);">x${it.quantity}</b></span>
+                <span class="price-text">${formatMoney(it.price * it.quantity)} ${restaurant.currency || t('currency')}</span>
               </div>
             `).join('')}
           </div>
-          <div style="margin-top:8px; padding-top:6px; border-top:1px dashed var(--gray-300); display:flex; justify-content:space-between; font-size:13px; font-weight:800;">
+          <div class="d-flex justify-between" style="margin-top:8px; padding-top:8px; border-top:1px dashed var(--border-color); font-size:13px; font-weight:700;">
             <span>Buyurtma summasi:</span>
-            <span style="color:var(--primary);">${formatMoney(o.totalPrice)} ${restaurant.currency || t('currency')}</span>
+            <span class="price-text" style="color:var(--primary-color);">${formatMoney(o.totalPrice)} ${restaurant.currency || t('currency')}</span>
           </div>
         </div>
       `;
     });
 
     html += `
-      <div style="background:#f8fafc; border:2px solid #e2e8f0; border-radius:12px; padding:14px; margin-top:8px;">
-        <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:800;">
+      <div class="card" style="background:var(--primary-light); border-color:var(--primary-color); margin-top:8px;">
+        <div class="d-flex justify-between align-center" style="font-size:15px; font-weight:700;">
           <span>${t('table_bill_total')}:</span>
-          <span style="color:#16a34a; font-size:17px;">${formatMoney(activeTableTotal)} ${restaurant.currency || t('currency')}</span>
+          <span class="price-text" style="color:var(--primary-color); font-size:17px;">${formatMoney(activeTableTotal)} ${restaurant.currency || t('currency')}</span>
         </div>
       </div>
     </div>`;
@@ -678,84 +737,6 @@ function openTableBillModal() {
 function closeTableBillModal() {
   const modal = document.getElementById('tableBillModal');
   if (modal) modal.classList.remove('active');
-}
-
-// === ONLINE TO'LOV VA BAHOLASH (CLICK / PAYME & REVIEWS) ===
-let currentPaymentProvider = 'click';
-
-function openOnlinePayModal(provider) {
-  currentPaymentProvider = provider || 'click';
-  const modal = document.getElementById('onlinePayModal');
-  if (!modal) return;
-
-  const titleEl = document.getElementById('onlinePayTitle');
-  const iconEl = document.getElementById('onlinePayIcon');
-  const providerEl = document.getElementById('onlinePayProvider');
-  const amountEl = document.getElementById('onlinePayAmount');
-  const tableEl = document.getElementById('onlinePayTable');
-
-  if (currentPaymentProvider === 'payme') {
-    if (titleEl) titleEl.innerText = "Payme orqali to'lash";
-    if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-credit-card" style="color: #059669;"></i>';
-    if (providerEl) providerEl.innerText = "Payme Business";
-  } else {
-    if (titleEl) titleEl.innerText = "Click orqali to'lash";
-    if (iconEl) iconEl.innerHTML = '<i class="fa-solid fa-mobile-screen" style="color: #0284c7;"></i>';
-    if (providerEl) providerEl.innerText = "Click Evolution";
-  }
-
-  if (tableEl) tableEl.innerText = `Stol ${table}`;
-  if (amountEl) amountEl.innerText = `${formatMoney(activeTableTotal)} ${restaurant.currency || t('currency')}`;
-
-  closeTableBillModal();
-  modal.classList.add('active');
-}
-
-function closeOnlinePayModal() {
-  const modal = document.getElementById('onlinePayModal');
-  if (modal) modal.classList.remove('active');
-}
-
-async function confirmOnlinePayment() {
-  const btn = document.getElementById('btnConfirmOnlinePay');
-  if (btn) {
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> To\'lov amalga oshirilmoqda...';
-  }
-
-  try {
-    const res = await fetch(`/api/r/${slug}/online-pay`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tableNumber: table,
-        paymentMethod: currentPaymentProvider
-      })
-    });
-    const data = await res.json();
-
-    if (data.success) {
-      closeOnlinePayModal();
-      alert(`To'lov muvaffaqiyatli qabul qilindi!\nKassa cheki: #${data.receiptId || ''}`);
-
-      // Stol buyurtmalarini yangilash
-      await checkTableOrders();
-
-      // Baholash modalini ochish
-      setTimeout(() => {
-        openRatingModal();
-      }, 600);
-    } else {
-      alert(data.message || "To'lovda xatolik yuz berdi");
-    }
-  } catch (err) {
-    alert("Internet yoki server bilan aloqa uzildi: " + err.message);
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fa-solid fa-check"></i> To\'lovni Tasdiqlash';
-    }
-  }
 }
 
 // Reyting & Fikr-mulohaza (NPS)
@@ -798,7 +779,10 @@ async function submitRating() {
   try {
     const res = await fetch(`/api/r/${slug}/review`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('clientToken_' + slug)
+        },
       body: JSON.stringify({
         tableNumber: table,
         rating: selectedRating,
@@ -835,9 +819,6 @@ function copyWifiPassword() {
 
 // Global window eksportlari (HTML inline hodisalar uchun)
 window.copyWifiPassword = copyWifiPassword;
-window.openOnlinePayModal = openOnlinePayModal;
-window.closeOnlinePayModal = closeOnlinePayModal;
-window.confirmOnlinePayment = confirmOnlinePayment;
 window.openRatingModal = openRatingModal;
 window.closeRatingModal = closeRatingModal;
 window.setRatingStar = setRatingStar;
@@ -845,10 +826,50 @@ window.submitRating = submitRating;
 window.openTableBillModal = openTableBillModal;
 window.closeTableBillModal = closeTableBillModal;
 
+async function joinVisit() {
+  const token = document.getElementById('joinVisitToken').value.trim().toUpperCase();
+  if (!token) return alert('Kodni kiriting!');
+  
+  try {
+    const res = await fetch(`/api/r/join`, {
+      method: 'POST',
+      headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + localStorage.getItem('clientToken_' + slug)
+        },
+      body: JSON.stringify({ joinToken: token })
+    });
+    const result = await res.json();
+    if (result.success || result.visitId) {
+      localStorage.setItem('visitId_' + slug, result.visitId);
+        localStorage.setItem('clientToken_' + slug, result.clientToken);
+      closeJoinModal();
+      alert('Stolga ulandingiz!');
+      checkTableOrders();
+    } else {
+      alert(result.error || result.message || 'Xato kod');
+    }
+  } catch (e) {
+    alert('Tarmoq xatosi');
+  }
+}
+
+function closeJoinModal() {
+  const m = document.getElementById('joinVisitModal');
+  if (m) m.classList.remove('active');
+}
+
+window.joinVisit = joinVisit;
+window.closeJoinModal = closeJoinModal;
+
 // Ishga tushirish
 window.renderAll = renderAll;
 init();
 checkTableOrders();
 setInterval(checkTableOrders, 20000);
 
+// Boshida agar token bo'lsa modalni yopib yuboramiz
+if (localStorage.getItem('visitId_' + slug)) {
+  closeJoinModal();
+}
 

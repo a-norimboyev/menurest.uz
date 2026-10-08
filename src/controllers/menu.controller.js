@@ -1,13 +1,23 @@
-const storage = require('../services/storage.service');
+const prisma = require('../services/db.service');
 const socketService = require('../services/socket.service');
 
 const menuController = {
-  getMenu(req, res) {
-    const items = storage.getMenuItems(req.params.restaurantId);
-    res.json({ success: true, menuItems: items });
+  async getMenu(req, res) {
+    try {
+      const items = await prisma.menuItem.findMany({
+        where: { restaurantId: req.params.restaurantId }
+      });
+      const mappedItems = items.map(item => ({
+        ...item,
+        price: Number(item.price)
+      }));
+      res.json({ success: true, menuItems: mappedItems });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
   },
 
-  createMenuItem(req, res) {
+  async createMenuItem(req, res) {
     try {
       const {
         restaurantId, categoryId, nameUz, nameRu, nameEn, price,
@@ -23,28 +33,30 @@ const menuController = {
         image = '/uploads/' + req.file.filename;
       }
 
-      const item = storage.createMenuItem({
-        restaurantId,
-        categoryId,
-        nameUz,
-        nameRu,
-        nameEn,
-        price: Number(price),
-        image,
-        descriptionUz,
-        descriptionRu,
-        descriptionEn,
-        weight,
-        isPopular: isPopular === 'true' || isPopular === true
+      const item = await prisma.menuItem.create({
+        data: {
+          restaurantId,
+          categoryId,
+          nameUz,
+          nameRu,
+          nameEn,
+          price: Number(price),
+          image,
+          descriptionUz,
+          descriptionRu,
+          descriptionEn,
+          weight,
+          isPopular: isPopular === 'true' || isPopular === true
+        }
       });
 
-      res.json({ success: true, menuItem: item });
+      res.json({ success: true, menuItem: { ...item, price: Number(item.price) } });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });
     }
   },
 
-  updateMenuItem(req, res) {
+  async updateMenuItem(req, res) {
     try {
       const updateData = { ...req.body };
       if (updateData.price) updateData.price = Number(updateData.price);
@@ -57,27 +69,55 @@ const menuController = {
       if (updateData.isAvailable !== undefined) {
         updateData.isAvailable = updateData.isAvailable === 'true' || updateData.isAvailable === true;
       }
+      
+      // Remove any non-schema fields that might come in req.body
+      delete updateData.id;
+      delete updateData.restaurantId;
+      delete updateData.createdAt;
+      delete updateData.updatedAt;
 
-      const item = storage.updateMenuItem(req.params.id, updateData);
-      if (!item) return res.status(404).json({ success: false, message: 'Taom topilmadi' });
-      res.json({ success: true, menuItem: item });
+      const item = await prisma.menuItem.update({
+        where: { id: req.params.id },
+        data: updateData
+      });
+
+      res.json({ success: true, menuItem: { ...item, price: Number(item.price) } });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });
     }
   },
 
-  toggleAvailability(req, res) {
-    const item = storage.getMenuItemById(req.params.id);
-    if (!item) return res.status(404).json({ success: false, message: 'Taom topilmadi' });
-    const newStatus = req.body.isAvailable !== undefined ? req.body.isAvailable : !item.isAvailable;
-    const updated = storage.updateMenuItem(req.params.id, { isAvailable: newStatus });
-    socketService.emitToRestaurant(item.restaurantId, 'menu:updated', updated);
-    res.json({ success: true, menuItem: updated });
+  async toggleAvailability(req, res) {
+    try {
+      const item = await prisma.menuItem.findUnique({
+        where: { id: req.params.id }
+      });
+      if (!item) return res.status(404).json({ success: false, message: 'Taom topilmadi' });
+      
+      const newStatus = req.body.isAvailable !== undefined ? req.body.isAvailable : !item.isAvailable;
+      
+      const updated = await prisma.menuItem.update({
+        where: { id: req.params.id },
+        data: { isAvailable: newStatus }
+      });
+
+      const mappedUpdated = { ...updated, price: Number(updated.price) };
+      socketService.emitToRestaurant(item.restaurantId, 'menu:updated', mappedUpdated);
+      res.json({ success: true, menuItem: mappedUpdated });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
   },
 
-  deleteMenuItem(req, res) {
-    storage.deleteMenuItem(req.params.id);
-    res.json({ success: true });
+  async deleteMenuItem(req, res) {
+    try {
+      await prisma.menuItem.delete({
+        where: { id: req.params.id }
+      });
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
   }
 };
 

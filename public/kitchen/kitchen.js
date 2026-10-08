@@ -92,14 +92,16 @@ function applyKdsLanguage() {
   const lblActive = document.getElementById('lblActiveTickets');
   if (lblActive) lblActive.innerText = kt('active_tickets');
 
-  const fActive = document.getElementById('lblFilterActive');
-  if (fActive) fActive.innerText = kt('filter_active');
   const fNew = document.getElementById('lblFilterNew');
   if (fNew) fNew.innerText = kt('filter_new');
   const fPrep = document.getElementById('lblFilterPrep');
   if (fPrep) fPrep.innerText = kt('filter_prep');
   const fReady = document.getElementById('lblFilterReady');
   if (fReady) fReady.innerText = kt('filter_ready');
+
+  document.querySelectorAll('.col-title-new').forEach(el => el.innerText = kt('filter_new'));
+  document.querySelectorAll('.col-title-prep').forEach(el => el.innerText = kt('filter_prep'));
+  document.querySelectorAll('.col-title-ready').forEach(el => el.innerText = kt('filter_ready'));
 }
 
 let kitchenSocket = null;
@@ -253,124 +255,112 @@ function updateBadgeCounts() {
   const readyCount = currentOrders.filter(o => o.status === 'ready').length;
   const activeCount = newCount + prepCount;
 
-  document.getElementById('countActive').innerText = activeCount;
-  document.getElementById('countNew').innerText = newCount;
-  document.getElementById('countPrep').innerText = prepCount;
-  document.getElementById('countReady').innerText = readyCount;
-  document.getElementById('activeTicketsCount').innerText = activeCount;
-}
-
-function setKdsFilter(filter, btn) {
-  kdsFilter = filter;
-  document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  renderTickets();
+  if (document.getElementById('countActive')) document.getElementById('countActive').innerText = activeCount;
+  if (document.getElementById('countNew')) document.getElementById('countNew').innerText = newCount;
+  if (document.getElementById('countPrep')) document.getElementById('countPrep').innerText = prepCount;
+  if (document.getElementById('countReady')) document.getElementById('countReady').innerText = readyCount;
+  if (document.getElementById('activeTicketsCount')) document.getElementById('activeTicketsCount').innerText = activeCount;
+  
+  if (document.getElementById('countNewTab')) document.getElementById('countNewTab').innerText = newCount;
+  if (document.getElementById('countPrepTab')) document.getElementById('countPrepTab').innerText = prepCount;
+  if (document.getElementById('countReadyTab')) document.getElementById('countReadyTab').innerText = readyCount;
 }
 
 function renderTickets() {
-  const grid = document.getElementById('ticketsGrid');
-  let filtered = [];
+  const listNew = document.getElementById('listNew');
+  const listPrep = document.getElementById('listPrep');
+  const listReady = document.getElementById('listReady');
+  
+  if (!listNew || !listPrep || !listReady) return;
 
-  if (kdsFilter === 'active') {
-    filtered = currentOrders.filter(o => o.status === 'new' || o.status === 'preparing');
-  } else if (kdsFilter === 'new') {
-    filtered = currentOrders.filter(o => o.status === 'new');
-  } else if (kdsFilter === 'preparing') {
-    filtered = currentOrders.filter(o => o.status === 'preparing');
-  } else if (kdsFilter === 'ready') {
-    filtered = currentOrders.filter(o => o.status === 'ready');
-  }
+  const sortedOrders = [...currentOrders].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
 
-  // Eng eskisi birinchi (tayyorlash navbati bo'yicha)
-  filtered.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
-  if (filtered.length === 0) {
-    grid.innerHTML = `
-      <div style="grid-column: 1 / -1; text-align:center; padding: 60px 20px; color: var(--text-muted);">
-        <i class="fa-solid fa-utensils" style="font-size: 48px; margin-bottom: 12px; color:#334155;"></i>
-        <h3 style="color:#cbd5e1; font-size: 20px; margin-bottom: 6px;">${kt('no_tickets')}</h3>
-        <p style="font-size: 14px;">${kt('no_tickets_desc')}</p>
-      </div>
-    `;
-    return;
-  }
-
-  let html = '';
-  filtered.forEach(o => {
-    const elapsed = getElapsedSeconds(o.createdAt);
-    let statusClass = 'status-ok';
-    let timerClass = 'timer-ok';
-
-    if (elapsed > 1200) { // 20 min
-      statusClass = 'status-danger';
-      timerClass = 'timer-danger';
-    } else if (elapsed > 600) { // 10 min
-      statusClass = 'status-warning';
-      timerClass = 'timer-warning';
+  const buildHtml = (orders) => {
+    if (orders.length === 0) {
+      return `
+        <div style="text-align:center; padding: 40px 20px; color: var(--text-muted, #94a3b8);">
+          <i class="fa-solid fa-utensils" style="font-size: 32px; margin-bottom: 12px; color: var(--surface-color-light, #334155);"></i>
+          <p style="font-size: 14px;">${kt('no_tickets')}</p>
+        </div>
+      `;
     }
+    
+    let html = '';
+    orders.forEach(o => {
+      const elapsed = getElapsedSeconds(o.createdAt);
+      let statusClass = 'status-ok';
+      let timerClass = 'timer-ok';
 
-    const timeStr = o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+      if (elapsed > 1200) { // 20 min
+        statusClass = 'status-danger';
+        timerClass = 'timer-danger';
+      } else if (elapsed > 600) { // 10 min
+        statusClass = 'status-warning';
+        timerClass = 'timer-warning';
+      }
 
-    html += `
-      <div class="ticket-card ${statusClass}" id="ticket-${o.id}" data-created="${o.createdAt}">
-        <div class="ticket-header">
-          <div class="ticket-table-num">
-            <i class="fa-solid fa-chair" style="color:var(--primary);"></i>
-            <span>${kt('table')} ${o.tableNumber}</span>
+      const timeStr = o.createdAt ? new Date(o.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+      html += `
+        <div class="order-card card ${statusClass}" id="ticket-${o.id}" data-created="${o.createdAt}">
+          <div class="card-header">
+            <div class="table-number">
+              ${o.tableNumber}
+            </div>
+            <div class="elapsed-time ${timerClass}">
+              <span class="timer-display">${formatTimer(elapsed)}</span>
+            </div>
           </div>
-          <div class="ticket-timer ${timerClass}">
-            <i class="fa-solid fa-clock"></i>
-            <span class="timer-display">${formatTimer(elapsed)}</span>
+
+          <div style="font-size: 0.85rem; color: var(--text-muted, #94a3b8); margin-bottom: 4px;">
+            <span>ID: <b>#${o.id}</b></span> | <span>${kt('time')}: <b>${timeStr}</b></span>
           </div>
-        </div>
 
-        <div class="ticket-meta">
-          <span>ID: <b>#${o.id}</b></span>
-          <span>${kt('time')}: <b>${timeStr}</b></span>
-        </div>
-
-        ${o.note ? `
-          <div class="ticket-order-note">
-            <i class="fa-solid fa-message"></i>
-            <span>${o.note}</span>
-          </div>
-        ` : ''}
-
-        <div class="ticket-items">
-          ${o.items.map((it, idx) => {
-            const key = `${o.id}-${idx}`;
-            const isDone = dishItemStates[key];
-            return `
-              <div class="dish-row ${isDone ? 'done' : ''}" onclick="toggleDishItem('${key}', this)">
-                <div class="dish-qty">${it.quantity}</div>
-                <div class="dish-name">${it.name}</div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-
-        <div class="ticket-footer">
-          ${o.status === 'new' ? `
-            <button class="btn-kds-action btn-start" onclick="updateOrderStatus('${o.id}', 'preparing')">
-              <i class="fa-solid fa-fire"></i> ${kt('btn_start')}
-            </button>
-          ` : ''}
-          ${o.status === 'preparing' ? `
-            <button class="btn-kds-action btn-ready" onclick="updateOrderStatus('${o.id}', 'ready')">
-              <i class="fa-solid fa-check"></i> ${kt('btn_ready')}
-            </button>
-          ` : ''}
-          ${o.status === 'ready' ? `
-            <div style="width:100%; text-align:center; padding:8px; color:#34d399; font-weight:800; font-size:13px;">
-              <i class="fa-solid fa-circle-check"></i> ${kt('ready_waiter')}
+          ${o.note ? `
+            <div style="background: rgba(255,200,0,0.1); color: #fbbf24; padding: 8px; border-radius: 4px; margin-bottom: 8px; font-size: 0.9rem;">
+              <i class="fa-solid fa-message"></i> ${o.note}
             </div>
           ` : ''}
-        </div>
-      </div>
-    `;
-  });
 
-  grid.innerHTML = html;
+          <div class="order-items">
+            ${o.items.map((it, idx) => {
+              const key = `${o.id}-${idx}`;
+              const isDone = dishItemStates[key];
+              return `
+                <div class="order-item ${isDone ? 'done' : ''}" onclick="toggleDishItem('${key}', this)">
+                  <div class="item-qty">${it.quantity}x</div>
+                  <div class="item-name">${it.name}</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <div class="card-actions">
+            ${o.status === 'new' ? `
+              <button class="btn-action btn-start" onclick="updateOrderStatus('${o.id}', 'preparing')">
+                <i class="fa-solid fa-fire"></i> ${kt('btn_start')}
+              </button>
+            ` : ''}
+            ${o.status === 'preparing' ? `
+              <button class="btn-action btn-ready" onclick="updateOrderStatus('${o.id}', 'ready')">
+                <i class="fa-solid fa-check"></i> ${kt('btn_ready')}
+              </button>
+            ` : ''}
+            ${o.status === 'ready' ? `
+              <div class="ready-label">
+                <i class="fa-solid fa-circle-check"></i> ${kt('ready_waiter')}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    });
+    return html;
+  };
+
+  listNew.innerHTML = buildHtml(sortedOrders.filter(o => o.status === 'new'));
+  listPrep.innerHTML = buildHtml(sortedOrders.filter(o => o.status === 'preparing'));
+  listReady.innerHTML = buildHtml(sortedOrders.filter(o => o.status === 'ready'));
 }
 
 function toggleDishItem(key, el) {
