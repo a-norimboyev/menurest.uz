@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Maximize2, Minimize2, X } from 'lucide-react';
 
 export interface DialogProps {
   isOpen: boolean;
@@ -6,7 +7,9 @@ export interface DialogProps {
   title?: string;
   description?: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | 'full';
+  fullscreen?: boolean;
+  allowFullscreenToggle?: boolean;
   className?: string;
 }
 
@@ -17,9 +20,16 @@ export const Dialog: React.FC<DialogProps> = ({
   description,
   children,
   maxWidth = 'md',
+  fullscreen: defaultFullscreen = false,
+  allowFullscreenToggle = true,
   className = '',
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(defaultFullscreen);
+
+  useEffect(() => {
+    setIsFullscreen(defaultFullscreen);
+  }, [defaultFullscreen, isOpen]);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -44,7 +54,62 @@ export const Dialog: React.FC<DialogProps> = ({
     md: 'max-w-md',
     lg: 'max-w-lg',
     xl: 'max-w-2xl',
+    '2xl': 'max-w-3xl',
+    '3xl': 'max-w-4xl',
+    '4xl': 'max-w-5xl',
+    full: 'max-w-full',
   }[maxWidth];
+
+  if (isFullscreen) {
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? 'dialog-title' : undefined}
+        className="fixed inset-0 z-50 bg-bg flex flex-col overflow-y-auto animate-in fade-in duration-200"
+      >
+        <div ref={dialogRef} className={`w-full min-h-screen flex flex-col ${className}`}>
+          {(title || description) && (
+            <header className="sticky top-0 z-30 px-6 sm:px-10 py-4 bg-surface/90 backdrop-blur-md border-b border-line flex items-center justify-between shadow-subtle">
+              <div className="space-y-0.5">
+                {title && (
+                  <h3 id="dialog-title" className="text-xl font-black text-ink-main tracking-tight">
+                    {title}
+                  </h3>
+                )}
+                {description && <p className="text-xs text-ink-muted">{description}</p>}
+              </div>
+              <div className="flex items-center gap-2">
+                {allowFullscreenToggle && (
+                  <button
+                    type="button"
+                    onClick={() => setIsFullscreen(false)}
+                    aria-label="Kichiklashtirish"
+                    title="Kichik oynaga o'tish"
+                    className="text-ink-muted hover:text-ink-main w-9 h-9 rounded-xl flex items-center justify-center hover:bg-bg border border-transparent hover:border-line transition-all"
+                  >
+                    <Minimize2 className="w-4 h-4" />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Yopish"
+                  title="Yopish (Esc)"
+                  className="text-ink-muted hover:text-ink-main w-9 h-9 rounded-xl flex items-center justify-center hover:bg-bg border border-transparent hover:border-line transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </header>
+          )}
+          <main className="flex-1 p-6 sm:p-10 w-full max-w-5xl mx-auto flex flex-col">
+            {children}
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -70,13 +135,28 @@ export const Dialog: React.FC<DialogProps> = ({
               )}
               {description && <p className="text-xs text-ink-muted">{description}</p>}
             </div>
-            <button
-              onClick={onClose}
-              aria-label="Yopish"
-              className="text-ink-muted hover:text-ink-main w-8 h-8 rounded-lg flex items-center justify-center hover:bg-bg transition-colors"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-1">
+              {allowFullscreenToggle && (
+                <button
+                  type="button"
+                  onClick={() => setIsFullscreen(true)}
+                  aria-label="Kattalashtirish"
+                  title="To'liq ekranga o'tish"
+                  className="text-ink-muted hover:text-ink-main w-8 h-8 rounded-lg flex items-center justify-center hover:bg-bg transition-colors"
+                >
+                  <Maximize2 className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Yopish"
+                title="Yopish (Esc)"
+                className="text-ink-muted hover:text-ink-main w-8 h-8 rounded-lg flex items-center justify-center hover:bg-bg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
         <div className="p-6">{children}</div>
