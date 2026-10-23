@@ -62,7 +62,7 @@ export const SuperAdminView: React.FC = () => {
   const [newRestName, setNewRestName] = useState('');
   const [newRestSlug, setNewRestSlug] = useState('');
   const [newRestPhone, setNewRestPhone] = useState('');
-  const [newRestPlan, setNewRestPlan] = useState('BUSINESS');
+  const newRestPlan = 'BUSINESS';
   const [newRestExpiresAt, setNewRestExpiresAt] = useState('');
   const [newOwnerName, setNewOwnerName] = useState('');
   const [newOwnerPhone, setNewOwnerPhone] = useState('');
@@ -527,15 +527,15 @@ export const SuperAdminView: React.FC = () => {
                         <div className="space-y-1">
                           {res.subscriptionPlan === 'START' ? (
                             <Badge variant="warning" size="sm">
-                              Tezkor (1–3 xodim)
+                              Tezkor
                             </Badge>
                           ) : res.subscriptionPlan === 'BUSINESS' ? (
                             <Badge variant="success" size="sm">
-                              Standart (KDS Oshxona)
+                              Standart
                             </Badge>
                           ) : (
                             <Badge variant="neutral" size="sm">
-                              Katta Majmua
+                              Enterprise
                             </Badge>
                           )}
                           <span className="text-[10px] text-ink-secondary block font-mono">
@@ -851,33 +851,13 @@ export const SuperAdminView: React.FC = () => {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-bold text-ink-main">Jamoa O'lchami va Ishlash Formati</label>
-              <select
-                value={newRestPlan}
-                onChange={(e) => setNewRestPlan(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-line bg-surface text-xs font-semibold"
-              >
-                <option value="START">⚡ Tezkor / Kichik Jamoa (1–3 xodim: Universal Ofitsiant-Kassir yoki Solo)</option>
-                <option value="BUSINESS">🍽️ Standart Kafe & Restoran (3–6 xodim: Kassa, Ofitsiantlar, Oshxona KDS)</option>
-                <option value="ENTERPRISE">👑 Katta Restoran Majmuasi (To'liq Jamoa: Zallar, Ko'p Stansiyalar, Audit)</option>
-              </select>
-              <p className="text-[11px] text-ink-secondary">
-                {newRestPlan === 'START'
-                  ? '⚡ 1-3 xodim: Oshxona ekrani shart emas. Buyurtma va to\'lov to\'g\'ridan-to\'g\'ri ofitsiant yoki universal operator orqali bajariladi.'
-                  : newRestPlan === 'BUSINESS'
-                  ? '🍽️ 3-6 xodim: Ofitsiantlar, kassa va oshpaz/barmanlar uchun alohida KDS ekranlari bilan to\'liq avtomatlashtirish.'
-                  : '👑 Katta jamoa: Zallar bo\'yicha ofitsiantlar, issiq/sovuq oshxona, bar, kassa va menejerlar jamoasi.'}
-              </p>
+              <label className="text-xs font-bold text-ink-main">Xizmat Tugash Sanasi (Ixtiyoriy)</label>
+              <Input
+                type="date"
+                value={newRestExpiresAt}
+                onChange={(e) => setNewRestExpiresAt(e.target.value)}
+              />
             </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-ink-main">Xizmat Tugash Sanasi (Ixtiyoriy)</label>
-            <Input
-              type="date"
-              value={newRestExpiresAt}
-              onChange={(e) => setNewRestExpiresAt(e.target.value)}
-            />
           </div>
 
           <div className="p-3 bg-bg rounded-xl border border-line space-y-3">
@@ -1122,28 +1102,13 @@ export const SuperAdminView: React.FC = () => {
                 </span>
               </div>
 
-              <div className="p-3 bg-surface rounded-xl border border-line space-y-2">
-                <span className="text-[11px] text-ink-secondary block font-medium">Jamoa Tuzilishi va Kombinatsiyalar</span>
+              <div className="p-3 bg-surface rounded-xl border border-line space-y-1">
+                <span className="text-[11px] text-ink-secondary block font-medium">Platforma Ta'rifi / Tizim</span>
                 <div className="flex items-center gap-2">
-                  <Badge variant={selectedRestaurant.subscriptionPlan === 'START' ? 'warning' : 'success'} size="sm">
-                    {selectedRestaurant.subscriptionPlan === 'START' ? '⚡ Kichik Jamoa (1–3 xodim)' : '🍽️ Standart / Katta Jamoa'}
+                  <Badge variant="success" size="sm">
+                    To'liq Funktsional
                   </Badge>
                   <span className="text-[11px] text-ink-secondary font-mono">({selectedRestaurant.subscriptionPlan})</span>
-                </div>
-                <div className="text-xs text-ink-main space-y-1.5 pt-1">
-                  <p className="text-[11px] text-ink-secondary font-semibold">Moslashuvchan jamoa kombinatsiyalari:</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                    <div className="p-2 bg-bg rounded-lg border border-line">
-                      <span className="font-bold block text-ink-main">1–2 xodimli format:</span>
-                      <span className="text-ink-secondary">• 1-xodim: Universal Kassir-Ofitsiant-Menejer</span>
-                      <span className="text-ink-secondary block">• 2-xodim: Oshpaz (yoki Solo)</span>
-                    </div>
-                    <div className="p-2 bg-bg rounded-lg border border-line">
-                      <span className="font-bold block text-ink-main">3–5 xodimli format:</span>
-                      <span className="text-ink-secondary">• Menejer-Kassir</span>
-                      <span className="text-ink-secondary block">• Ofitsiantlar + Oshpaz</span>
-                    </div>
-                  </div>
                 </div>
               </div>
 
