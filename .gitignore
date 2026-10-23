@@ -3,6 +3,12 @@ node_modules/
 *.log
 .DS_Store
 dev.db*
+dist/
+build/
+uploads/*
+!uploads/.gitkeep
+apps/**/uploads/*
+!apps/**/uploads/.gitkeep
 menurest-review/
 menurest-review.zip
 .agents/
