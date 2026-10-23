@@ -17,6 +17,7 @@ import {
   Clock,
   Lock,
   Info,
+  User,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button.tsx';
 import { Input } from '../components/ui/Input.tsx';
@@ -802,69 +803,96 @@ export const SuperAdminView: React.FC = () => {
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
         title="Yangi Restoran va Boss Biriktirish"
+        description="Multi-tenant platformada yangi restoran yaratish va uning birinchi Boss (Egasini) ro'yxatdan o'tkazish"
+        fullscreen={true}
       >
-        <form onSubmit={handleCreateRestaurant} className="space-y-4 pt-2">
+        <form onSubmit={handleCreateRestaurant} className="space-y-6">
           {createError && (
-            <div className="p-3 bg-red-50 text-red-900 border border-red-200 rounded-xl text-xs">
-              {createError}
+            <div className="p-4 bg-red-50 text-red-900 border border-red-200 rounded-2xl text-xs font-medium flex items-center gap-2 shadow-sm">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-red-600" />
+              <span>{createError}</span>
             </div>
           )}
           {createSuccess && (
-            <div className="p-3 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-semibold">
-              {createSuccess}
+            <div className="p-4 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-2xl text-xs font-semibold flex items-center gap-2 shadow-sm">
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-600" />
+              <span>{createSuccess}</span>
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-ink-main">Restoran Nomi *</label>
-              <Input
-                value={newRestName}
-                onChange={(e) => {
-                  setNewRestName(e.target.value);
-                  if (!newRestSlug) {
-                    setNewRestSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-'));
-                  }
-                }}
-                placeholder="Masalan: Rayhon Chilonzor"
-                required
-              />
+          {/* Section 1: Restoran Parametrlari */}
+          <div className="bg-surface rounded-2xl border border-line p-6 space-y-4 shadow-sm">
+            <div className="flex items-center gap-2.5 border-b border-line pb-3">
+              <div className="w-8 h-8 rounded-lg bg-brand/10 text-brand flex items-center justify-center font-bold">
+                <Building2 className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-ink-main">Restoran Ma'lumotlari</h4>
+                <p className="text-[11px] text-ink-secondary">Restoran rasmiy nomi, manzili va tizimdagi URL identifikatori</p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-ink-main">Slug (URL Identifikator) *</label>
-              <Input
-                value={newRestSlug}
-                onChange={(e) => setNewRestSlug(e.target.value)}
-                placeholder="rayhon-chilonzor"
-                required
-              />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-main">Restoran Nomi *</label>
+                <Input
+                  value={newRestName}
+                  onChange={(e) => {
+                    setNewRestName(e.target.value);
+                    if (!newRestSlug) {
+                      setNewRestSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-'));
+                    }
+                  }}
+                  placeholder="Masalan: Rayhon Chilonzor"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-main">Slug (URL Identifikator) *</label>
+                <Input
+                  value={newRestSlug}
+                  onChange={(e) => setNewRestSlug(e.target.value)}
+                  placeholder="rayhon-chilonzor"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-main">Aloqa Telefoni</label>
+                <Input
+                  value={newRestPhone}
+                  onChange={(e) => setNewRestPhone(e.target.value)}
+                  placeholder="+998 71 123 45 67"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-main">Xizmat Tugash Sanasi (Ixtiyoriy)</label>
+                <Input
+                  type="date"
+                  value={newRestExpiresAt}
+                  onChange={(e) => setNewRestExpiresAt(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-ink-main">Telefon</label>
-              <Input
-                value={newRestPhone}
-                onChange={(e) => setNewRestPhone(e.target.value)}
-                placeholder="+998 71 123 45 67"
-              />
+          {/* Section 2: Boss Hisobi */}
+          <div className="bg-surface rounded-2xl border border-line p-6 space-y-4 shadow-sm">
+            <div className="flex items-center gap-2.5 border-b border-line pb-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
+                <User className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-ink-main">Restoran Egasi (Boss) Hisobi</h4>
+                <p className="text-[11px] text-ink-secondary">Restoran ma'muri uchun shaxsiy hisob, login va boshlang'ich parol</p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-ink-main">Xizmat Tugash Sanasi (Ixtiyoriy)</label>
-              <Input
-                type="date"
-                value={newRestExpiresAt}
-                onChange={(e) => setNewRestExpiresAt(e.target.value)}
-              />
-            </div>
-          </div>
 
-          <div className="p-3 bg-bg rounded-xl border border-line space-y-3">
-            <span className="text-xs font-bold text-ink-main block">Restoran Egasi (Boss) Ma'lumotlari:</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-ink-secondary">Boss Ismi *</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-main">Boss To'liq Ismi *</label>
                 <Input
                   value={newOwnerName}
                   onChange={(e) => setNewOwnerName(e.target.value)}
@@ -872,8 +900,8 @@ export const SuperAdminView: React.FC = () => {
                   required
                 />
               </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-ink-secondary">Boss Telefoni *</label>
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-main">Boss Telefoni (Login uchun) *</label>
                 <Input
                   value={newOwnerPhone}
                   onChange={(e) => setNewOwnerPhone(e.target.value)}
@@ -882,8 +910,9 @@ export const SuperAdminView: React.FC = () => {
                 />
               </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-ink-secondary">Parol</label>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-ink-main">Dastlabki Parol *</label>
               <Input
                 type="password"
                 value={newOwnerPassword}
@@ -894,11 +923,12 @@ export const SuperAdminView: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-line">
             <Button variant="ghost" type="button" onClick={() => setCreateModalOpen(false)}>
               Bekor qilish
             </Button>
-            <Button variant="primary" type="submit">
+            <Button variant="primary" type="submit" className="min-w-[180px]">
               Yaratish & Tasdiqlash
             </Button>
           </div>
