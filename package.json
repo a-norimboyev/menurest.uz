@@ -2,10 +2,24 @@
   "name": "menurest.uz",
   "version": "2.0.0",
   "description": "Multi-restaurant QR menu and SaaS dining platform",
-  "main": "server.js",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "npm run dev --workspace=@menurest/api",
+    "dev:web": "npm run dev --workspace=@menurest/web",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspace=@menurest/api",
+    "migrate": "npm run migrate:dev --workspace=@menurest/api",
+    "migrate:deploy": "npm run migrate:deploy --workspace=@menurest/api",
+    "seed": "npm run db:seed --workspace=@menurest/api",
+    "bootstrap:superadmin": "npm run bootstrap:superadmin --workspace=@menurest/api",
+    "perf:smoke": "npm run perf:smoke --workspace=@menurest/api",
+    "generate": "npm run db:generate --workspace=@menurest/api"
   },
   "keywords": [
     "restaurant",
