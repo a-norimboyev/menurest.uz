@@ -19,6 +19,9 @@ export class SettingsService {
       name: rest.name,
       slug: rest.slug,
       phone: rest.phone,
+      extraPhones: rest.extraPhones || [],
+      telegram: rest.telegram || null,
+      instagram: rest.instagram || null,
       address: rest.address,
       logoUrl: rest.logoUrl,
       bannerUrl: rest.bannerUrl,
@@ -42,6 +45,9 @@ export class SettingsService {
     payload: {
       name?: string;
       phone?: string;
+      extraPhones?: string[];
+      telegram?: string | null;
+      instagram?: string | null;
       address?: string;
       logoUrl?: string;
       bannerUrl?: string;
@@ -76,6 +82,9 @@ export class SettingsService {
         data: {
           name: payload.name !== undefined ? payload.name.trim() : undefined,
           phone: payload.phone !== undefined ? payload.phone.trim() : undefined,
+          extraPhones: payload.extraPhones !== undefined ? payload.extraPhones : undefined,
+          telegram: payload.telegram !== undefined ? payload.telegram?.trim() || null : undefined,
+          instagram: payload.instagram !== undefined ? payload.instagram?.trim() || null : undefined,
           address: payload.address !== undefined ? payload.address.trim() : undefined,
           logoUrl: payload.logoUrl !== undefined ? payload.logoUrl : undefined,
           bannerUrl: payload.bannerUrl !== undefined ? payload.bannerUrl : undefined,
@@ -119,6 +128,9 @@ export class SettingsService {
       name: updated.name,
       slug: updated.slug,
       phone: updated.phone,
+      extraPhones: updated.extraPhones || [],
+      telegram: updated.telegram || null,
+      instagram: updated.instagram || null,
       address: updated.address,
       logoUrl: updated.logoUrl,
       bannerUrl: updated.bannerUrl,

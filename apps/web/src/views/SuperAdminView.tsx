@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Building2,
-  Activity,
-  FileText,
   AlertTriangle,
   LogIn,
   Search,
@@ -18,6 +16,10 @@ import {
   Lock,
   Info,
   User,
+  Phone,
+  Send,
+  Instagram,
+  Trash2,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button.tsx';
 import { Input } from '../components/ui/Input.tsx';
@@ -36,7 +38,7 @@ export interface ActiveSupportSession {
 }
 
 export const SuperAdminView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'tenants' | 'health' | 'audit'>('tenants');
+  const [activeTab] = useState<'tenants' | 'health' | 'audit'>('tenants');
   const [loading, setLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [unauthorized, setUnauthorized] = useState(false);
@@ -63,6 +65,9 @@ export const SuperAdminView: React.FC = () => {
   const [newRestName, setNewRestName] = useState('');
   const [newRestSlug, setNewRestSlug] = useState('');
   const [newRestPhone, setNewRestPhone] = useState('');
+  const [newRestExtraPhones, setNewRestExtraPhones] = useState<string[]>([]);
+  const [newRestTelegram, setNewRestTelegram] = useState('');
+  const [newRestInstagram, setNewRestInstagram] = useState('');
   const newRestPlan = 'BUSINESS';
   const [newRestExpiresAt, setNewRestExpiresAt] = useState('');
   const [newOwnerName, setNewOwnerName] = useState('');
@@ -151,6 +156,15 @@ export const SuperAdminView: React.FC = () => {
     setCreateError(null);
     setCreateSuccess(null);
 
+    const calculatedSlug =
+      newRestSlug ||
+      newRestName
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-') ||
+      `rest-${Date.now()}`;
+
     try {
       const res = await fetch('/api/v1/platform/restaurants', {
         method: 'POST',
@@ -158,8 +172,11 @@ export const SuperAdminView: React.FC = () => {
         credentials: 'include',
         body: JSON.stringify({
           name: newRestName,
-          slug: newRestSlug,
+          slug: calculatedSlug,
           phone: newRestPhone,
+          extraPhones: newRestExtraPhones.map((p) => p.trim()).filter(Boolean),
+          telegram: newRestTelegram.trim() || null,
+          instagram: newRestInstagram.trim() || null,
           subscriptionPlan: newRestPlan,
           subscriptionExpiresAt: newRestExpiresAt ? new Date(newRestExpiresAt).toISOString() : null,
           ownerName: newOwnerName,
@@ -181,6 +198,10 @@ export const SuperAdminView: React.FC = () => {
         setNewRestName('');
         setNewRestSlug('');
         setNewRestPhone('');
+        setNewRestExtraPhones([]);
+        setNewRestTelegram('');
+        setNewRestInstagram('');
+        setNewRestExpiresAt('');
         setNewOwnerName('');
         setNewOwnerPhone('');
         setRefreshTrigger((c) => c + 1);
@@ -188,6 +209,13 @@ export const SuperAdminView: React.FC = () => {
     } catch (err: any) {
       setCreateError(err.message || 'Server xatosi');
     }
+  }
+
+  // Set expiry preset (1 oy, 6 oy, 1 yil)
+  function handleSetExpiryPreset(months: number) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + months);
+    setNewRestExpiresAt(d.toISOString().split('T')[0]);
   }
 
   // Handle Update Status
@@ -330,59 +358,27 @@ export const SuperAdminView: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black tracking-tight">MENUREST PLATFORM ADMIN</h1>
+                <h1 className="text-xl font-black tracking-tight">MENUREST PLATFORM</h1>
                 <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 text-xs font-bold border border-red-500/30">
                   SUPER ADMIN
                 </span>
               </div>
               <p className="text-xs text-slate-300">
-                Multi-tenant platforma boshqaruvi, texnik monitoring va qat'iy audit jurnali
+                Restoranlar va platforma boshqaruvi
               </p>
             </div>
           </div>
 
-          {/* Navigation Tabs */}
+          {/* Header Actions */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setActiveTab('tenants')}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold min-h-[44px] transition-all ${
-                activeTab === 'tenants'
-                  ? 'bg-brand text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Building2 className="w-4 h-4" />
-              <span>Restoranlar ({overview?.totalRestaurants ?? restaurants.length})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('health')}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold min-h-[44px] transition-all ${
-                activeTab === 'health'
-                  ? 'bg-brand text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Activity className="w-4 h-4" />
-              <span>Texnik Holat</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('audit')}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold min-h-[44px] transition-all ${
-                activeTab === 'audit'
-                  ? 'bg-brand text-white shadow-sm'
-                  : 'text-slate-300 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>Platform Audit ({auditLogs.length})</span>
-            </button>
             <button
               onClick={() => setRefreshTrigger((c) => c + 1)}
               disabled={loading}
-              className="p-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 min-h-[44px]"
-              title="Yangilash"
+              className="px-3 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 min-h-[44px] flex items-center gap-2 text-xs font-semibold border border-white/10 transition-colors"
+              title="Ma'lumotlarni yangilash"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span>Yangilash</span>
             </button>
           </div>
         </div>
@@ -474,16 +470,6 @@ export const SuperAdminView: React.FC = () => {
               </div>
             </div>
 
-            {/* Invariant Policy Notice */}
-            <div className="p-3 bg-blue-50 text-blue-900 border border-blue-200 rounded-xl text-xs flex items-start gap-2">
-              <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-              <div>
-                <strong>Xavfsizlik va Ma'lumotlar Boshqaruvi Siyosati:</strong> Restoranlarni qasddan yoki tasodifan
-                to'liq o'chirib yuboradigan (hard delete) kundalik tugma mavjud emas. Xizmatni to'xtatish uchun
-                "SUSPEND" holatidan foydalaniladi; unda yangi tashrif va yangi buyurtmalar bloklanadi, ammo mavjud
-                qabul qilingan hisoblar va taomlarni xavfsiz yakunlashga to'liq ruxsat beriladi.
-              </div>
-            </div>
 
             {/* Restaurants Table */}
             <Table>
@@ -512,6 +498,26 @@ export const SuperAdminView: React.FC = () => {
                         <div>
                           <span className="font-bold text-ink-main block">{res.name}</span>
                           <span className="text-xs font-mono text-ink-secondary">/{res.slug}</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            {res.phone && (
+                              <span className="inline-flex items-center text-[10px] text-ink-secondary font-mono" title={`Telefonlar soni: ${1 + (res.extraPhones?.length || 0)}`}>
+                                <Phone className="w-2.5 h-2.5 mr-0.5 text-brand" />
+                                {1 + (res.extraPhones?.length || 0)} tel
+                              </span>
+                            )}
+                            {res.telegram && (
+                              <span className="inline-flex items-center text-[10px] text-sky-600 font-semibold" title={`Telegram: ${res.telegram}`}>
+                                <Send className="w-2.5 h-2.5 mr-0.5" />
+                                TG
+                              </span>
+                            )}
+                            {res.instagram && (
+                              <span className="inline-flex items-center text-[10px] text-pink-600 font-semibold" title={`Instagram: ${res.instagram}`}>
+                                <Instagram className="w-2.5 h-2.5 mr-0.5" />
+                                IG
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -828,52 +834,174 @@ export const SuperAdminView: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-sm font-bold text-ink-main">Restoran Ma'lumotlari</h4>
-                <p className="text-[11px] text-ink-secondary">Restoran rasmiy nomi, manzili va tizimdagi URL identifikatori</p>
+                <p className="text-[11px] text-ink-secondary">Restoran rasmiy nomi va aloqa ma'lumotlari</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-ink-main">Restoran Nomi *</label>
-                <Input
-                  value={newRestName}
-                  onChange={(e) => {
-                    setNewRestName(e.target.value);
-                    if (!newRestSlug) {
-                      setNewRestSlug(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '-'));
-                    }
-                  }}
-                  placeholder="Masalan: Rayhon Chilonzor"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-ink-main">Slug (URL Identifikator) *</label>
-                <Input
-                  value={newRestSlug}
-                  onChange={(e) => setNewRestSlug(e.target.value)}
-                  placeholder="rayhon-chilonzor"
-                  required
-                />
-              </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-ink-main">Restoran Nomi *</label>
+              <Input
+                value={newRestName}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNewRestName(val);
+                  setNewRestSlug(
+                    val
+                      .toLowerCase()
+                      .trim()
+                      .replace(/[^a-z0-9\s-]/g, '')
+                      .replace(/\s+/g, '-')
+                  );
+                }}
+                placeholder="Masalan: Rayhon Chilonzor"
+                required
+              />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-ink-main">Aloqa Telefoni</label>
+            {/* Aloqa Telefonlari (1 dan 4 tagacha) */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-brand" />
+                  Aloqa Telefonlari ({1 + newRestExtraPhones.length}/4)
+                </label>
+                {newRestExtraPhones.length < 3 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (newRestExtraPhones.length < 3) {
+                        setNewRestExtraPhones([...newRestExtraPhones, '']);
+                      }
+                    }}
+                    className="text-xs font-bold text-brand hover:text-brand-dark flex items-center gap-1 hover:underline transition-all"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    + Telefon qo'shish
+                  </button>
+                )}
+              </div>
+
+              {/* 1-telefon (Asosiy) */}
+              <div className="space-y-1">
                 <Input
                   value={newRestPhone}
                   onChange={(e) => setNewRestPhone(e.target.value)}
-                  placeholder="+998 71 123 45 67"
+                  placeholder="1-telefon (Asosiy, masalan: +998 71 123 45 67)"
                 />
               </div>
+
+              {/* Qo'shimcha telefonlar (2, 3, 4, 5-telefonlar) */}
+              {newRestExtraPhones.map((phoneVal, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Input
+                      value={phoneVal}
+                      onChange={(e) => {
+                        const updated = [...newRestExtraPhones];
+                        updated[idx] = e.target.value;
+                        setNewRestExtraPhones(updated);
+                      }}
+                      placeholder={`${idx + 2}-telefon (Masalan: +998 90 123 45 67)`}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setNewRestExtraPhones(newRestExtraPhones.filter((_, i) => i !== idx));
+                    }}
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 h-9 w-9 p-0 shrink-0"
+                    title="Ushbu telefonni o'chirish"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Ijtimoiy tarmoqlar: Telegram & Instagram */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-line/60">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-ink-main">Xizmat Tugash Sanasi (Ixtiyoriy)</label>
+                <label className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+                  <Send className="w-3.5 h-3.5 text-sky-500" />
+                  Telegram Kanali / Guruhi
+                </label>
+                <Input
+                  value={newRestTelegram}
+                  onChange={(e) => setNewRestTelegram(e.target.value)}
+                  placeholder="@restoran_kanali yoki t.me/..."
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+                  <Instagram className="w-3.5 h-3.5 text-pink-500" />
+                  Instagram Sahifasi
+                </label>
+                <Input
+                  value={newRestInstagram}
+                  onChange={(e) => setNewRestInstagram(e.target.value)}
+                  placeholder="@restoran_sahifasi yoki instagram.com/..."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1 border-t border-line/60">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-ink-main">Xizmat Muddati (Obuna)</label>
+                {newRestExpiresAt && (
+                  <button
+                    type="button"
+                    onClick={() => setNewRestExpiresAt('')}
+                    className="text-[11px] text-ink-muted hover:text-red-500 transition-colors"
+                  >
+                    Tozalash
+                  </button>
+                )}
+              </div>
+
+              {/* 1 oy / 6 oy / 1 yil tezkor tugmalari */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { label: '1 oylik', months: 1 },
+                  { label: '6 oylik', months: 6 },
+                  { label: '1 yillik', months: 12 },
+                ].map((preset) => {
+                  const checkDate = new Date();
+                  checkDate.setMonth(checkDate.getMonth() + preset.months);
+                  const isCurrent = newRestExpiresAt === checkDate.toISOString().split('T')[0];
+                  return (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => handleSetExpiryPreset(preset.months)}
+                      className={`py-2 px-3 text-xs font-bold rounded-xl border transition-all ${
+                        isCurrent
+                          ? 'bg-brand text-white border-brand shadow-sm'
+                          : 'bg-surface text-ink-main border-line hover:border-brand/40 hover:bg-bg'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Yoki o'zi kiritishi uchun sana maydoni */}
+              <div className="space-y-1 pt-1">
                 <Input
                   type="date"
                   value={newRestExpiresAt}
                   onChange={(e) => setNewRestExpiresAt(e.target.value)}
+                  placeholder="Yoki kalendardan sana tanlang"
+                  className="font-medium"
                 />
+                <p className="text-[11px] text-ink-secondary">
+                  {newRestExpiresAt
+                    ? `Tanlangan muddat: ${newRestExpiresAt}`
+                    : '1 oylik, 6 oylik, 1 yillik tugmalarini bosing yoki o\'zingiz kalendardan sana tanlang.'}
+                </p>
               </div>
             </div>
           </div>
@@ -1156,6 +1284,56 @@ export const SuperAdminView: React.FC = () => {
                     ? new Date(selectedRestaurant.subscriptionExpiresAt).toLocaleDateString()
                     : 'Muddatsiz (Cheklanmagan)'}
                 </span>
+              </div>
+            </div>
+
+            {/* Contacts & Social Links */}
+            <div className="p-3 bg-surface rounded-xl border border-line space-y-2">
+              <span className="font-bold text-ink-main block">Aloqa va Ijtimoiy Tarmoqlar:</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="p-2.5 bg-bg rounded-lg space-y-1">
+                  <span className="text-[10px] text-ink-secondary flex items-center gap-1 font-semibold">
+                    <Phone className="w-3 h-3 text-brand" />
+                    Telefonlar ({[selectedRestaurant.phone, ...(selectedRestaurant.extraPhones || [])].filter(Boolean).length})
+                  </span>
+                  <div className="text-xs font-mono font-medium text-ink-main space-y-0.5">
+                    {[selectedRestaurant.phone, ...(selectedRestaurant.extraPhones || [])].filter(Boolean).length > 0 ? (
+                      [selectedRestaurant.phone, ...(selectedRestaurant.extraPhones || [])].filter(Boolean).map((p, i) => (
+                        <div key={i}>{p}</div>
+                      ))
+                    ) : (
+                      <span className="text-ink-secondary font-normal">—</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-bg rounded-lg space-y-1">
+                  <span className="text-[10px] text-ink-secondary flex items-center gap-1 font-semibold">
+                    <Send className="w-3 h-3 text-sky-500" />
+                    Telegram
+                  </span>
+                  <div className="text-xs font-mono font-medium text-ink-main">
+                    {selectedRestaurant.telegram ? (
+                      <span className="text-sky-600 font-bold">{selectedRestaurant.telegram}</span>
+                    ) : (
+                      <span className="text-ink-secondary font-normal">—</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="p-2.5 bg-bg rounded-lg space-y-1">
+                  <span className="text-[10px] text-ink-secondary flex items-center gap-1 font-semibold">
+                    <Instagram className="w-3 h-3 text-pink-500" />
+                    Instagram
+                  </span>
+                  <div className="text-xs font-mono font-medium text-ink-main">
+                    {selectedRestaurant.instagram ? (
+                      <span className="text-pink-600 font-bold">{selectedRestaurant.instagram}</span>
+                    ) : (
+                      <span className="text-ink-secondary font-normal">—</span>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
 

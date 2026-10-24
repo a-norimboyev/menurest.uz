@@ -10,8 +10,6 @@ import {
   Globe,
   CheckCircle2,
   EyeOff,
-  KeyRound,
-  AlertCircle,
   RefreshCw,
   Clock,
   Sparkles,
@@ -19,12 +17,15 @@ import {
   Info,
   X,
   Trash2,
+  Phone,
+  Send,
+  Instagram,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button.tsx';
+import { Dialog } from '../components/ui/Dialog.tsx';
 import { ImageFallback } from '../components/ui/ImageFallback.tsx';
 import { Money } from '../components/ui/Money.tsx';
 import { Drawer } from '../components/ui/Drawer.tsx';
-import { Dialog } from '../components/ui/Dialog.tsx';
 import { Skeleton } from '../components/ui/Skeleton.tsx';
 import { EmptyState } from '../components/ui/EmptyState.tsx';
 import { DishDetailModal, SelectedDishDetail, CartSubmitItem } from '../components/menu/DishDetailModal.tsx';
@@ -85,6 +86,15 @@ export const GuestView: React.FC = () => {
   const [activeNav, setActiveNav] = useState<'menu' | 'orders' | 'service' | 'bill'>('menu');
   const [serviceCallSent, setServiceCallSent] = useState(false);
   const [loadingMenu, setLoadingMenu] = useState(false);
+  const [restaurantInfo, setRestaurantInfo] = useState<{
+    name: string;
+    phone?: string | null;
+    extraPhones?: string[];
+    telegram?: string | null;
+    instagram?: string | null;
+    address?: string | null;
+  } | null>(null);
+  const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   // Bosqich 6-7: Stol va Mehmon Sessiyasi Holati
   const [tableStatus, setTableStatus] = useState<'FREE' | 'DIRTY' | 'OCCUPIED'>('OCCUPIED');
@@ -104,10 +114,6 @@ export const GuestView: React.FC = () => {
     }
     return 'qr_rayhon_tbl_4';
   });
-  const [pinModalOpen, setPinModalOpen] = useState(false);
-  const [pinInput, setPinInput] = useState('');
-  const [pinError, setPinError] = useState<string | null>(null);
-  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
   // Taom Tafsiloti Modali Holati
@@ -207,6 +213,9 @@ export const GuestView: React.FC = () => {
       const res = await fetch(`/api/v1/public/restaurants/rayhon-chilonzor/menu?lang=${lang}`);
       const json = await res.json();
       if (json.success && json.data) {
+        if (json.data.restaurant) {
+          setRestaurantInfo(json.data.restaurant);
+        }
         if (json.data.categories?.length > 0) {
           setCategories(json.data.categories);
           if (!json.data.categories.some((c: any) => c.id === activeCategory)) {
@@ -291,11 +300,30 @@ export const GuestView: React.FC = () => {
     }
   }, [qrToken]);
 
+  // Stolga avtomatik ulanish (PIN-siz to'g'ridan-to'g'ri)
+  const joinTableDirectly = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/public/tables/${qrToken}/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setIsJoined(true);
+        await fetchOrders();
+      }
+    } catch {
+      // Fallback
+    }
+  }, [qrToken, fetchOrders]);
+
   useEffect(() => {
     loadPublicMenu();
     loadTableInfo();
-    fetchOrders();
-  }, [loadPublicMenu, loadTableInfo, fetchOrders]);
+    joinTableDirectly();
+  }, [loadPublicMenu, loadTableInfo, joinTableDirectly]);
 
   // Jonli yangilanish (SSE) va ulanish nazorati
   const { status, soundEnabled, toggleSound } = useRealtime({
@@ -391,57 +419,13 @@ export const GuestView: React.FC = () => {
   const grandTotalCartTiyin = totalCartTiyin + serviceChargeTiyin;
   const totalCartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Stolga ulanish (PIN kod tekshiruvi)
-  async function handleJoinTable(e?: React.FormEvent) {
-    if (e) e.preventDefault();
-    if (!pinInput.trim()) return;
-
-    setIsVerifyingPin(true);
-    setPinError(null);
-    try {
-      const res = await fetch(`/api/v1/public/tables/${qrToken}/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ code: pinInput.trim() }),
-      });
-      const json = await res.json();
-
-      if (res.ok && json.success) {
-        setIsJoined(true);
-        setPinModalOpen(false);
-        setPinInput('');
-        setFeedbackMsg(
-          lang === 'uz'
-            ? 'Stolga muvaffaqiyatli ulandingiz! Endi buyurtma yuborishingiz mumkin.'
-            : 'Вы успешно подключились к столу!'
-        );
-        setTimeout(() => setFeedbackMsg(null), 3500);
-        await fetchOrders();
-      } else {
-        setPinError(json.error?.message || 'Noto\'g\'ri kod. Qaytadan urinib ko\'ring.');
-      }
-    } catch {
-      setPinError('Serverga ulanishda xatolik yuz berdi');
-    } finally {
-      setIsVerifyingPin(false);
-    }
-  }
-
   // BUYURTMANI YUBORISH (POST /api/v1/guest/orders - Idempotency & Conflict Guard bilan)
   async function handleSubmitOrder() {
     if (cart.length === 0) return;
 
-    // Agar stolga ulanmagan bo'lsa, PIN oynasini ochish
+    // Agar stolga ulanmagan bo'lsa, to'g'ridan-to'g'ri avtomatik ulanish
     if (!isJoined) {
-      setPinModalOpen(true);
-      setFeedbackMsg(
-        lang === 'uz'
-          ? 'Buyurtma yuborish uchun avval stol PIN kodini kiriting'
-          : 'Введите PIN код стола для отправки заказа'
-      );
-      setTimeout(() => setFeedbackMsg(null), 3000);
-      return;
+      await joinTableDirectly();
     }
 
     setIsSubmittingOrder(true);
@@ -511,11 +495,11 @@ export const GuestView: React.FC = () => {
         }
       } else if (res.status === 401) {
         setIsJoined(false);
-        setPinModalOpen(true);
+        await joinTableDirectly();
         alert(
           lang === 'uz'
-            ? 'Mehmon sessiyasi eskirgan yoki stol yopilgan. Qayta ulaning.'
-            : 'Сессия истекла. Пожалуйста, введите код снова.'
+            ? 'Mehmon sessiyasi yangilandi. Iltimos, qayta urinib ko\'ring.'
+            : 'Сессия обновлена. Пожалуйста, повторите попытку.'
         );
       } else {
         alert(json.error?.message || 'Buyurtma yuborishda xatolik yuz berdi.');
@@ -529,17 +513,16 @@ export const GuestView: React.FC = () => {
 
   // Xizmat chaqirish
   async function handleServiceCall(type: 'WAITER' | 'BILL' | 'CLEAN') {
-    if (tableStatus === 'FREE' || tableStatus === 'DIRTY') {
+    if (tableStatus === 'DIRTY') {
       alert(
         lang === 'uz'
-          ? 'Stol faol emas yoki tozalanmoqda. Iltimos, xodimga murojaat qiling.'
-          : 'Стол не активен или убирается.'
+          ? 'Stol tozalanmoqda. Iltimos, xodimga murojaat qiling.'
+          : 'Стол убирается.'
       );
       return;
     }
     if (!isJoined) {
-      setPinModalOpen(true);
-      return;
+      await joinTableDirectly();
     }
     setServiceCallSent(true);
     setFeedbackMsg(
@@ -677,25 +660,18 @@ export const GuestView: React.FC = () => {
             </div>
             <div>
               <h1 className="text-base font-bold text-white tracking-tight leading-tight">
-                Rayhon Milliy Taomlar
+                {restaurantInfo?.name || 'Rayhon Milliy Taomlar'}
               </h1>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="px-2 py-0.5 rounded-full bg-brand-800 text-brand-200 text-[11px] font-bold border border-brand-700">
                   Stol #{tableNumber}
                 </span>
                 <span className="text-[11px] text-brand-200">{hallName}</span>
-                {isJoined ? (
+                {isJoined && (
                   <span className="inline-flex items-center gap-1 text-[10px] text-emerald-300 font-bold bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-500/30">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     Ulangan
                   </span>
-                ) : (
-                  <button
-                    onClick={() => setPinModalOpen(true)}
-                    className="text-[10px] text-amber-200 underline font-semibold hover:text-white"
-                  >
-                    PIN kiritish
-                  </button>
                 )}
               </div>
             </div>
@@ -709,6 +685,15 @@ export const GuestView: React.FC = () => {
                 onToggleSound={toggleSound}
               />
             )}
+            {/* Restoran haqida va Aloqa tugmasi */}
+            <button
+              onClick={() => setInfoModalOpen(true)}
+              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-surface/10 hover:bg-surface/20 text-white text-xs font-semibold backdrop-blur-sm border border-white/20 transition-all min-h-[36px]"
+              title={lang === 'uz' ? "Restoran ma'lumotlari va aloqa" : 'О ресторане и контакты'}
+            >
+              <Info className="w-3.5 h-3.5 text-brand-200" />
+              <span className="hidden sm:inline">{lang === 'uz' ? 'Aloqa' : 'Контакты'}</span>
+            </button>
             {/* Til almashtirish tugmasi */}
             <button
               onClick={() => setLang(lang === 'uz' ? 'ru' : 'uz')}
@@ -898,17 +883,8 @@ export const GuestView: React.FC = () => {
 
           {!isJoined ? (
             <div className="bg-surface rounded-2xl p-6 border border-line text-center space-y-3">
-              <KeyRound className="w-8 h-8 text-amber-600 mx-auto" />
-              <h3 className="font-bold text-sm text-ink-main">
-                {lang === 'uz' ? 'Stolga ulanmagansiz' : 'Вы не подключены к столу'}
-              </h3>
-              <p className="text-xs text-ink-muted">
-                {lang === 'uz'
-                  ? 'Buyurtmalaringizni ko\'rish yoki yangi buyurtma berish uchun stol PIN kodini kiriting.'
-                  : 'Введите PIN код стола для просмотра заказов.'}
-              </p>
-              <Button size="sm" variant="primary" onClick={() => setPinModalOpen(true)}>
-                {lang === 'uz' ? 'Stol PIN Kodini Kiritish' : 'Ввести PIN код'}
+              <Button size="sm" variant="primary" onClick={() => joinTableDirectly()}>
+                {lang === 'uz' ? 'Stolga Ulanish' : 'Подключиться к столу'}
               </Button>
             </div>
           ) : loadingOrders ? (
@@ -1396,70 +1372,100 @@ export const GuestView: React.FC = () => {
         onAddToCart={handleAddToCartFromModal}
       />
 
-      {/* STOLGA ULANISH PIN KOD MODALI */}
+      {/* RESTORAN MA'LUMOTLARI VA ALOQA MODALI */}
       <Dialog
-        isOpen={pinModalOpen}
-        onClose={() => setPinModalOpen(false)}
-        title={lang === 'uz' ? 'Stolga Ulanish' : 'Подключение к столу'}
+        isOpen={infoModalOpen}
+        onClose={() => setInfoModalOpen(false)}
+        title={restaurantInfo?.name || (lang === 'uz' ? "Restoran Ma'lumotlari" : 'Информация о ресторане')}
       >
-        <form onSubmit={handleJoinTable} className="space-y-4">
-          <div className="text-xs text-ink-secondary leading-relaxed">
-            {lang === 'uz'
-              ? `Stol #${tableNumber} buyurtmasini shakllantirish uchun ofitsiant bergan 4-xonali PIN kodni kiriting (Masalan: 1234):`
-              : `Введите 4-значный PIN код стола #${tableNumber} (например: 1234):`}
-          </div>
+        <div className="space-y-4 pt-2 text-xs">
+          {/* Manzil */}
+          {restaurantInfo?.address && (
+            <div className="p-3 bg-bg rounded-xl border border-line space-y-1">
+              <span className="text-[11px] text-ink-secondary block font-medium">
+                {lang === 'uz' ? 'Manzil' : 'Адрес'}
+              </span>
+              <p className="font-semibold text-ink-main">{restaurantInfo.address}</p>
+            </div>
+          )}
 
-          <div className="space-y-1.5">
-            <input
-              type="password"
-              inputMode="numeric"
-              maxLength={6}
-              value={pinInput}
-              onChange={(e) => {
-                setPinInput(e.target.value);
-                setPinError(null);
-              }}
-              placeholder="1234"
-              className="w-full text-center tracking-widest text-2xl font-mono py-3 rounded-xl border border-line bg-surface text-ink-main focus:outline-none focus:ring-2 focus:ring-brand font-bold"
-              autoFocus
-            />
-            {pinError && (
-              <div className="text-xs text-rose-600 font-semibold flex items-center gap-1.5 pt-1">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span>{pinError}</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-2 pt-2">
-            <Button
-              type="button"
-              variant="secondary"
-              className="w-1/3"
-              onClick={() => {
-                setPinModalOpen(false);
-                setPinError(null);
-              }}
-            >
-              {lang === 'uz' ? 'Bekor qilish' : 'Отмена'}
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              disabled={isVerifyingPin || !pinInput.trim()}
-              className="w-2/3 font-bold"
-            >
-              {isVerifyingPin ? (
-                <span className="flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                  {lang === 'uz' ? 'Tekshirilmoqda...' : 'Проверка...'}
-                </span>
+          {/* Telefon raqamlar */}
+          <div className="p-3 bg-surface rounded-xl border border-line space-y-2">
+            <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5 text-brand" />
+              {lang === 'uz' ? 'Aloqa Telefonlari' : 'Контактные телефоны'}
+            </span>
+            <div className="space-y-1.5">
+              {[restaurantInfo?.phone, ...(restaurantInfo?.extraPhones || [])].filter(Boolean).length > 0 ? (
+                [restaurantInfo?.phone, ...(restaurantInfo?.extraPhones || [])].filter(Boolean).map((p, idx) => (
+                  <a
+                    key={idx}
+                    href={`tel:${p?.replace(/\s+/g, '')}`}
+                    className="flex items-center justify-between p-2.5 rounded-lg bg-bg hover:bg-brand/10 hover:border-brand/30 border border-transparent transition-all group"
+                  >
+                    <span className="font-mono font-medium text-ink-main group-hover:text-brand">{p}</span>
+                    <span className="text-[11px] text-brand font-bold">
+                      {lang === 'uz' ? "Qo'ng'iroq qilish →" : 'Позвонить →'}
+                    </span>
+                  </a>
+                ))
               ) : (
-                <span>{lang === 'uz' ? 'Ulanish' : 'Подключиться'}</span>
+                <p className="text-ink-secondary text-xs">
+                  {lang === 'uz' ? "Telefon raqam ko'rsatilmagan" : 'Телефон не указан'}
+                </p>
               )}
+            </div>
+          </div>
+
+          {/* Ijtimoiy tarmoqlar */}
+          {(restaurantInfo?.telegram || restaurantInfo?.instagram) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {restaurantInfo.telegram && (
+                <a
+                  href={
+                    restaurantInfo.telegram.startsWith('http')
+                      ? restaurantInfo.telegram
+                      : `https://t.me/${restaurantInfo.telegram.replace('@', '')}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2.5 p-3 bg-sky-50 hover:bg-sky-100 text-sky-800 rounded-xl border border-sky-200 font-semibold transition-all"
+                >
+                  <Send className="w-4 h-4 text-sky-600 shrink-0" />
+                  <div className="truncate">
+                    <span className="block text-[10px] text-sky-600">Telegram</span>
+                    <span className="text-xs truncate block">{restaurantInfo.telegram}</span>
+                  </div>
+                </a>
+              )}
+
+              {restaurantInfo.instagram && (
+                <a
+                  href={
+                    restaurantInfo.instagram.startsWith('http')
+                      ? restaurantInfo.instagram
+                      : `https://instagram.com/${restaurantInfo.instagram.replace('@', '')}`
+                  }
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-2.5 p-3 bg-pink-50 hover:bg-pink-100 text-pink-800 rounded-xl border border-pink-200 font-semibold transition-all"
+                >
+                  <Instagram className="w-4 h-4 text-pink-600 shrink-0" />
+                  <div className="truncate">
+                    <span className="block text-[10px] text-pink-600">Instagram</span>
+                    <span className="text-xs truncate block">{restaurantInfo.instagram}</span>
+                  </div>
+                </a>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <Button variant="ghost" onClick={() => setInfoModalOpen(false)}>
+              {lang === 'uz' ? 'Yopish' : 'Закрыть'}
             </Button>
           </div>
-        </form>
+        </div>
       </Dialog>
     </div>
   );

@@ -57,11 +57,11 @@ publicTableRouter.get('/tables/:qrToken', async (req: Request, res: Response, ne
     // Stol holati bo'yicha mehmon uchun tushunarli matn
     let statusMessage = '';
     if (table.status === TableStatus.FREE) {
-      statusMessage = 'Stol hozir bo\'sh. Buyurtma berish uchun ofitsiantga murojaat qiling yoki tashrif ochilishini kuting.';
+      statusMessage = 'Xush kelibsiz! Taomlarni tanlab bemalol buyurtma berishingiz mumkin.';
     } else if (table.status === TableStatus.DIRTY) {
       statusMessage = 'Stol tozalanmoqda. Iltimos, xodimga murojaat qiling.';
     } else if (table.status === TableStatus.OCCUPIED) {
-      statusMessage = 'Stol band. Buyurtma berish uchun ofitsiant bergan kirish kodini kiriting.';
+      statusMessage = 'Xush kelibsiz! Buyurtma berish uchun taomlarni tanlang.';
     }
 
     res.status(200).json({
@@ -82,7 +82,7 @@ publicTableRouter.get('/tables/:qrToken', async (req: Request, res: Response, ne
           currency: table.restaurant.currency,
         },
         statusMessage,
-        canJoin: table.status === TableStatus.OCCUPIED,
+        canJoin: true,
       },
       meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
     });
@@ -101,14 +101,6 @@ publicTableRouter.post('/tables/:qrToken/join', async (req: Request, res: Respon
     const { qrToken } = req.params;
     const { code, deviceInfo } = req.body;
 
-    if (!code || typeof code !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: { code: 'VALIDATION_ERROR', message: 'Kirish kodi kiritilishi shart' },
-        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
-      });
-    }
-
     const table = await prisma.table.findUnique({
       where: { qrToken },
       include: {
@@ -126,59 +118,70 @@ publicTableRouter.post('/tables/:qrToken/join', async (req: Request, res: Respon
       });
     }
 
-    if (table.status !== TableStatus.OCCUPIED || table.visits.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'TABLE_NOT_OCCUPIED',
-          message: 'Ushbu stolda hozirda faol tashrif mavjud emas. Avval xodimga murojaat qiling.',
-        },
-        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
-      });
-    }
+    let visit = table.visits[0];
 
-    const visit = table.visits[0];
+    // Agar stolda faol tashrif bo'lmasa, avtomatik ochish (Mehmon uchun PIN-siz to'g'ridan-to'g'ri buyurtma)
+    if (!visit) {
+      const generatedPin = Math.floor(1000 + Math.random() * 9000).toString();
+      const generatedPinHash = crypto.createHash('sha256').update(generatedPin).digest('hex');
 
-    // 1. Lockout tekshiruvi (Rate limiting)
-    if (visit.lockedUntil && visit.lockedUntil > new Date()) {
-      const waitSeconds = Math.ceil((visit.lockedUntil.getTime() - Date.now()) / 1000);
-      return res.status(429).json({
-        success: false,
-        error: {
-          code: 'TOO_MANY_ATTEMPTS',
-          message: `Ko'p xato urinishlar tufayli kod kiritish vaqtincha bloklandi. Iltimos, ${waitSeconds} soniya kuting yoki ofitsiantga murojaat qiling.`,
-        },
-        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
-      });
-    }
-
-    // 2. Kod tekshiruvi (plain yoki hash orqali)
-    const inputHash = crypto.createHash('sha256').update(code.trim()).digest('hex');
-    const isMatch = code.trim() === visit.pinCode || (visit.pinCodeHash && inputHash === visit.pinCodeHash);
-
-    if (!isMatch) {
-      const newFailed = visit.failedAttempts + 1;
-      const shouldLock = newFailed >= 5;
-      const lockedUntil = shouldLock ? new Date(Date.now() + 2 * 60 * 1000) : null;
-
-      await prisma.visit.update({
-        where: { id: visit.id },
+      visit = await prisma.visit.create({
         data: {
-          failedAttempts: newFailed,
-          lockedUntil,
+          tableId: table.id,
+          restaurantId: table.restaurantId,
+          status: VisitStatus.ACTIVE,
+          pinCode: generatedPin,
+          pinCodeHash: generatedPinHash,
         },
       });
 
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'INVALID_TABLE_CODE',
-          message: shouldLock
-            ? '5 marta noto\'g\'ri kod kiritildi. Xavfsizlik yuzasidan 2 daqiqaga bloklandi.'
-            : `Noto'g'ri stol kodi. Qolgan urinishlar soni: ${5 - newFailed}.`,
-        },
-        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+      await prisma.table.update({
+        where: { id: table.id },
+        data: { status: TableStatus.OCCUPIED },
       });
+    }
+
+    // Agar kod kiritilgan bo'lsa (ixtiyoriy tekshiruv yoki testlar uchun)
+    if (code && typeof code === 'string' && code.trim().length > 0) {
+      if (visit.lockedUntil && visit.lockedUntil > new Date()) {
+        const waitSeconds = Math.ceil((visit.lockedUntil.getTime() - Date.now()) / 1000);
+        return res.status(429).json({
+          success: false,
+          error: {
+            code: 'TOO_MANY_ATTEMPTS',
+            message: `Ko'p xato urinishlar tufayli kod kiritish vaqtincha bloklandi. Iltimos, ${waitSeconds} soniya kuting yoki ofitsiantga murojaat qiling.`,
+          },
+          meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+        });
+      }
+
+      const inputHash = crypto.createHash('sha256').update(code.trim()).digest('hex');
+      const isMatch = code.trim() === visit.pinCode || (visit.pinCodeHash && inputHash === visit.pinCodeHash);
+
+      if (!isMatch) {
+        const newFailed = visit.failedAttempts + 1;
+        const shouldLock = newFailed >= 5;
+        const lockedUntil = shouldLock ? new Date(Date.now() + 2 * 60 * 1000) : null;
+
+        await prisma.visit.update({
+          where: { id: visit.id },
+          data: {
+            failedAttempts: newFailed,
+            lockedUntil,
+          },
+        });
+
+        return res.status(400).json({
+          success: false,
+          error: {
+            code: 'INVALID_TABLE_CODE',
+            message: shouldLock
+              ? '5 marta noto\'g\'ri kod kiritildi. Xavfsizlik yuzasidan 2 daqiqaga bloklandi.'
+              : `Noto'g'ri stol kodi. Qolgan urinishlar soni: ${5 - newFailed}.`,
+          },
+          meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+        });
+      }
     }
 
     // 3. Kod to'g'ri: Failed attempts ni tozalash

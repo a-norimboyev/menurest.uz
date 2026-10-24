@@ -294,6 +294,9 @@ export interface RestaurantSettings {
   name: string;
   slug: string;
   phone?: string | null;
+  extraPhones?: string[];
+  telegram?: string | null;
+  instagram?: string | null;
   address?: string | null;
   logoUrl?: string | null;
   bannerUrl?: string | null;
@@ -346,6 +349,9 @@ export interface PlatformRestaurantItemDto {
   name: string;
   slug: string;
   phone?: string | null;
+  extraPhones?: string[];
+  telegram?: string | null;
+  instagram?: string | null;
   address?: string | null;
   logoUrl?: string | null;
   subscriptionPlan: string;
@@ -385,6 +391,9 @@ export interface CreateRestaurantDto {
   name: string;
   slug: string;
   phone?: string;
+  extraPhones?: string[];
+  telegram?: string | null;
+  instagram?: string | null;
   address?: string;
   currency?: string;
   serviceChargeBps?: number;
