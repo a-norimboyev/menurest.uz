@@ -108,6 +108,9 @@ model Restaurant {
   name              String
   slug              String                 @unique
   phone             String?
+  extraPhones       String[]               @default([]) @map("extra_phones")
+  telegram          String?
+  instagram         String?
   address           String?
   logoUrl           String?                @map("logo_url")
   bannerUrl         String?                @map("banner_url")
