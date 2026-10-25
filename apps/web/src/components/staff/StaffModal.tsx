@@ -1,4 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import {
+  Eye,
+  EyeOff,
+  Crown,
+  Briefcase,
+  ChefHat,
+  Users,
+  Sparkles,
+  Lightbulb,
+} from 'lucide-react';
 import { Dialog } from '../ui/Dialog.tsx';
 import { Button } from '../ui/Button.tsx';
 import { Input } from '../ui/Input.tsx';
@@ -25,6 +35,7 @@ interface StaffModalProps {
   availableStations?: { id: string; name: string }[];
   availableTables?: { id: string; number: number }[];
   actorRoles?: Role[];
+  allowedRoles?: string[];
 }
 
 export const StaffModal: React.FC<StaffModalProps> = ({
@@ -35,6 +46,7 @@ export const StaffModal: React.FC<StaffModalProps> = ({
   availableStations = [],
   availableTables = [],
   actorRoles = [Role.BOSS],
+  allowedRoles,
 }) => {
   const [formData, setFormData] = useState<StaffFormData>({
     fullName: '',
@@ -48,6 +60,7 @@ export const StaffModal: React.FC<StaffModalProps> = ({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const isEditing = Boolean(initialData?.id || initialData?.userId);
 
@@ -150,8 +163,11 @@ export const StaffModal: React.FC<StaffModalProps> = ({
   };
 
   const canAssignBoss = actorRoles.includes(Role.SUPER_ADMIN);
-  const selectableRoles: Role[] = [Role.MANAGER, Role.CASHIER, Role.WAITER, Role.KITCHEN];
-  if (canAssignBoss) {
+  const baseRoles: Role[] = [Role.MANAGER, Role.CASHIER, Role.WAITER, Role.KITCHEN];
+  const selectableRoles: Role[] = allowedRoles && allowedRoles.length > 0
+    ? baseRoles.filter((r) => allowedRoles.includes(r))
+    : baseRoles;
+  if (canAssignBoss && (!allowedRoles || allowedRoles.includes('BOSS'))) {
     selectableRoles.unshift(Role.BOSS);
   }
 
@@ -195,13 +211,26 @@ export const StaffModal: React.FC<StaffModalProps> = ({
             <label className="block text-xs font-semibold text-ink-main mb-1">
               Parol {isEditing && <span className="text-ink-secondary font-normal">(O'zgartirmaslik uchun bo'sh qoldiring)</span>}
             </label>
-            <Input
-              type="password"
-              placeholder={isEditing ? '••••••••' : 'Kamida 6 belgi'}
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              required={!isEditing}
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? 'text' : 'password'}
+                placeholder={isEditing ? '••••••••' : 'Kamida 6 belgi'}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required={!isEditing}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-ink-muted hover:text-ink-main focus:outline-none p-0.5 rounded transition-colors"
+                title={showPassword ? "Parolni yashirish" : "Parolni ko'rsatish"}
+                aria-label={showPassword ? "Parolni yashirish" : "Parolni ko'rsatish"}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           {/* Rollar */}
@@ -212,8 +241,9 @@ export const StaffModal: React.FC<StaffModalProps> = ({
 
             {/* Tezkor Shablonlar */}
             <div className="mb-3 space-y-2 p-3 bg-bg rounded-xl border border-line">
-              <span className="text-[11px] text-ink-secondary block font-bold">
-                💡 O'zbekiston kafelari uchun jamoa kombinatsiyalari (1, 2, 3, 4, 5+ xodim):
+              <span className="text-[11px] text-ink-secondary flex items-center gap-1 font-bold">
+                <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                O'zbekiston kafelari uchun jamoa kombinatsiyalari (1, 2, 3, 4, 5+ xodim):
               </span>
               <div className="space-y-1.5">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -221,24 +251,27 @@ export const StaffModal: React.FC<StaffModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, roles: [Role.WAITER, Role.CASHIER, Role.MANAGER] })}
-                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-100 text-purple-950 border border-purple-300 hover:bg-purple-200 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-100 text-purple-950 border border-purple-300 hover:bg-purple-200 transition-colors"
                   >
-                    👤 Universal Operator (3 in 1: Kassa+Zal+Menejer)
+                    <Sparkles className="w-3.5 h-3.5 text-purple-700" />
+                    Universal Operator (3 in 1: Kassa+Zal+Menejer)
                   </button>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, roles: [Role.WAITER, Role.CASHIER] })}
-                    className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100 text-amber-950 border border-amber-300 hover:bg-amber-200 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100 text-amber-950 border border-amber-300 hover:bg-amber-200 transition-colors"
                   >
-                    🤝 Ofitsiant-Kassir (2 in 1)
+                    <Users className="w-3.5 h-3.5 text-amber-700" />
+                    Ofitsiant-Kassir (2 in 1)
                   </button>
                   {canAssignBoss && (
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, roles: [Role.BOSS, Role.MANAGER, Role.CASHIER, Role.WAITER] })}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-100 text-indigo-950 border border-indigo-300 hover:bg-indigo-200 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-100 text-indigo-950 border border-indigo-300 hover:bg-indigo-200 transition-colors"
                     >
-                      👑 Solo Egasi (4 in 1)
+                      <Crown className="w-3.5 h-3.5 text-indigo-700" />
+                      Solo Egasi (4 in 1)
                     </button>
                   )}
                 </div>
@@ -248,17 +281,19 @@ export const StaffModal: React.FC<StaffModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, roles: [Role.MANAGER, Role.CASHIER] })}
-                    className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-surface text-ink-main border border-line hover:border-brand transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-surface text-ink-main border border-line hover:border-brand transition-colors"
                   >
-                    💼 Menejer-Kassir
+                    <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
+                    Menejer-Kassir
                   </button>
                   {selectableRoles.includes(Role.KITCHEN) && (
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, roles: [Role.KITCHEN] })}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-surface text-ink-main border border-line hover:border-brand transition-colors"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-surface text-ink-main border border-line hover:border-brand transition-colors"
                     >
-                      👨‍🍳 Oshpaz / Barman
+                      <ChefHat className="w-3.5 h-3.5 text-rose-600" />
+                      Oshpaz / Barman
                     </button>
                   )}
                 </div>

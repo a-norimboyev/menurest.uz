@@ -305,6 +305,7 @@ export interface RestaurantSettings {
   serviceChargeBps: number;
   currency: string;
   timezone: string;
+  allowedRoles?: string[];
 }
 
 export interface AuditLogDto {
@@ -356,6 +357,7 @@ export interface PlatformRestaurantItemDto {
   logoUrl?: string | null;
   subscriptionPlan: string;
   subscriptionExpiresAt?: string | null;
+  allowedRoles?: string[];
   status: 'ACTIVE' | 'SUSPENDED';
   suspendedReason?: string | null;
   suspendedAt?: string | null;
@@ -367,6 +369,7 @@ export interface PlatformRestaurantItemDto {
     id: string;
     fullName: string;
     phone: string;
+    plainPassword?: string | null;
   } | null;
   createdAt: string;
 }
@@ -378,6 +381,9 @@ export interface PlatformOverviewDto {
   totalUsers: number;
   totalTables: number;
   todayOrdersCount: number;
+  activeTablesCount?: number;
+  totalMenuItems?: number;
+  topRestaurantToday?: { name: string; ordersCount: number } | null;
   systemHealth: {
     status: 'HEALTHY' | 'DEGRADED';
     dbConnected: boolean;
@@ -399,10 +405,12 @@ export interface CreateRestaurantDto {
   serviceChargeBps?: number;
   subscriptionPlan?: string;
   subscriptionExpiresAt?: string | null;
+  allowedRoles?: string[];
   ownerUserId?: string;
   ownerName?: string;
   ownerPhone?: string;
   ownerPassword?: string;
+  initialTablesCount?: number;
 }
 
 export interface SupportAccessDto {

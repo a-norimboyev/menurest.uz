@@ -633,7 +633,7 @@ export const GuestView: React.FC = () => {
   );
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-bg flex flex-col pb-28 relative select-none shadow-xl border-x border-line">
+    <div className="w-full max-w-5xl mx-auto min-h-screen bg-bg flex flex-col pb-28 relative select-none shadow-xl border-x border-line">
       {/* Offline Ogohlantirish Paneli */}
       <ConnectionBanner
         status={status}
@@ -688,7 +688,7 @@ export const GuestView: React.FC = () => {
             {/* Restoran haqida va Aloqa tugmasi */}
             <button
               onClick={() => setInfoModalOpen(true)}
-              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-surface/10 hover:bg-surface/20 text-white text-xs font-semibold backdrop-blur-sm border border-white/20 transition-all min-h-[36px]"
+              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-surface/10 hover:bg-surface/20 text-white text-xs font-semibold backdrop-blur-md border border-white/20 transition-all min-h-[36px]"
               title={lang === 'uz' ? "Restoran ma'lumotlari va aloqa" : 'О ресторане и контакты'}
             >
               <Info className="w-3.5 h-3.5 text-brand-200" />
@@ -697,7 +697,7 @@ export const GuestView: React.FC = () => {
             {/* Til almashtirish tugmasi */}
             <button
               onClick={() => setLang(lang === 'uz' ? 'ru' : 'uz')}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-surface/10 hover:bg-surface/20 text-white text-xs font-semibold backdrop-blur-sm border border-white/20 transition-all min-h-[36px]"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-surface/10 hover:bg-surface/20 text-white text-xs font-semibold backdrop-blur-md border border-white/20 transition-all min-h-[36px]"
             >
               <Globe className="w-3.5 h-3.5 text-brand-200" />
               <span className="uppercase">{lang}</span>
@@ -759,7 +759,7 @@ export const GuestView: React.FC = () => {
           </div>
 
           {/* 3. Taomlar Ro'yxati */}
-          <div className="p-4 space-y-3.5 flex-1">
+          <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-3.5 flex-1 content-start">
             {loadingMenu ? (
               <div className="space-y-3">
                 <Skeleton className="h-24 w-full rounded-2xl" />
@@ -1164,7 +1164,7 @@ export const GuestView: React.FC = () => {
 
       {/* 4. Qulay Savat Suzuvchi Paneli */}
       {totalCartCount > 0 && activeNav === 'menu' && (
-        <div className="fixed bottom-20 left-0 right-0 max-w-md mx-auto px-4 z-30 pointer-events-none">
+        <div className="fixed bottom-20 left-0 right-0 max-w-5xl mx-auto px-4 z-30 pointer-events-none">
           <div
             onClick={() => setCartOpen(true)}
             className="pointer-events-auto bg-brand hover:bg-brand-hover text-white p-3.5 rounded-2xl shadow-xl flex items-center justify-between cursor-pointer border border-brand-hover transition-transform active:scale-[0.98]"
@@ -1194,7 +1194,7 @@ export const GuestView: React.FC = () => {
       )}
 
       {/* 5. Pastki Navigatsiya Paneli */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto h-16 bg-surface/95 backdrop-blur-md border-t border-line px-6 flex items-center justify-between z-40 shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 max-w-5xl mx-auto h-16 bg-surface border-t border-line px-6 flex items-center justify-between z-40 shadow-lg">
         <button
           onClick={() => setActiveNav('menu')}
           className={`flex flex-col items-center justify-center space-y-1 transition-colors min-h-[44px] min-w-[44px] ${

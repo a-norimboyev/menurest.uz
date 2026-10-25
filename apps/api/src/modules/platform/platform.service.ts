@@ -30,7 +30,51 @@ function sanitizeJson(val: any): any {
   return clean;
 }
 
+export interface PlatformLead {
+  id: string;
+  name: string;
+  phone: string;
+  region: string;
+  plan?: string;
+  note?: string;
+  status: 'NEW' | 'CONTACTED' | 'CONVERTED';
+  createdAt: string;
+}
+
 export class PlatformService {
+  // Leads from landing page
+  private leads: PlatformLead[] = [];
+
+  async getLeads() {
+    return [...this.leads];
+  }
+
+  async createLead(data: { name: string; phone: string; region: string; plan?: string; note?: string }) {
+    if (!data.name || !data.phone) {
+      throw { statusCode: 400, code: 'VALIDATION_ERROR', message: 'Ism va telefon raqami majburiy' };
+    }
+    const newLead: PlatformLead = {
+      id: `lead_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      name: data.name.trim(),
+      phone: data.phone.trim(),
+      region: data.region || 'Toshkent shahri',
+      plan: data.plan || 'BUSINESS',
+      note: data.note?.trim() || 'Bosh sahifadan qoldirilgan ariza',
+      status: 'NEW',
+      createdAt: new Date().toISOString(),
+    };
+    this.leads.unshift(newLead);
+    return newLead;
+  }
+
+  async updateLeadStatus(leadId: string, status: 'NEW' | 'CONTACTED' | 'CONVERTED') {
+    const lead = this.leads.find((l) => l.id === leadId);
+    if (!lead) {
+      throw { statusCode: 404, code: 'LEAD_NOT_FOUND', message: 'Ariza topilmadi' };
+    }
+    lead.status = status;
+    return lead;
+  }
   /**
    * 1. Platforma texnik agregatsiyalari va xizmat monitoringi
    */
@@ -49,6 +93,9 @@ export class PlatformService {
       totalTables,
       todayOrdersCount,
       failedOutboxEvents,
+      activeTablesCount,
+      totalMenuItems,
+      topOrdersGroup,
     ] = await Promise.all([
       prisma.restaurant.count(),
       prisma.restaurant.count({
@@ -79,7 +126,36 @@ export class PlatformService {
         orderBy: { createdAt: 'desc' },
         take: 10,
       }),
+      prisma.visit.count({
+        where: { status: 'ACTIVE' },
+      }),
+      prisma.menuItem.count(),
+      prisma.order.groupBy({
+        by: ['restaurantId'],
+        where: {
+          createdAt: { gte: fromUtc, lte: toUtc },
+        },
+        _count: { id: true },
+        orderBy: {
+          _count: { id: 'desc' },
+        },
+        take: 1,
+      }),
     ]);
+
+    let topRestaurantToday: { name: string; ordersCount: number } | null = null;
+    if (topOrdersGroup.length > 0 && topOrdersGroup[0]._count.id > 0) {
+      const topRest = await prisma.restaurant.findUnique({
+        where: { id: topOrdersGroup[0].restaurantId },
+        select: { name: true },
+      });
+      if (topRest) {
+        topRestaurantToday = {
+          name: topRest.name,
+          ordersCount: topOrdersGroup[0]._count.id,
+        };
+      }
+    }
 
     const suspendedRestaurants = totalRestaurants - activeRestaurants;
 
@@ -90,6 +166,9 @@ export class PlatformService {
       totalUsers,
       totalTables,
       todayOrdersCount,
+      activeTablesCount,
+      totalMenuItems,
+      topRestaurantToday,
       systemHealth: {
         status: dbLatencyMs < 200 && failedOutboxEvents.length === 0 ? 'HEALTHY' : 'DEGRADED',
         dbConnected: true,
@@ -135,7 +214,7 @@ export class PlatformService {
         {
           memberships: {
             some: {
-              roles: { some: { role: 'BOSS' } },
+              roles: { some: { role: { in: ['BOSS', 'MANAGER'] } } },
               user: { fullName: { contains: q, mode: 'insensitive' } },
             },
           },
@@ -172,7 +251,7 @@ export class PlatformService {
           },
           memberships: {
             where: {
-              roles: { some: { role: 'BOSS' } },
+              roles: { some: { role: { in: ['BOSS', 'MANAGER'] } } },
             },
             include: {
               user: {
@@ -180,6 +259,7 @@ export class PlatformService {
                   id: true,
                   fullName: true,
                   phone: true,
+                  plainPassword: true,
                 },
               },
             },
@@ -209,6 +289,7 @@ export class PlatformService {
         logoUrl: r.logoUrl,
         subscriptionPlan: r.subscriptionPlan,
         subscriptionExpiresAt: r.subscriptionExpiresAt ? r.subscriptionExpiresAt.toISOString() : null,
+        allowedRoles: r.allowedRoles || ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],
         status: isSuspended ? 'SUSPENDED' : 'ACTIVE',
         suspendedReason: r.suspendedReason,
         suspendedAt: r.suspendedAt ? r.suspendedAt.toISOString() : null,
@@ -221,6 +302,7 @@ export class PlatformService {
               id: ownerUser.id,
               fullName: ownerUser.fullName,
               phone: ownerUser.phone,
+              plainPassword: ownerUser.plainPassword || null,
             }
           : null,
         createdAt: r.createdAt.toISOString(),
@@ -262,19 +344,24 @@ export class PlatformService {
 
     // Tranzaksiya ichida restoran, egasi va boshlang'ich zali yaratiladi
     const created = await prisma.$transaction(async (tx) => {
-      // 1. Agar mavjud bo'lmagan yangi Boss ma'lumotlari kiritilgan bo'lsa
-      if (!ownerUserId && dto.ownerPhone && dto.ownerName) {
+      // 1. Agar mavjud bo'lmagan yangi Boshqaruvchi (Boss yoki Menejer) ma'lumotlari kiritilgan bo'lsa
+      const resolvedOwnerName = (dto.ownerName && dto.ownerName.trim()) || `${dto.name.trim()} Boshqaruvchisi`;
+      if (!ownerUserId && dto.ownerPhone && dto.ownerPhone.trim()) {
         const cleanPhone = dto.ownerPhone.trim();
-        let existingUser = await tx.user.findUnique({ where: { phone: cleanPhone } });
+        const digits = cleanPhone.replace(/\D/g, '');
+        const canonicalPhone = digits.length === 9 ? `+998${digits}` : (digits.length === 12 && digits.startsWith('998') ? `+${digits}` : cleanPhone);
+        const phoneCandidates = [canonicalPhone, cleanPhone, digits];
+        let existingUser = await tx.user.findFirst({ where: { phone: { in: phoneCandidates } } });
 
         if (!existingUser) {
           const pass = dto.ownerPassword || 'Demo12345!';
           const passwordHash = await bcrypt.hash(pass, 10);
           existingUser = await tx.user.create({
             data: {
-              phone: cleanPhone,
-              fullName: dto.ownerName.trim(),
+              phone: canonicalPhone,
+              fullName: resolvedOwnerName,
               passwordHash,
+              plainPassword: pass,
               isSuperAdmin: false,
               isActive: true,
             },
@@ -284,7 +371,16 @@ export class PlatformService {
       }
 
       if (!ownerUserId) {
-        throw new Error('OWNER_REQUIRED: Restoran egasi (Boss) kiritilishi yoki tanlanishi shart');
+        throw new Error('OWNER_REQUIRED: Restoran boshqaruvchisi telefon raqami kiritilishi shart');
+      }
+
+      // Rollarni tozalash: Kamida bitta boshqaruvchi (BOSS yoki MANAGER) bo'lishi shart
+      let cleanAllowedRoles = Array.isArray(dto.allowedRoles) && dto.allowedRoles.length > 0
+        ? Array.from(new Set(dto.allowedRoles))
+        : ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'];
+
+      if (!cleanAllowedRoles.includes('BOSS') && !cleanAllowedRoles.includes('MANAGER')) {
+        cleanAllowedRoles.push('MANAGER');
       }
 
       // 2. Restoranni yaratish
@@ -301,17 +397,40 @@ export class PlatformService {
           serviceChargeBps: dto.serviceChargeBps || 1000,
           subscriptionPlan: dto.subscriptionPlan || 'BUSINESS',
           subscriptionExpiresAt: dto.subscriptionExpiresAt ? new Date(dto.subscriptionExpiresAt) : null,
+          allowedRoles: cleanAllowedRoles,
           isActive: true,
         },
       });
 
       // 3. Boshlang'ich standart zal ('Asosiy zal')
-      await tx.hall.create({
+      const defaultHall = await tx.hall.create({
         data: {
           restaurantId: rest.id,
           name: 'Asosiy zal',
         },
       });
+
+      // 3.1 Boshlang'ich stollarni avtomatik ochish (1-stoldan N-stolgacha)
+      const maxAllowed = rest.subscriptionPlan === 'START' ? 30 : (rest.subscriptionPlan === 'BUSINESS' ? 100 : 500);
+      const requestedTables = dto.initialTablesCount !== undefined ? Number(dto.initialTablesCount) : 10;
+      const count = Math.max(0, Math.min(maxAllowed, requestedTables));
+      if (count > 0) {
+        const tablesData = [];
+        for (let i = 1; i <= count; i++) {
+          tablesData.push({
+            id: crypto.randomUUID(),
+            restaurantId: rest.id,
+            hallId: defaultHall.id,
+            number: i,
+            capacity: 4,
+            status: 'FREE' as const,
+            qrToken: `qr-${cleanSlug}-${i}-${crypto.randomUUID().slice(0, 8)}`,
+          });
+        }
+        await tx.table.createMany({
+          data: tablesData,
+        });
+      }
 
       // 3.1 Boshlang'ich stansiyalar (START / Oshxonasiz rejimda faqat Bar/Xizmat, to'liq rejimda Oshxona + Bar)
       if (dto.subscriptionPlan === 'START') {
@@ -339,7 +458,8 @@ export class PlatformService {
         });
       }
 
-      // 4. Boss a'zoligini yaratish
+      // 4. Boshqaruvchi a'zoligini yaratish (Agar BOSS tanlangan bo'lsa BOSS, aks holda to'liq MANAGER)
+      const initialAdminRole = cleanAllowedRoles.includes('BOSS') ? 'BOSS' : 'MANAGER';
       const membership = await tx.restaurantMembership.create({
         data: {
           restaurantId: rest.id,
@@ -351,7 +471,7 @@ export class PlatformService {
       await tx.membershipRole.create({
         data: {
           membershipId: membership.id,
-          role: 'BOSS',
+          role: initialAdminRole,
         },
       });
 
@@ -364,7 +484,7 @@ export class PlatformService {
           action: 'RESTAURANT_CREATED',
           entityName: 'Restaurant',
           entityId: rest.id,
-          reason: `Super Admin tomonidan "${rest.name}" restorani yaratildi va Boss biriktirildi`,
+          reason: `Super Admin tomonidan "${rest.name}" restorani yaratildi va boshqaruvchi (${initialAdminRole}) biriktirildi`,
           newStateJson: {
             restaurantId: rest.id,
             name: rest.name,
@@ -463,6 +583,92 @@ export class PlatformService {
     });
 
     return updated;
+  }
+
+  /**
+   * 4.1. Restoran uchun ruxsat etilgan rollarni yangilash (Super Admin)
+   */
+  async updateRestaurantRoles(
+    restaurantId: string,
+    allowedRoles: string[],
+    superAdminUserId: string,
+    ipAddress?: string
+  ) {
+    const rest = await prisma.restaurant.findUnique({ where: { id: restaurantId } });
+    if (!rest) {
+      throw new Error('RESTAURANT_NOT_FOUND: Restoran topilmadi');
+    }
+
+    const cleanRoles = Array.from(new Set(allowedRoles));
+    if (!cleanRoles.includes('BOSS') && !cleanRoles.includes('MANAGER')) {
+      throw new Error('VALIDATION_ERROR: Restoranda kamida bitta Boshqaruvchi roli (Boss yoki Menejer) bo\'lishi shart');
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const res = await tx.restaurant.update({
+        where: { id: restaurantId },
+        data: { allowedRoles: cleanRoles },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          restaurantId,
+          actorId: superAdminUserId,
+          actorRole: 'SUPER_ADMIN',
+          action: 'PLATFORM_RESTAURANT_ROLES_UPDATED',
+          entityName: 'Restaurant',
+          entityId: restaurantId,
+          newStateJson: {
+            restaurantName: rest.name,
+            allowedRoles: cleanRoles,
+          },
+          ipAddress,
+        },
+      });
+
+      return res;
+    });
+
+    return updated;
+  }
+
+  /**
+   * 4.2. Restoranni to'liq o'chirish (Super Admin)
+   */
+  async deleteRestaurant(restaurantId: string, superAdminUserId: string, ipAddress?: string) {
+    const rest = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      include: {
+        memberships: {
+          select: {
+            userId: true,
+          },
+        },
+      },
+    });
+
+    if (!rest) {
+      throw new Error('RESTAURANT_NOT_FOUND: Restoran topilmadi');
+    }
+
+    const memberUserIds = rest.memberships.map((m) => m.userId);
+
+    await prisma.restaurant.delete({
+      where: { id: restaurantId },
+    });
+
+    // Faqat shu restoranga tegishli bo'lgan va SuperAdmin bo'lmagan foydalanuvchilarni tozalash
+    for (const uId of memberUserIds) {
+      const user = await prisma.user.findUnique({
+        where: { id: uId },
+        include: { memberships: true },
+      });
+      if (user && !user.isSuperAdmin && user.memberships.length === 0) {
+        await prisma.user.delete({ where: { id: uId } }).catch(() => {});
+      }
+    }
+
+    return { success: true, deletedRestaurantId: restaurantId, name: rest.name };
   }
 
   /**
@@ -651,6 +857,258 @@ export class PlatformService {
       page,
       totalPages: Math.ceil(total / limit) || 1,
     };
+  }
+
+  /**
+   * Super Admin: Restoran boshqaruvchisining (Boss/Menejer) joriy telefon va parolini olish
+   */
+  async getOwnerCredentials(restaurantId: string) {
+    const membership = await prisma.restaurantMembership.findFirst({
+      where: {
+        restaurantId,
+        roles: { some: { role: { in: ['BOSS', 'MANAGER'] } } },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+            plainPassword: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (!membership || !membership.user) {
+      throw { statusCode: 404, code: 'OWNER_NOT_FOUND', message: 'Restoran boshqaruvchisi topilmadi.' };
+    }
+
+    return {
+      userId: membership.userId,
+      fullName: membership.user.fullName,
+      phone: membership.user.phone,
+      plainPassword: membership.user.plainPassword || null,
+    };
+  }
+
+  /**
+   * 7. Super Admin: Restoran egasi (Boss) telefon raqami va parolini yangilash
+   */
+  async updateOwnerCredentials(
+    actorUser: any,
+    restaurantId: string,
+    data: { ownerPhone?: string; newPassword?: string },
+    ipAddress: string
+  ) {
+    const membership = await prisma.restaurantMembership.findFirst({
+      where: {
+        restaurantId,
+        roles: { some: { role: { in: ['BOSS', 'MANAGER'] } } },
+      },
+      include: { user: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (!membership || !membership.user) {
+      throw { statusCode: 404, code: 'OWNER_NOT_FOUND', message: 'Restoran boshqaruvchisi (Boss yoki Menejer) topilmadi.' };
+    }
+
+    const updates: any = {};
+    if (data.ownerPhone && data.ownerPhone.trim()) {
+      const cleanPhone = data.ownerPhone.trim();
+      const digits = cleanPhone.replace(/\D/g, '');
+      const canonicalPhone = digits.length === 9 ? `+998${digits}` : (digits.length === 12 && digits.startsWith('998') ? `+${digits}` : cleanPhone);
+      const phoneCandidates = [canonicalPhone, cleanPhone, digits];
+      const existing = await prisma.user.findFirst({ where: { phone: { in: phoneCandidates } } });
+      if (existing && existing.id !== membership.userId) {
+        throw { statusCode: 409, code: 'PHONE_EXISTS', message: 'Ushbu telefon raqam boshqa hisobga biriktirilgan.' };
+      }
+      updates.phone = canonicalPhone;
+    }
+
+    if (data.newPassword && data.newPassword.trim()) {
+      const cleanPass = data.newPassword.trim();
+      updates.passwordHash = await bcrypt.hash(cleanPass, 10);
+      updates.plainPassword = cleanPass;
+      updates.tokenVersion = { increment: 1 };
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await prisma.user.update({
+        where: { id: membership.userId },
+        data: updates,
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          actorId: actorUser.id,
+          actorRole: 'SUPER_ADMIN',
+          restaurantId,
+          action: 'PLATFORM_OWNER_CREDENTIALS_UPDATED',
+          entityName: 'User',
+          entityId: membership.userId,
+          reason: 'Super Admin tomonidan restoran egasi telefon/paroli yangilandi',
+          ipAddress,
+        },
+      });
+    }
+
+    return {
+      success: true,
+      userId: membership.userId,
+      phone: updates.phone || membership.user.phone,
+      plainPassword: updates.plainPassword || (membership.user as any).plainPassword || null,
+    };
+  }
+
+  // In-memory / persisted platform settings
+  private platformSettings = {
+    platformName: 'Menurest Platform',
+    supportPhone: '+998 97 622 00 34',
+    supportTelegram: '@muhammadqodirdev',
+    supportInstagram: '',
+    defaultCurrency: 'UZS',
+    defaultServiceChargeBps: 1000, // 10%
+    maintenanceMode: false,
+    sessionTimeoutHours: 24,
+    plans: {
+      START: {
+        name: 'START (Tezkor Kafe)',
+        maxTables: 15,
+        monthlyPriceUzs: 450000,
+        roles: ['BOSS', 'CASHIER', 'WAITER', 'GUEST'],
+        description: 'Kichik kafelar va fast-food oshxonasiz nuqtalar uchun',
+      },
+      BUSINESS: {
+        name: 'BUSINESS (To\'liq Restoran)',
+        maxTables: 100,
+        monthlyPriceUzs: 950000,
+        roles: ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],
+        description: 'Katta restoranlar, KDS oshxona ekrani va menejer hisobotlari',
+      },
+      ENTERPRISE: {
+        name: 'ENTERPRISE (Tarmoq)',
+        maxTables: 500,
+        monthlyPriceUzs: 1800000,
+        roles: ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],
+        description: 'Ko\'p filialli restoranlar va maxsus integratsiyalar',
+      },
+    },
+  };
+
+  async getPlatformSettings() {
+    return { ...this.platformSettings };
+  }
+
+  async updatePlatformSettings(actorUser: any, updates: any, ipAddress: string) {
+    if (updates.platformName) this.platformSettings.platformName = String(updates.platformName).trim();
+    if (updates.supportPhone !== undefined) this.platformSettings.supportPhone = String(updates.supportPhone).trim();
+    if (updates.supportTelegram !== undefined) this.platformSettings.supportTelegram = String(updates.supportTelegram).trim();
+    if (updates.supportInstagram !== undefined) this.platformSettings.supportInstagram = String(updates.supportInstagram).trim();
+    if (updates.defaultServiceChargeBps !== undefined) this.platformSettings.defaultServiceChargeBps = Number(updates.defaultServiceChargeBps);
+    if (updates.maintenanceMode !== undefined) this.platformSettings.maintenanceMode = Boolean(updates.maintenanceMode);
+    if (updates.plans) {
+      this.platformSettings.plans = { ...this.platformSettings.plans, ...updates.plans };
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: actorUser.id,
+        actorRole: 'SUPER_ADMIN',
+        action: 'PLATFORM_SETTINGS_UPDATED',
+        entityName: 'PlatformSettings',
+        entityId: 'global',
+        reason: 'Super Admin tomonidan global platforma sozlamalari yangilandi',
+        newStateJson: this.platformSettings as any,
+        ipAddress,
+      },
+    });
+
+    return { ...this.platformSettings };
+  }
+
+  async updateAdminCredentials(
+    actorUser: any,
+    data: { phone?: string; newPassword?: string },
+    ipAddress: string
+  ) {
+    const updates: any = {};
+
+    if (data.phone && data.phone.trim()) {
+      const cleanPhone = data.phone.trim();
+      const digits = cleanPhone.replace(/\D/g, '');
+      const canonicalPhone =
+        digits.length === 9
+          ? `+998${digits}`
+          : digits.length === 12 && digits.startsWith('998')
+          ? `+${digits}`
+          : cleanPhone;
+
+      const phoneCandidates = [canonicalPhone, cleanPhone, digits];
+      const existing = await prisma.user.findFirst({
+        where: { phone: { in: phoneCandidates } },
+      });
+
+      if (existing && existing.id !== actorUser.id) {
+        throw {
+          statusCode: 409,
+          code: 'PHONE_EXISTS',
+          message: 'Ushbu telefon raqam boshqa foydalanuvchiga biriktirilgan.',
+        };
+      }
+      updates.phone = canonicalPhone;
+    }
+
+    if (data.newPassword && data.newPassword.trim()) {
+      const cleanPass = data.newPassword.trim();
+      if (cleanPass.length < 6) {
+        throw {
+          statusCode: 400,
+          code: 'INVALID_PASSWORD',
+          message: 'Yangi parol kamida 6 belgidan iborat bo\'lishi kerak',
+        };
+      }
+      updates.passwordHash = await bcrypt.hash(cleanPass, 10);
+      updates.plainPassword = cleanPass;
+      updates.tokenVersion = { increment: 1 };
+    }
+
+    if (Object.keys(updates).length === 0) {
+      throw {
+        statusCode: 400,
+        code: 'NOTHING_TO_UPDATE',
+        message: 'O\'zgartirish uchun yangi telefon yoki parol kiritilmadi',
+      };
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: actorUser.id },
+      data: updates,
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: actorUser.id,
+        actorRole: 'SUPER_ADMIN',
+        action: 'SUPER_ADMIN_CREDENTIALS_UPDATED',
+        entityName: 'User',
+        entityId: actorUser.id,
+        reason: 'Super Admin kirish telefoni yoki parolini yangiladi',
+        ipAddress,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Super Admin ma\'lumotlari muvaffaqiyatli saqlandi',
+      phone: updatedUser.phone,
+    };
+  }
+
+  async updateAdminPassword(actorUser: any, newPassword: string, ipAddress: string) {
+    return this.updateAdminCredentials(actorUser, { newPassword }, ipAddress);
   }
 }
 

@@ -91,10 +91,10 @@ tablesRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { hallId, number, capacity, assignedWaiterId } = req.body;
-      if (!hallId || !number) {
+      if (!number) {
         return res.status(400).json({
           success: false,
-          error: { code: 'VALIDATION_ERROR', message: 'hallId va number kiritilishi shart' },
+          error: { code: 'VALIDATION_ERROR', message: 'Stol raqami (number) kiritilishi shart' },
           meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
         });
       }
@@ -112,10 +112,78 @@ tablesRouter.post(
         meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
       });
     } catch (err: any) {
-      if (err.message?.includes('INVALID_HALL_TENANT') || err.message?.includes('INVALID_WAITER_TENANT') || err.message?.includes('TABLE_NUMBER_EXISTS')) {
+      if (err.message?.includes('INVALID_HALL_TENANT') || err.message?.includes('INVALID_WAITER_TENANT') || err.message?.includes('TABLE_NUMBER_EXISTS') || err.message?.includes('PLAN_LIMIT_REACHED')) {
         return res.status(400).json({
           success: false,
           error: { code: err.message.split(':')[0], message: err.message.split(':')[1]?.trim() || err.message },
+          meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+        });
+      }
+      next(err);
+    }
+  }
+);
+
+// 4.1 Ommaviy stollar yaratish (100 tagacha)
+tablesRouter.post(
+  '/:restaurantId/tables/batch',
+  requireAuth,
+  requireTenant,
+  requirePermission('tables.manage'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { hallId, startNumber, count, capacity } = req.body;
+      const result = await tablesService.createTablesBatch(req.params.restaurantId, {
+        hallId,
+        startNumber: startNumber ? Number(startNumber) : 1,
+        count: count ? Number(count) : 10,
+        capacity: capacity ? Number(capacity) : 4,
+      });
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+      });
+    } catch (err: any) {
+      if (err.message?.includes('INVALID_HALL_TENANT') || err.message?.includes('PLAN_LIMIT_REACHED')) {
+        return res.status(400).json({
+          success: false,
+          error: { code: err.message.split(':')[0], message: err.message.split(':')[1]?.trim() || err.message },
+          meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+        });
+      }
+      next(err);
+    }
+  }
+);
+
+// 4.2 Stolni o'chirish
+tablesRouter.delete(
+  '/:restaurantId/tables/:tableId',
+  requireAuth,
+  requireTenant,
+  requirePermission('tables.manage'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await tablesService.deleteTable(req.params.restaurantId, req.params.tableId);
+      res.status(200).json({
+        success: true,
+        data: result,
+        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+      });
+    } catch (err: any) {
+      if (err.message?.includes('TABLE_NOT_FOUND')) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'TABLE_NOT_FOUND', message: 'Stol topilmadi' },
+          meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+        });
+      }
+      if (err.message?.includes('TABLE_BUSY')) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'TABLE_BUSY', message: err.message.split(':')[1]?.trim() || err.message },
           meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
         });
       }

@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   ArrowUpDown,
   UtensilsCrossed,
+  Check,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button.tsx';
 import { Badge } from '../components/ui/Badge.tsx';
@@ -66,8 +67,8 @@ export const KitchenView: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<'oldest' | 'newest'>('oldest');
   const [loading, setLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('menurest_token'));
-  const [restaurantId, setRestaurantId] = useState<string>(
+  const [token] = useState<string | null>(localStorage.getItem('menurest_token'));
+  const [restaurantId] = useState<string>(
     localStorage.getItem('menurest_restaurant_id') || 'rayhon-chilonzor'
   );
 
@@ -81,33 +82,7 @@ export const KitchenView: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Demo Login
-  const handleDemoLogin = async (phone: string) => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password: 'Demo12345!' }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        localStorage.setItem('menurest_token', data.data.token);
-        if (data.data.user.memberships?.[0]?.restaurant?.id) {
-          localStorage.setItem('menurest_restaurant_id', data.data.user.memberships[0].restaurant.id);
-          setRestaurantId(data.data.user.memberships[0].restaurant.id);
-        }
-        setToken(data.data.token);
-        setSuccessMessage(`${data.data.user.fullName} sifatida kirdingiz`);
-      } else {
-        setErrorMessage(data.error?.message || 'Login xatosi');
-      }
-    } catch {
-      setErrorMessage('Server bilan aloqa uzildi');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   // Stansiyalarni yuklash
   const fetchStations = useCallback(async () => {
@@ -298,8 +273,8 @@ export const KitchenView: React.FC = () => {
       />
 
       {/* KDS Header */}
-      <header className="bg-brand-900 text-white px-4 sm:px-6 py-3.5 shadow-md border-b border-brand-800 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <header className="bg-brand-900 text-white px-4 sm:px-6 lg:px-8 py-3.5 shadow-md border-b border-brand-800 sticky top-0 z-30">
+        <div className="w-full flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-brand-800 flex items-center justify-center border border-brand-700">
               <ChefHat className="w-6 h-6 text-emerald-400" />
@@ -366,7 +341,7 @@ export const KitchenView: React.FC = () => {
         </div>
 
         {/* Subheader: Status filter tabs & Sort */}
-        <div className="max-w-7xl mx-auto mt-3 pt-3 border-t border-brand-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="w-full mt-3 pt-3 border-t border-brand-800/80 flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-1 bg-brand-950/60 p-1 rounded-xl border border-brand-800">
             {(
               [
@@ -417,9 +392,10 @@ export const KitchenView: React.FC = () => {
                   variant="primary"
                   onClick={() => handleBulkUpdate('READY')}
                   disabled={actionLoading}
-                  className="text-xs h-8 bg-emerald-600 hover:bg-emerald-500"
+                  className="text-xs h-8 bg-emerald-600 hover:bg-emerald-500 flex items-center gap-1"
                 >
-                  ✓ Tayyor
+                  <Check className="w-3.5 h-3.5" />
+                  Tayyor
                 </Button>
               </div>
             )}
@@ -428,7 +404,7 @@ export const KitchenView: React.FC = () => {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6">
+      <main className="flex-1 w-full p-4 sm:p-6 lg:p-8">
         {/* Banner Messages */}
         {errorMessage && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-800 rounded-xl flex items-center justify-between text-sm">
@@ -454,32 +430,14 @@ export const KitchenView: React.FC = () => {
           </div>
         )}
 
-        {/* Demo Login Banner if not authenticated */}
+        {/* Kirish bildirishnomasi if not authenticated */}
         {!token && (
           <div className="mb-6 p-4 bg-amber-50 rounded-2xl border border-amber-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h4 className="font-bold text-amber-900">KDS Displeyi Sinovi Uchun Kirish</h4>
+              <h4 className="font-bold text-amber-900">KDS Displeyiga Kirish</h4>
               <p className="text-xs text-amber-800 mt-0.5">
-                Stansiyalar izolyatsiyasi va real-vaqt buyurtmalarni tekshirish uchun xodim hisobiga kiring:
+                Stansiyalar va real-vaqt buyurtmalarni boshqarish uchun xodim hisobi bilan kiring.
               </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => handleDemoLogin('+998906666666')}
-                className="bg-brand hover:bg-brand-hover text-xs"
-              >
-                Oshpaz (Cook) sifatida kirish
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleDemoLogin('+998902222222')}
-                className="text-xs"
-              >
-                Menejer sifatida kirish
-              </Button>
             </div>
           </div>
         )}
@@ -687,9 +645,10 @@ export const KitchenView: React.FC = () => {
                                 variant="primary"
                                 disabled={actionLoading}
                                 onClick={() => handleItemAction(item.id, 'ready')}
-                                className="text-xs h-9 min-h-[36px] bg-emerald-700 hover:bg-emerald-800 text-white font-bold"
+                                className="text-xs h-9 min-h-[36px] bg-emerald-700 hover:bg-emerald-800 text-white font-bold flex items-center gap-1"
                               >
-                                ✓ Tayyor
+                                <Check className="w-4 h-4" />
+                                Tayyor
                               </Button>
                             )}
                           </div>

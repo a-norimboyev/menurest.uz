@@ -98,18 +98,22 @@ export class StaffService {
     }
 
     const cleanPhone = data.phone.trim();
+    const digits = cleanPhone.replace(/\D/g, '');
+    const canonicalPhone = digits.length === 9 ? `+998${digits}` : (digits.length === 12 && digits.startsWith('998') ? `+${digits}` : cleanPhone);
+    const phoneCandidates = [canonicalPhone, cleanPhone, digits];
     const passwordHash = await bcrypt.hash(data.password || '123456', 10);
 
-    // 2.2 Foydalanuvchini topish yoki yangi yaratish
-    let user = await prisma.user.findUnique({
-      where: { phone: cleanPhone },
+    // 2.2 Foydalanuvchini topish yoki yangi yaratish (+998 va +998 siz formatlarga mos)
+    let user = await prisma.user.findFirst({
+      where: { phone: { in: phoneCandidates } },
     });
 
     if (!user) {
       user = await prisma.user.create({
         data: {
-          phone: cleanPhone,
+          phone: canonicalPhone,
           passwordHash,
+          plainPassword: data.password || '123456',
           fullName: data.fullName.trim(),
         },
       });
@@ -278,7 +282,10 @@ export class StaffService {
       const userUpdate: any = {};
       if (data.fullName) userUpdate.fullName = data.fullName.trim();
       if (data.phone) userUpdate.phone = data.phone.trim();
-      if (data.password) userUpdate.passwordHash = await bcrypt.hash(data.password, 10);
+      if (data.password) {
+        userUpdate.passwordHash = await bcrypt.hash(data.password, 10);
+        userUpdate.plainPassword = data.password;
+      }
       if (Object.keys(userUpdate).length > 0) {
         await tx.user.update({
           where: { id: targetUserId },

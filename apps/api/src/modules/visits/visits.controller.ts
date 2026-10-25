@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { requireAuth, requirePermission, requireTenant } from '../auth/auth.middleware.js';
 import { visitsService } from './visits.service.js';
+import { Role } from '@menurest/shared';
 
 export const visitsRouter = Router({ mergeParams: true });
 
@@ -13,11 +14,16 @@ visitsRouter.post(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { waiterId } = req.body;
+      const user = req.user!;
+      const isManager =
+        user.roles.includes(Role.MANAGER) || user.roles.includes(Role.BOSS) || user.isSuperAdmin;
+
       const result = await visitsService.openVisit(
         req.params.restaurantId,
         req.params.tableId,
         waiterId,
-        req.user!.id
+        user.id,
+        isManager
       );
 
       res.status(201).json({
@@ -30,6 +36,13 @@ visitsRouter.post(
         return res.status(404).json({
           success: false,
           error: { code: 'TABLE_NOT_FOUND', message: 'Stol topilmadi' },
+          meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+        });
+      }
+      if (err.message?.includes('TABLE_ASSIGNED_TO_OTHER')) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'TABLE_ASSIGNED_TO_OTHER', message: 'Ushbu stol boshqa ofitsiantga biriktirilgan' },
           meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
         });
       }

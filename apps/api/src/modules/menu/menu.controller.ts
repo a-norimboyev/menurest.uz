@@ -262,12 +262,12 @@ menuRouter.post(
         addonGroups,
       } = req.body;
 
-      if (!categoryId || !stationId || !name || basePriceTiyin === undefined) {
+      if (!name || basePriceTiyin === undefined) {
         return res.status(400).json({
           success: false,
           error: {
             code: 'INVALID_INPUT',
-            message: 'categoryId, stationId, name va basePriceTiyin maydonlari majburiy',
+            message: 'Taom nomi va narxi (basePriceTiyin) maydonlari majburiy',
           },
         });
       }

@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import { X } from 'lucide-react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.ts';
 
 export interface DrawerProps {
   isOpen: boolean;
@@ -15,6 +17,8 @@ export const Drawer: React.FC<DrawerProps> = ({
   children,
   position = 'bottom',
 }) => {
+  useBodyScrollLock(isOpen);
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape' && isOpen) {
@@ -23,11 +27,9 @@ export const Drawer: React.FC<DrawerProps> = ({
     }
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
     }
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
     };
   }, [isOpen, onClose]);
 
@@ -39,7 +41,7 @@ export const Drawer: React.FC<DrawerProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+      className="fixed inset-0 z-50 flex bg-slate-900/60 animate-in fade-in overscroll-contain"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -62,7 +64,7 @@ export const Drawer: React.FC<DrawerProps> = ({
               aria-label="Yopish"
               className="text-ink-muted hover:text-ink-main w-8 h-8 rounded-lg flex items-center justify-center hover:bg-bg transition-colors"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
           </div>
         )}

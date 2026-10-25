@@ -30,6 +30,7 @@ export class SettingsService {
       serviceChargeBps: rest.serviceChargeBps,
       currency: rest.currency,
       timezone: rest.timezone,
+      allowedRoles: rest.allowedRoles || ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],
     };
   }
 

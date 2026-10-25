@@ -397,8 +397,10 @@ waiterRouter.post(
     try {
       const restaurantId = getRestaurantId(req);
       const user = req.user!;
+      const isManager =
+        user.roles.includes(Role.MANAGER) || user.roles.includes(Role.BOSS) || user.isSuperAdmin;
 
-      const order = await waiterService.createStaffOrder(restaurantId, user.id, req.body);
+      const order = await waiterService.createStaffOrder(restaurantId, user.id, req.body, isManager);
 
       res.status(201).json({
         success: true,
@@ -407,6 +409,13 @@ waiterRouter.post(
       });
     } catch (err: any) {
       const msg = err.message || '';
+      if (msg.includes('NOT_ASSIGNED_WAITER')) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'NOT_ASSIGNED_WAITER', message: 'Ushbu stol boshqa ofitsiantga biriktirilgan' },
+          meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+        });
+      }
       if (msg.includes('RESTAURANT_SUSPENDED')) {
         return res.status(403).json({
           success: false,
@@ -431,6 +440,85 @@ waiterRouter.post(
         return res.status(404).json({
           success: false,
           error: { code: 'ITEM_NOT_FOUND', message: 'Taom topilmadi' },
+          meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+        });
+      }
+      next(err);
+    }
+  }
+);
+
+/**
+ * 10. Stolni o'ziga biriktirish (Claim Table)
+ * POST /api/v1/restaurants/:restaurantId/waiter/tables/:tableId/claim
+ */
+waiterRouter.post(
+  ['/:restaurantId/waiter/tables/:tableId/claim', '/waiter/tables/:tableId/claim'],
+  requireAuth,
+  requireTenant,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const restaurantId = getRestaurantId(req);
+      const user = req.user!;
+      const { tableId } = req.params;
+      const isManager =
+        user.roles.includes(Role.MANAGER) || user.roles.includes(Role.BOSS) || user.isSuperAdmin;
+
+      const result = await waiterService.claimTable(restaurantId, tableId, user.id, isManager);
+      res.status(200).json({
+        success: true,
+        data: serializeBigInt(result),
+        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+      });
+    } catch (err: any) {
+      const msg = err.message || '';
+      if (msg.includes('TABLE_NOT_FOUND')) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'TABLE_NOT_FOUND', message: 'Stol topilmadi' },
+          meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+        });
+      }
+      if (msg.includes('TABLE_ALREADY_ASSIGNED')) {
+        return res.status(409).json({
+          success: false,
+          error: { code: 'TABLE_ALREADY_ASSIGNED', message: msg.split(':')[1]?.trim() || msg },
+          meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+        });
+      }
+      next(err);
+    }
+  }
+);
+
+/**
+ * 11. Stol biriktirilishini bekor qilish (Unclaim Table)
+ * POST /api/v1/restaurants/:restaurantId/waiter/tables/:tableId/unclaim
+ */
+waiterRouter.post(
+  ['/:restaurantId/waiter/tables/:tableId/unclaim', '/waiter/tables/:tableId/unclaim'],
+  requireAuth,
+  requireTenant,
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const restaurantId = getRestaurantId(req);
+      const user = req.user!;
+      const { tableId } = req.params;
+      const isManager =
+        user.roles.includes(Role.MANAGER) || user.roles.includes(Role.BOSS) || user.isSuperAdmin;
+
+      const result = await waiterService.unclaimTable(restaurantId, tableId, user.id, isManager);
+      res.status(200).json({
+        success: true,
+        data: serializeBigInt(result),
+        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+      });
+    } catch (err: any) {
+      const msg = err.message || '';
+      if (msg.includes('FORBIDDEN')) {
+        return res.status(403).json({
+          success: false,
+          error: { code: 'FORBIDDEN', message: 'Siz faqat o\'zingizga biriktirilgan stolni ajrata olasiz' },
           meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
         });
       }

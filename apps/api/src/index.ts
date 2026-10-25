@@ -22,7 +22,7 @@ import { billingRouter } from './modules/billing/billing.controller.js';
 import { reportsRouter } from './modules/reports/reports.controller.js';
 import { settingsRouter } from './modules/settings/settings.controller.js';
 import { auditRouter } from './modules/audit/audit.controller.js';
-import { platformRouter } from './modules/platform/platform.controller.js';
+import { platformRouter, publicPlatformRouter } from './modules/platform/platform.controller.js';
 import { outboxService } from './modules/realtime/outbox.service.js';
 
 dotenv.config();
@@ -138,6 +138,7 @@ app.use('/api/v1/restaurants', tablesRouter);
 app.use('/api/v1/restaurants', visitsRouter);
 app.use('/api/v1/public', publicMenuRouter);
 app.use('/api/v1/public', publicTableRouter);
+app.use('/api/v1/public', publicPlatformRouter);
 app.use('/api/v1/guest', guestRouter);
 app.use('/api/v1/guest', ordersRouter);
 app.use('/api/v1/guest', guestRealtimeRouter);

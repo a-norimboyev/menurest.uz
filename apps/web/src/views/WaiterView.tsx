@@ -12,13 +12,16 @@ import {
   X,
   AlertCircle,
   KeyRound,
-  LogIn,
   CreditCard,
   Banknote,
   QrCode,
   Sparkles,
   Printer,
   ChevronRight,
+  UserCheck,
+  User,
+  ShieldAlert,
+  Search,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button.tsx';
 import { Status } from '../components/ui/Status.tsx';
@@ -86,6 +89,7 @@ interface WaiterTableItem {
   qrToken: string;
   hall: { id: string; name: string };
   assignedWaiter?: { id: string; fullName: string; phone: string } | null;
+  isMyTable?: boolean;
   activeVisit?: {
     id: string;
     openedAt: string;
@@ -167,8 +171,52 @@ export const WaiterView: React.FC = () => {
     return 0n;
   }, [paymentDetailedBill, waiterPaymentMethod, parsedWaiterTenderedCashTiyin]);
 
-  // Demo Waiter Login state
+  // Waiter Session state
   const [isLoggedIn, setIsLoggedIn] = useState(true);
+
+  // Table filters & Waiter Accountability State
+  const [tableFilter, setTableFilter] = useState<'all' | 'my' | 'occupied' | 'free'>('all');
+  const [tableSearch, setTableSearch] = useState('');
+  const [tableHallFilter, setTableHallFilter] = useState<string>('ALL');
+  const [otherWaiterWarningTable, setOtherWaiterWarningTable] = useState<WaiterTableItem | null>(null);
+  const [claimingTableId, setClaimingTableId] = useState<string | null>(null);
+
+  // Hisoblangan metrikalar
+  const myAssignedTablesCount = useMemo(() => myTables.filter((t) => t.isMyTable).length, [myTables]);
+  const myOccupiedTablesCount = useMemo(
+    () => myTables.filter((t) => t.isMyTable && t.status === 'OCCUPIED').length,
+    [myTables]
+  );
+  const myTotalBillTiyin = useMemo(() => {
+    return myTables
+      .filter((t) => t.isMyTable && t.activeVisit)
+      .reduce((sum, t) => sum + BigInt(t.activeVisit!.totalBillTiyin || '0'), 0n);
+  }, [myTables]);
+
+  const uniqueHalls = useMemo(() => {
+    const map = new Map<string, string>();
+    myTables.forEach((t) => {
+      if (t.hall) map.set(t.hall.id, t.hall.name);
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [myTables]);
+
+  const filteredTables = useMemo(() => {
+    return myTables.filter((t) => {
+      if (tableFilter === 'my' && !t.isMyTable) return false;
+      if (tableFilter === 'occupied' && t.status !== 'OCCUPIED') return false;
+      if (tableFilter === 'free' && t.status !== 'FREE') return false;
+      if (tableHallFilter !== 'ALL' && t.hall?.id !== tableHallFilter) return false;
+      if (tableSearch.trim()) {
+        const query = tableSearch.toLowerCase().trim();
+        const numMatch = t.number.toString().includes(query);
+        const waiterMatch = t.assignedWaiter?.fullName?.toLowerCase().includes(query);
+        const hallMatch = t.hall?.name?.toLowerCase().includes(query);
+        if (!numMatch && !waiterMatch && !hallMatch) return false;
+      }
+      return true;
+    });
+  }, [myTables, tableFilter, tableHallFilter, tableSearch]);
 
   // Fetch Waiter Dashboard
   const fetchDashboard = useCallback(async () => {
@@ -220,29 +268,7 @@ export const WaiterView: React.FC = () => {
       .catch(() => {});
   }, [fetchDashboard, restaurantSlug]);
 
-  // Quick Demo Login as Waiter
-  async function handleDemoLogin() {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ phone: '+998905555555', password: 'Demo12345!' }),
-      });
-      if (res.ok) {
-        setFeedbackMsg({ text: 'Ofitsiant sifatida tizimga kirildi!', type: 'success' });
-        setTimeout(() => setFeedbackMsg(null), 3000);
-        await fetchDashboard();
-      } else {
-        setFeedbackMsg({ text: 'Login xatosi', type: 'error' });
-      }
-    } catch {
-      setFeedbackMsg({ text: 'Tarmoq xatosi', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  }
+
 
   // 1. Chaqiruvni qabul qilish (Claim)
   async function handleClaimCall(callId: string) {
@@ -452,6 +478,49 @@ export const WaiterView: React.FC = () => {
     }
   }
 
+  // 8.1. Stolni o'ziga biriktirish (Claim Table)
+  async function handleClaimTable(tableId: string) {
+    try {
+      setClaimingTableId(tableId);
+      const res = await fetch(`/api/v1/restaurants/${restaurantSlug}/waiter/tables/${tableId}/claim`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setFeedbackMsg({ text: 'Stol sizga muvaffaqiyatli biriktirildi!', type: 'success' });
+        setTimeout(() => setFeedbackMsg(null), 3000);
+        await fetchDashboard();
+      } else {
+        alert(json.error?.message || 'Stolni biriktirishda xatolik yuz berdi');
+      }
+    } catch {
+      alert('Tarmoq xatoligi');
+    } finally {
+      setClaimingTableId(null);
+    }
+  }
+
+  // 8.2. Stol biriktirilishini bekor qilish (Unclaim Table)
+  async function handleUnclaimTable(tableId: string) {
+    try {
+      const res = await fetch(`/api/v1/restaurants/${restaurantSlug}/waiter/tables/${tableId}/unclaim`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setFeedbackMsg({ text: 'Stol biriktirilishi bekor qilindi', type: 'success' });
+        setTimeout(() => setFeedbackMsg(null), 3000);
+        await fetchDashboard();
+      } else {
+        alert(json.error?.message || 'Xatolik yuz berdi');
+      }
+    } catch {
+      alert('Tarmoq xatoligi');
+    }
+  }
+
   // 9. To'lov va hisob oynasini ochish
   async function handleOpenPaymentModal(visitId: string, tableNumber: number) {
     setSelectedVisitForPayment({ visitId, tableNumber });
@@ -549,7 +618,7 @@ export const WaiterView: React.FC = () => {
   }
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-bg flex flex-col pb-24 shadow-xl border-x border-line select-none">
+    <div className="w-full min-h-screen bg-bg flex flex-col pb-24 select-none">
       {/* Offline Ogohlantirish Paneli */}
       <ConnectionBanner
         status={status}
@@ -668,20 +737,17 @@ export const WaiterView: React.FC = () => {
 
       {/* Not Logged In Warning Banner */}
       {!isLoggedIn && (
-        <div className="mx-4 mt-3 p-4 bg-amber-50 border border-amber-300 rounded-2xl text-xs text-amber-900 space-y-2">
+        <div className="mx-4 mt-3 p-4 bg-amber-50 border border-amber-300 rounded-2xl text-xs text-amber-900 space-y-1.5">
           <div className="font-bold flex items-center gap-1.5 text-amber-950">
             <AlertTriangle className="w-4 h-4 text-amber-600" />
-            Ofitsiant sessiyasi topilmadi
+            Ofitsiant sessiyasi talab qilinadi
           </div>
-          <p>Haqiqiy server API bilan ishlash uchun demo ofitsiant sifatida kiring.</p>
-          <Button size="sm" variant="primary" onClick={handleDemoLogin} className="w-full font-bold">
-            <LogIn className="w-3.5 h-3.5 mr-1" /> Ofitsiant sifatida kirish (+998905555555)
-          </Button>
+          <p>Buyurtmalar va chaqiruvlarni qabul qilish uchun ofitsiant hisobingiz bilan tizimga kiring.</p>
         </div>
       )}
 
       {/* Kontent */}
-      <div className="p-4 space-y-3.5 flex-1">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-4 flex-1 w-full">
         {/* 1. Chaqiruvlar Tabi */}
         {activeTab === 'calls' && (
           <div className="space-y-3">
@@ -922,105 +988,298 @@ export const WaiterView: React.FC = () => {
           </div>
         )}
 
-        {/* 4. Mening Stollarim */}
+        {/* 4. Mening Stollarim & Zaldagi Barcha Stollar */}
         {activeTab === 'tables' && (
-          <div className="space-y-3">
-            <h2 className="text-xs font-bold text-ink-muted uppercase tracking-wider">
-              Stollar Holati ({myTables.length})
-            </h2>
+          <div className="space-y-4">
+            {/* Waiter Accountability & Table Summary Card */}
+            <div className="p-3.5 bg-surface rounded-card border border-line shadow-subtle grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="p-2.5 rounded-xl bg-bg border border-line/60">
+                <div className="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">Mening Stollarim</div>
+                <div className="text-lg font-black text-emerald-800 flex items-center gap-1 mt-0.5">
+                  <UserCheck className="w-4 h-4 text-emerald-600" />
+                  <span>{myAssignedTablesCount} ta</span>
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-bg border border-line/60">
+                <div className="text-[10px] text-ink-muted font-semibold uppercase tracking-wider">Faol (Band) Stollarim</div>
+                <div className="text-lg font-black text-brand flex items-center gap-1 mt-0.5">
+                  <Clock className="w-4 h-4 text-brand" />
+                  <span>{myOccupiedTablesCount} ta</span>
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-brand-50/60 border border-brand-200 col-span-2">
+                <div className="text-[10px] text-brand-800 font-semibold uppercase tracking-wider">Mening Stollarim Jami Balansi</div>
+                <div className="mt-0.5">
+                  <Money amountTiyin={myTotalBillTiyin} className="text-lg font-black text-brand-950" />
+                </div>
+              </div>
+            </div>
 
-            <div className="grid grid-cols-2 gap-2.5">
-              {myTables.map((t) => (
-                <div
-                  key={t.id}
-                  className="p-3.5 bg-surface rounded-card border border-line shadow-subtle space-y-2 flex flex-col justify-between"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-base text-ink-main">Stol #{t.number}</span>
-                      <span className="text-[10px] text-ink-muted">{t.capacity} kishilik</span>
-                    </div>
-                    <div>
-                      <Status type="table" value={t.status} />
-                    </div>
-                    <div className="text-[10px] text-ink-muted">{t.hall.name}</div>
-                  </div>
+            {/* Filter Pills, Search & Halls */}
+            <div className="space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-1.5 text-xs font-bold">
+                  <button
+                    onClick={() => setTableFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl border transition-all ${
+                      tableFilter === 'all'
+                        ? 'bg-brand text-white border-brand shadow-sm font-black'
+                        : 'bg-surface text-ink-secondary border-line hover:border-brand/40'
+                    }`}
+                  >
+                    Barcha Stollar ({myTables.length})
+                  </button>
+                  <button
+                    onClick={() => setTableFilter('my')}
+                    className={`px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1.5 ${
+                      tableFilter === 'my'
+                        ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm font-black'
+                        : 'bg-surface text-emerald-800 border-emerald-200 hover:bg-emerald-50'
+                    }`}
+                  >
+                    <UserCheck className="w-3.5 h-3.5" />
+                    Mening Stollarim ({myAssignedTablesCount})
+                  </button>
+                  <button
+                    onClick={() => setTableFilter('occupied')}
+                    className={`px-3 py-1.5 rounded-xl border transition-all ${
+                      tableFilter === 'occupied'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-sm font-black'
+                        : 'bg-surface text-amber-800 border-amber-200 hover:bg-amber-50'
+                    }`}
+                  >
+                    Band ({myTables.filter((t) => t.status === 'OCCUPIED').length})
+                  </button>
+                  <button
+                    onClick={() => setTableFilter('free')}
+                    className={`px-3 py-1.5 rounded-xl border transition-all ${
+                      tableFilter === 'free'
+                        ? 'bg-slate-700 text-white border-slate-700 shadow-sm font-black'
+                        : 'bg-surface text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    Bo'sh ({myTables.filter((t) => t.status === 'FREE').length})
+                  </button>
+                </div>
 
-                  {t.status === 'OCCUPIED' && t.activeVisit && (
-                    <div className="pt-2 border-t border-line space-y-1.5 text-[11px]">
-                      <div className="flex items-center justify-between font-mono font-bold text-brand bg-brand-50 px-2 py-0.5 rounded-md">
-                        <span className="flex items-center gap-1">
-                          <KeyRound className="w-3 h-3" /> PIN:
-                        </span>
-                        <span>{t.activeVisit.pinCode}</span>
-                      </div>
-                      <div className="flex justify-between text-ink-muted text-[10px]">
-                        <span>Buyurtmalar:</span>
-                        <span className="font-bold text-ink-main">{t.activeVisit.ordersCount} ta</span>
-                      </div>
-                      <div className="flex justify-between text-ink-muted text-[10px]">
-                        <span>Jami hisob:</span>
-                        <Money amountTiyin={BigInt(t.activeVisit.totalBillTiyin)} className="font-bold text-ink-main" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setStaffOrderTable(t);
-                            setStaffOrderNotes('');
-                            setStaffOrderModalOpen(true);
-                          }}
-                          className="text-[10px] py-1 h-7 font-bold"
-                        >
-                          + Buyurtma
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="primary"
-                          onClick={() => handleOpenPaymentModal(t.activeVisit!.id, t.number)}
-                          className="text-[10px] py-1 h-7 font-bold bg-emerald-700 hover:bg-emerald-800 text-white flex items-center justify-center gap-1"
-                        >
-                          <Receipt className="w-3 h-3" />
-                          <span>To'lov / Yopish</span>
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {t.status === 'DIRTY' && (
-                    <div className="pt-2 border-t border-line">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => handleCleanTable(t.id)}
-                        className="w-full text-xs font-bold text-amber-900 bg-amber-50 border border-amber-300 hover:bg-amber-100 flex items-center justify-center gap-1.5 py-1.5"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Tozalandi (Bo'shatish)</span>
-                      </Button>
-                    </div>
-                  )}
-
-                  {t.status === 'FREE' && (
-                    <div className="pt-2 border-t border-line">
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        onClick={() => {
-                          setSelectedTableForVisit(t);
-                          setOpenedPinCode(null);
-                          setOpenVisitModalOpen(true);
-                        }}
-                        className="w-full text-xs font-bold"
-                      >
-                        Tashrif Ochish
-                      </Button>
-                    </div>
+                {/* Search Input */}
+                <div className="relative min-w-[170px]">
+                  <Search className="w-3.5 h-3.5 text-ink-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={tableSearch}
+                    onChange={(e) => setTableSearch(e.target.value)}
+                    placeholder="Stol # yoki ofitsiant..."
+                    className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-surface border border-line rounded-xl text-ink-main placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand"
+                  />
+                  {tableSearch && (
+                    <button
+                      onClick={() => setTableSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink-main text-xs"
+                    >
+                      ×
+                    </button>
                   )}
                 </div>
-              ))}
+              </div>
+
+              {/* Hall Filter Pills (if multiple halls) */}
+              {uniqueHalls.length > 1 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] font-semibold">
+                  <span className="text-ink-muted text-[10px] mr-1">Zal:</span>
+                  <button
+                    onClick={() => setTableHallFilter('ALL')}
+                    className={`px-2.5 py-1 rounded-lg border shrink-0 transition-colors ${
+                      tableHallFilter === 'ALL'
+                        ? 'bg-brand-900 text-white border-brand-900'
+                        : 'bg-surface text-ink-secondary border-line'
+                    }`}
+                  >
+                    Barcha zallar
+                  </button>
+                  {uniqueHalls.map((h) => (
+                    <button
+                      key={h.id}
+                      onClick={() => setTableHallFilter(h.id)}
+                      className={`px-2.5 py-1 rounded-lg border shrink-0 transition-colors ${
+                        tableHallFilter === h.id
+                          ? 'bg-brand-900 text-white border-brand-900'
+                          : 'bg-surface text-ink-secondary border-line'
+                      }`}
+                    >
+                      {h.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
+            {/* Table Cards Grid */}
+            {filteredTables.length === 0 ? (
+              <div className="p-12 text-center text-xs text-ink-muted bg-surface rounded-card border border-line">
+                Filtrga mos keluvchi stollar topilmadi
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                {filteredTables.map((t) => {
+                  const isMine = t.isMyTable;
+
+                  return (
+                    <div
+                      key={t.id}
+                      className={`p-3.5 bg-surface rounded-card border shadow-subtle space-y-2.5 flex flex-col justify-between transition-all ${
+                        isMine
+                          ? 'border-emerald-400/80 ring-2 ring-emerald-500/10'
+                          : 'border-line'
+                      }`}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="font-black text-base text-ink-main">Stol #{t.number}</span>
+                          <span className="text-[10px] text-ink-muted font-medium">{t.capacity} kishilik</span>
+                        </div>
+                        <div>
+                          <Status type="table" value={t.status} />
+                        </div>
+                        <div className="text-[10px] text-ink-muted truncate">{t.hall.name}</div>
+
+                        {/* Mas'ul Ofitsiant Belgisi */}
+                        {isMine ? (
+                          <div className="flex items-center justify-between px-2 py-1 bg-emerald-50 text-emerald-800 rounded-lg border border-emerald-200 text-[11px] font-bold">
+                            <span className="flex items-center gap-1 truncate">
+                              <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span className="truncate">Mas'ul: Siz</span>
+                            </span>
+                            {t.status === 'FREE' && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleUnclaimTable(t.id);
+                                }}
+                                className="text-[9px] text-emerald-700 hover:text-emerald-900 underline font-normal shrink-0 ml-1"
+                                title="Stolni bo'shatish"
+                              >
+                                Ajratish
+                              </button>
+                            )}
+                          </div>
+                        ) : t.assignedWaiter ? (
+                          <div className="flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-700 rounded-lg border border-slate-200 text-[11px] font-medium truncate">
+                            <User className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                            <span className="truncate" title={t.assignedWaiter.fullName}>
+                              Mas'ul: {t.assignedWaiter.fullName.split(' ')[0]}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between px-2 py-1 bg-amber-50/70 text-amber-800 rounded-lg border border-amber-200/60 text-[11px]">
+                            <span className="text-[10px] text-amber-700 font-medium truncate">Biriktirilmagan</span>
+                            <button
+                              disabled={claimingTableId === t.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleClaimTable(t.id);
+                              }}
+                              className="text-[10px] font-bold text-brand bg-white px-1.5 py-0.5 rounded border border-brand/30 hover:bg-brand-50 shrink-0 ml-1 transition-colors"
+                            >
+                              {claimingTableId === t.id ? '...' : '+ Olish'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* OCCUPIED HOLATIDAGI STOL HISOBI VA AMALLARI */}
+                      {t.status === 'OCCUPIED' && t.activeVisit && (
+                        <div className="pt-2 border-t border-line space-y-2 text-[11px]">
+                          <div className="flex items-center justify-between font-mono font-bold text-brand bg-brand-50 px-2 py-0.5 rounded-md">
+                            <span className="flex items-center gap-1">
+                              <KeyRound className="w-3 h-3" /> PIN:
+                            </span>
+                            <span>{t.activeVisit.pinCode}</span>
+                          </div>
+
+                          <div className="flex justify-between text-ink-muted text-[10px]">
+                            <span>Buyurtmalar:</span>
+                            <span className="font-bold text-ink-main">{t.activeVisit.ordersCount} ta</span>
+                          </div>
+
+                          {/* Alohida Stol Hisobi */}
+                          <div className="p-2 rounded-xl bg-slate-50 border border-slate-200 space-y-0.5">
+                            <div className="text-[9px] text-ink-muted uppercase font-bold tracking-wider">
+                              Stol Alohida Hisobi:
+                            </div>
+                            <Money
+                              amountTiyin={BigInt(t.activeVisit.totalBillTiyin)}
+                              className="text-sm font-black text-ink-main block"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                if (!isMine && t.assignedWaiter) {
+                                  setOtherWaiterWarningTable(t);
+                                } else {
+                                  setStaffOrderTable(t);
+                                  setStaffOrderNotes('');
+                                  setStaffOrderModalOpen(true);
+                                }
+                              }}
+                              className="text-[10px] py-1 h-7 font-bold"
+                            >
+                              + Buyurtma
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="primary"
+                              onClick={() => handleOpenPaymentModal(t.activeVisit!.id, t.number)}
+                              className="text-[10px] py-1 h-7 font-bold bg-emerald-700 hover:bg-emerald-800 text-white flex items-center justify-center gap-1"
+                            >
+                              <Receipt className="w-3 h-3" />
+                              <span>To'lov / Chek</span>
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* DIRTY HOLATIDAGI STOL */}
+                      {t.status === 'DIRTY' && (
+                        <div className="pt-2 border-t border-line">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => handleCleanTable(t.id)}
+                            className="w-full text-xs font-bold text-amber-900 bg-amber-50 border border-amber-300 hover:bg-amber-100 flex items-center justify-center gap-1.5 py-1.5"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Tozalandi (Bo'shatish)</span>
+                          </Button>
+                        </div>
+                      )}
+
+                      {/* FREE HOLATIDAGI STOL */}
+                      {t.status === 'FREE' && (
+                        <div className="pt-2 border-t border-line space-y-1.5">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => {
+                              setSelectedTableForVisit(t);
+                              setOpenedPinCode(null);
+                              setOpenVisitModalOpen(true);
+                            }}
+                            className="w-full text-xs font-bold"
+                          >
+                            Tashrif Ochish
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1482,6 +1741,57 @@ export const WaiterView: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      </Dialog>
+
+      {/* BOSHQASINING STOLIGA BUYURTMA URISH OGOHLANTIRISH MODALI */}
+      <Dialog
+        isOpen={!!otherWaiterWarningTable}
+        onClose={() => setOtherWaiterWarningTable(null)}
+        title="Mas'uliyat Ogohlantirishi"
+      >
+        <div className="space-y-4">
+          <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <div className="text-xs space-y-1 text-amber-950">
+              <div className="font-bold">
+                Stol #{otherWaiterWarningTable?.number} boshqa ofitsiantga biriktirilgan!
+              </div>
+              <p className="text-amber-800 leading-relaxed">
+                Mazkur stolga rasman <strong>{otherWaiterWarningTable?.assignedWaiter?.fullName}</strong> mas'ul qilib belgilangan.
+                Har bir stolning hisob-kitobi va buyurtmalari uchun biriktirilgan ofitsiant shaxsan javobgardir.
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs text-ink-secondary">
+            Mehmon iltimosiga ko'ra ushbu stol nomidan buyurtma kiritishni davom ettirasizmi?
+          </p>
+
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="w-1/2"
+              onClick={() => setOtherWaiterWarningTable(null)}
+            >
+              Bekor qilish
+            </Button>
+            <Button
+              variant="primary"
+              className="w-1/2 font-bold bg-amber-700 hover:bg-amber-800"
+              onClick={() => {
+                const target = otherWaiterWarningTable;
+                setOtherWaiterWarningTable(null);
+                if (target) {
+                  setStaffOrderTable(target);
+                  setStaffOrderNotes('');
+                  setStaffOrderModalOpen(true);
+                }
+              }}
+            >
+              Davom ettirish
+            </Button>
+          </div>
         </div>
       </Dialog>
     </div>

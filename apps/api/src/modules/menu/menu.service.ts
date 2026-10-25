@@ -216,29 +216,48 @@ export class MenuService {
 
   async createMenuItem(restaurantId: string, data: CreateMenuItemDto) {
     // 1. Cross-tenant validation: Category must belong to this restaurant
-    const category = await prisma.category.findUnique({
-      where: {
-        id_restaurantId: { id: data.categoryId, restaurantId },
-      },
-    });
+    let category = data.categoryId
+      ? await prisma.category.findUnique({
+          where: {
+            id_restaurantId: { id: data.categoryId, restaurantId },
+          },
+        })
+      : null;
     if (!category) {
-      const err: any = new Error('Kategoriya ushbu restoranga tegishli emas yoki mavjud emas');
-      err.statusCode = 400;
-      err.code = 'INVALID_CATEGORY_TENANT';
-      throw err;
+      category = await prisma.category.findFirst({ where: { restaurantId } });
+      if (!category) {
+        category = await prisma.category.create({
+          data: {
+            restaurantId,
+            name: 'Asosiy Menyu',
+            sortOrder: 0,
+            isVisible: true,
+          },
+        });
+      }
+      data.categoryId = category.id;
     }
 
     // 2. Cross-tenant validation: Station must belong to this restaurant
-    const station = await prisma.preparationStation.findUnique({
-      where: {
-        id_restaurantId: { id: data.stationId, restaurantId },
-      },
-    });
+    let station = data.stationId
+      ? await prisma.preparationStation.findUnique({
+          where: {
+            id_restaurantId: { id: data.stationId, restaurantId },
+          },
+        })
+      : null;
     if (!station) {
-      const err: any = new Error('Tayyorlash stansiyasi ushbu restoranga tegishli emas yoki mavjud emas');
-      err.statusCode = 400;
-      err.code = 'INVALID_STATION_TENANT';
-      throw err;
+      station = await prisma.preparationStation.findFirst({ where: { restaurantId } });
+      if (!station) {
+        station = await prisma.preparationStation.create({
+          data: {
+            restaurantId,
+            name: 'Issiq Oshxona',
+            type: 'KITCHEN',
+          },
+        });
+      }
+      data.stationId = station.id;
     }
 
     // 3. Price validation

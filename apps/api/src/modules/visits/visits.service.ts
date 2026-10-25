@@ -26,7 +26,8 @@ export class VisitsService {
     restaurantId: string,
     tableId: string,
     waiterId?: string | null,
-    openedByUserId?: string
+    openedByUserId?: string,
+    isManager: boolean = false
   ) {
     const rest = await prisma.restaurant.findUnique({
       where: { id: restaurantId },
@@ -76,10 +77,19 @@ export class VisitsService {
           );
         }
 
-        // 3. Stol holatini OCCUPIED ga o'zgartirish
+        if (!isManager && lockedTable.assignedWaiterId && openedByUserId && lockedTable.assignedWaiterId !== openedByUserId) {
+          throw new Error('TABLE_ASSIGNED_TO_OTHER: Ushbu stol boshqa ofitsiantga biriktirilgan');
+        }
+
+        const effectiveWaiterId = waiterId || lockedTable.assignedWaiterId || openedByUserId || null;
+
+        // 3. Stol holatini OCCUPIED ga o'zgartirish va mas'ul ofitsiantni kafolatlash
         await tx.table.update({
           where: { id: tableId },
-          data: { status: TableStatus.OCCUPIED },
+          data: {
+            status: TableStatus.OCCUPIED,
+            assignedWaiterId: lockedTable.assignedWaiterId || effectiveWaiterId,
+          },
         });
 
         const rest = await tx.restaurant.findUnique({
@@ -96,7 +106,7 @@ export class VisitsService {
             pinCode,
             pinCodeHash,
             status: VisitStatus.ACTIVE,
-            waiterId: assignedWaiterId,
+            waiterId: effectiveWaiterId,
             openedByUserId: openedByUserId || null,
             serviceChargeBpsSnapshot: rest?.serviceChargeBps ?? 0,
           },

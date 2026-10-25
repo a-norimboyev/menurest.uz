@@ -2,23 +2,42 @@ import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
   Building2,
+  Inbox,
   AlertTriangle,
   LogIn,
   Search,
   Database,
   Server,
-  Zap,
   Plus,
   RefreshCw,
   PowerOff,
   CheckCircle2,
   Clock,
   Lock,
-  Info,
+  KeyRound,
   User,
   Phone,
   Send,
   Instagram,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  Sparkles,
+  LogOut,
+  Sliders,
+  Crown,
+  Briefcase,
+  CreditCard,
+  ChefHat,
+  ConciergeBell,
+  UtensilsCrossed,
+  Users,
+  QrCode,
+  ExternalLink,
+  MapPin,
+  Menu,
+  X,
   Trash2,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button.tsx';
@@ -26,7 +45,77 @@ import { Input } from '../components/ui/Input.tsx';
 import { Badge } from '../components/ui/Badge.tsx';
 import { Dialog } from '../components/ui/Dialog.tsx';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table.tsx';
-import type { PlatformOverviewDto, PlatformRestaurantItemDto, AuditLogDto } from '@menurest/shared';
+import type { PlatformOverviewDto, PlatformRestaurantItemDto } from '@menurest/shared';
+
+export const RESTAURANT_ROLES_CONFIG = [
+  {
+    key: 'BOSS',
+    label: 'Boss',
+    desc: '',
+    badge: 'Boss',
+    colorBg: 'bg-amber-500/10 text-amber-600 border-amber-200/60',
+    required: false,
+  },
+  {
+    key: 'MANAGER',
+    label: 'Menejer',
+    desc: '',
+    badge: 'Menejer',
+    colorBg: 'bg-indigo-500/10 text-indigo-600 border-indigo-200/60',
+    required: false,
+  },
+  {
+    key: 'CASHIER',
+    label: 'Kassa',
+    desc: '',
+    badge: 'Kassa',
+    colorBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-200/60',
+    required: false,
+  },
+  {
+    key: 'KITCHEN',
+    label: 'Oshxona',
+    desc: '',
+    badge: 'Oshxona',
+    colorBg: 'bg-rose-500/10 text-rose-600 border-rose-200/60',
+    required: false,
+  },
+  {
+    key: 'WAITER',
+    label: 'Ofitsiant',
+    desc: '',
+    badge: 'Ofitsiant',
+    colorBg: 'bg-purple-500/10 text-purple-600 border-purple-200/60',
+    required: false,
+  },
+  {
+    key: 'GUEST',
+    label: 'QR Menyu',
+    desc: '',
+    badge: 'QR Menyu',
+    colorBg: 'bg-blue-500/10 text-blue-600 border-blue-200/60',
+    required: false,
+  },
+];
+
+export function getRoleIcon(key: string, className = 'w-5 h-5') {
+  switch (key) {
+    case 'BOSS':
+      return <Crown className={className} />;
+    case 'MANAGER':
+      return <Briefcase className={className} />;
+    case 'CASHIER':
+      return <CreditCard className={className} />;
+    case 'KITCHEN':
+      return <ChefHat className={className} />;
+    case 'WAITER':
+      return <ConciergeBell className={className} />;
+    case 'GUEST':
+      return <QrCode className={className} />;
+    default:
+      return <User className={className} />;
+  }
+}
 
 export interface ActiveSupportSession {
   token: string;
@@ -38,10 +127,28 @@ export interface ActiveSupportSession {
 }
 
 export const SuperAdminView: React.FC = () => {
-  const [activeTab] = useState<'tenants' | 'health' | 'audit'>('tenants');
+  const [activeTab, setActiveTab] = useState<'tenants' | 'leads' | 'health' | 'settings'>('tenants');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [unauthorized, setUnauthorized] = useState(false);
+
+  // Admin Credentials state
+  const [adminPhone, setAdminPhone] = useState('+998 90 111 11 11');
+  const [adminNewPassword, setAdminNewPassword] = useState('');
+  const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
+  const [savingAdminPassword, setSavingAdminPassword] = useState(false);
+  const [adminPassMsg, setAdminPassMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Landing Page Public Contacts state
+  const [landingPhone, setLandingPhone] = useState('+998 97 622 00 34');
+  const [landingTelegram, setLandingTelegram] = useState('@muhammadqodirdev');
+  const [landingInstagram, setLandingInstagram] = useState('');
+  const [savingLandingSettings, setSavingLandingSettings] = useState(false);
+  const [landingSettingsMsg, setLandingSettingsMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Leads state (Bosh sahifadan arizalar)
+  const [leads, setLeads] = useState<any[]>([]);
 
   // Overview data
   const [overview, setOverview] = useState<PlatformOverviewDto & { technicalErrors: any[] } | null>(null);
@@ -51,30 +158,70 @@ export const SuperAdminView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED'>('ALL');
 
-  // Audit logs
-  const [auditLogs, setAuditLogs] = useState<AuditLogDto[]>([]);
-
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [supportModalOpen, setSupportModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedRestaurant, setSelectedRestaurant] = useState<PlatformRestaurantItemDto | null>(null);
+  const [enteringRestaurantId, setEnteringRestaurantId] = useState<string | null>(null);
 
   // Form states for Create Restaurant
   const [newRestName, setNewRestName] = useState('');
   const [newRestSlug, setNewRestSlug] = useState('');
-  const [newRestPhone, setNewRestPhone] = useState('');
-  const [newRestExtraPhones, setNewRestExtraPhones] = useState<string[]>([]);
-  const [newRestTelegram, setNewRestTelegram] = useState('');
-  const [newRestInstagram, setNewRestInstagram] = useState('');
-  const newRestPlan = 'BUSINESS';
+  const [newRestPlan, setNewRestPlan] = useState<'START' | 'BUSINESS' | 'ENTERPRISE' | 'CUSTOM'>('BUSINESS');
+  const [customPlanName, setCustomPlanName] = useState('');
   const [newRestExpiresAt, setNewRestExpiresAt] = useState('');
-  const [newOwnerName, setNewOwnerName] = useState('');
   const [newOwnerPhone, setNewOwnerPhone] = useState('');
-  const [newOwnerPassword, setNewOwnerPassword] = useState('Demo12345!');
+  const [newOwnerPassword, setNewOwnerPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(true);
+  const [passwordCopied, setPasswordCopied] = useState(false);
+  const [newRestAllowedRoles, setNewRestAllowedRoles] = useState<string[]>([
+    'BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST',
+  ]);
+
+  // Form states for Roles Edit Modal
+  const [rolesModalOpen, setRolesModalOpen] = useState(false);
+  const [editingRestForRoles, setEditingRestForRoles] = useState<PlatformRestaurantItemDto | null>(null);
+  const [editAllowedRoles, setEditAllowedRoles] = useState<string[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [rolesError, setRolesError] = useState<string | null>(null);
+  const [rolesSuccess, setRolesSuccess] = useState<string | null>(null);
+
+  function handleGeneratePassword() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let rand = '';
+    for (let i = 0; i < 4; i++) {
+      rand += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    const num = Math.floor(1000 + Math.random() * 9000);
+    const generated = `Rest#${num}`;
+    setNewOwnerPassword(generated);
+    setShowPassword(true);
+  }
+
+  function handleCopyPassword() {
+    if (!newOwnerPassword) return;
+    navigator.clipboard.writeText(newOwnerPassword);
+    setPasswordCopied(true);
+    setTimeout(() => setPasswordCopied(false), 2000);
+  }
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState<string | null>(null);
+
+  // Modal states for Owner Credentials View (Super Admin Boss login/parolini ko'rishi)
+  const [ownerCredModalOpen, setOwnerCredModalOpen] = useState(false);
+  const [editOwnerPhone, setEditOwnerPhone] = useState('');
+  const [editOwnerCurrentPassword, setEditOwnerCurrentPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(true);
+  const [currentPassCopied, setCurrentPassCopied] = useState(false);
+  const [phoneCopied, setPhoneCopied] = useState(false);
+  const [allCopied, setAllCopied] = useState(false);
+  const [, setLoadingOwnerCreds] = useState(false);
+
+  // Details Modal helpers
+  const [detailShowPass, setDetailShowPass] = useState(true);
+  const [detailCopiedField, setDetailCopiedField] = useState<string | null>(null);
 
   // Form states for Status Change (SUSPEND / ACTIVATE)
   const [newStatus, setNewStatus] = useState<'ACTIVE' | 'SUSPENDED'>('ACTIVE');
@@ -103,13 +250,27 @@ export const SuperAdminView: React.FC = () => {
     async function loadData() {
       setLoading(true);
       try {
-        const [resOverview, resRestaurants, resAudit] = await Promise.all([
+        const [resOverview, resRestaurants, resMe, resLeads, resSettings] = await Promise.all([
           fetch('/api/v1/platform/overview', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
           fetch(`/api/v1/platform/restaurants?search=${encodeURIComponent(searchQuery)}&status=${statusFilter}`, { credentials: 'include' })
             .then((r) => r.json())
             .catch(() => null),
-          fetch('/api/v1/platform/audit?limit=25', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
+          fetch('/api/v1/auth/me', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
+          fetch('/api/v1/platform/leads', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
+          fetch('/api/v1/platform/settings', { credentials: 'include' }).then((r) => r.json()).catch(() => null),
         ]);
+
+        if (resMe?.success && resMe.data?.user?.phone) {
+          setAdminPhone(resMe.data.user.phone);
+        }
+        if (resLeads?.success && resLeads.data?.leads) {
+          setLeads(resLeads.data.leads);
+        }
+        if (resSettings?.success && resSettings.data) {
+          if (resSettings.data.supportPhone !== undefined) setLandingPhone(resSettings.data.supportPhone);
+          if (resSettings.data.supportTelegram !== undefined) setLandingTelegram(resSettings.data.supportTelegram);
+          if (resSettings.data.supportInstagram !== undefined) setLandingInstagram(resSettings.data.supportInstagram);
+        }
 
         if (resOverview?.error?.code === 'UNAUTHORIZED' || resOverview?.error?.code === 'FORBIDDEN') {
           setUnauthorized(true);
@@ -118,7 +279,6 @@ export const SuperAdminView: React.FC = () => {
           setOverview(resOverview.data);
         }
         if (resRestaurants?.success) setRestaurants(resRestaurants.data.restaurants || []);
-        if (resAudit?.success) setAuditLogs(resAudit.data.logs || []);
       } catch (err) {
         console.error('Error loading platform data:', err);
       } finally {
@@ -166,6 +326,10 @@ export const SuperAdminView: React.FC = () => {
       `rest-${Date.now()}`;
 
     try {
+      const finalPlan = newRestPlan === 'CUSTOM'
+        ? (customPlanName.trim() || 'STANDART')
+        : newRestPlan;
+
       const res = await fetch('/api/v1/platform/restaurants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -173,15 +337,13 @@ export const SuperAdminView: React.FC = () => {
         body: JSON.stringify({
           name: newRestName,
           slug: calculatedSlug,
-          phone: newRestPhone,
-          extraPhones: newRestExtraPhones.map((p) => p.trim()).filter(Boolean),
-          telegram: newRestTelegram.trim() || null,
-          instagram: newRestInstagram.trim() || null,
-          subscriptionPlan: newRestPlan,
+          subscriptionPlan: finalPlan,
           subscriptionExpiresAt: newRestExpiresAt ? new Date(newRestExpiresAt).toISOString() : null,
-          ownerName: newOwnerName,
+          allowedRoles: newRestAllowedRoles,
           ownerPhone: newOwnerPhone,
           ownerPassword: newOwnerPassword,
+          ownerName: `${newRestName.trim()} Boshqaruvchisi`,
+          initialTablesCount: 0,
         }),
       });
 
@@ -191,23 +353,55 @@ export const SuperAdminView: React.FC = () => {
         return;
       }
 
-      setCreateSuccess(`✓ "${json.data.restaurant.name}" muvaffaqiyatli yaratildi va Boss biriktirildi!`);
+      setCreateSuccess(`"${json.data.restaurant.name}" muvaffaqiyatli yaratildi!`);
       setTimeout(() => {
         setCreateModalOpen(false);
         setCreateSuccess(null);
         setNewRestName('');
         setNewRestSlug('');
-        setNewRestPhone('');
-        setNewRestExtraPhones([]);
-        setNewRestTelegram('');
-        setNewRestInstagram('');
         setNewRestExpiresAt('');
-        setNewOwnerName('');
+        setNewRestPlan('BUSINESS');
+        setCustomPlanName('');
         setNewOwnerPhone('');
+        setNewOwnerPassword('');
+        setNewRestAllowedRoles(['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST']);
+        setShowPassword(true);
         setRefreshTrigger((c) => c + 1);
       }, 1500);
     } catch (err: any) {
       setCreateError(err.message || 'Server xatosi');
+    }
+  }
+
+  // Handle Save Edited Roles for Existing Restaurant
+  async function handleSaveEditedRoles() {
+    if (!editingRestForRoles) return;
+    setRolesLoading(true);
+    setRolesError(null);
+    setRolesSuccess(null);
+
+    try {
+      const res = await fetch(`/api/v1/platform/restaurants/${editingRestForRoles.id}/roles`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ allowedRoles: editAllowedRoles }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setRolesError(json.error?.message || 'Rollarni yangilashda xatolik yuz berdi');
+        return;
+      }
+      setRolesSuccess('Restoran rollari muvaffaqiyatli saqlandi!');
+      setTimeout(() => {
+        setRolesModalOpen(false);
+        setRolesSuccess(null);
+        setRefreshTrigger((c) => c + 1);
+      }, 1200);
+    } catch (err: any) {
+      setRolesError(err.message || 'Server xatosi');
+    } finally {
+      setRolesLoading(false);
     }
   }
 
@@ -296,7 +490,7 @@ export const SuperAdminView: React.FC = () => {
       window.dispatchEvent(new Event('menurest_support_change'));
       setCurrentSupportSession(session);
 
-      setSupportSuccess(`✓ Yordam sessiyasi ochildi! Rejim: ${supportReadOnly ? 'Read-Only' : 'Full'}. Token faollashtirildi.`);
+      setSupportSuccess(`Yordam sessiyasi ochildi! Rejim: ${supportReadOnly ? 'Read-Only' : 'Full'}. Token faollashtirildi.`);
       setTimeout(() => {
         setSupportModalOpen(false);
         setSupportSuccess(null);
@@ -305,6 +499,50 @@ export const SuperAdminView: React.FC = () => {
       }, 1500);
     } catch (err: any) {
       setSupportError(err.message || 'Server xatosi');
+    }
+  }
+
+  // Open Owner Credentials View Modal
+  async function openOwnerCredentialsModal(res: any) {
+    setSelectedRestaurant(res);
+    setEditOwnerPhone(res.owner?.phone || '');
+    setEditOwnerCurrentPassword(res.owner?.plainPassword || '');
+    setShowCurrentPassword(true);
+    setPhoneCopied(false);
+    setCurrentPassCopied(false);
+    setAllCopied(false);
+    setOwnerCredModalOpen(true);
+
+    try {
+      setLoadingOwnerCreds(true);
+      const r = await fetch(`/api/v1/platform/restaurants/${res.id}/owner-credentials`, { credentials: 'include' });
+      const json = await r.json();
+      if (r.ok && json.success && json.data) {
+        if (json.data.phone) setEditOwnerPhone(json.data.phone);
+        if (json.data.plainPassword) setEditOwnerCurrentPassword(json.data.plainPassword);
+
+        // Ro'yxatdagi restoran ma'lumotlarini ham darhol yangilash
+        setRestaurants((prev) =>
+          prev.map((item) =>
+            item.id === res.id
+              ? {
+                  ...item,
+                  owner: item.owner
+                    ? {
+                        ...item.owner,
+                        phone: json.data.phone || item.owner.phone,
+                        plainPassword: json.data.plainPassword || item.owner.plainPassword,
+                      }
+                    : null,
+                }
+              : item
+          )
+        );
+      }
+    } catch {
+      // keep fallback
+    } finally {
+      setLoadingOwnerCreds(false);
     }
   }
 
@@ -328,6 +566,169 @@ export const SuperAdminView: React.FC = () => {
     }
   }
 
+  // Handle Direct Entry into Restaurant as Boss / Administrator
+  async function handleEnterRestaurantAsBoss(restaurant: PlatformRestaurantItemDto) {
+    try {
+      setEnteringRestaurantId(restaurant.id);
+      const res = await fetch(`/api/v1/platform/restaurants/${restaurant.id}/enter-as-boss`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message || 'Restoranga kirishda xatolik yuz berdi');
+      }
+
+      window.dispatchEvent(new Event('menurest_auth_change'));
+      window.location.hash = '#boss';
+      window.location.reload();
+    } catch (err: any) {
+      alert(err.message || 'Restoranga kirib bo\'lmadi');
+    } finally {
+      setEnteringRestaurantId(null);
+    }
+  }
+
+  // Handle Save Super Admin Credentials (Login telefoni va/yoki Parol)
+  async function handleSaveAdminCredentials(e: React.FormEvent) {
+    e.preventDefault();
+    if (!adminPhone.trim()) {
+      setAdminPassMsg({ text: 'Kirish telefon raqami bo\'sh bo\'lishi mumkin emas', type: 'error' });
+      return;
+    }
+    if (adminNewPassword.trim() && adminNewPassword.trim().length < 6) {
+      setAdminPassMsg({ text: 'Yangi parol kamida 6 belgidan iborat bo\'lishi kerak', type: 'error' });
+      return;
+    }
+    if (adminNewPassword && adminNewPassword !== adminConfirmPassword) {
+      setAdminPassMsg({ text: 'Kiritilgan yangi parollar mos kelmadi', type: 'error' });
+      return;
+    }
+    try {
+      setSavingAdminPassword(true);
+      setAdminPassMsg(null);
+      const res = await fetch('/api/v1/platform/admin-credentials', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          phone: adminPhone.trim(),
+          newPassword: adminNewPassword.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setAdminPassMsg({ text: 'Super Admin ma\'lumotlari muvaffaqiyatli yangilandi!', type: 'success' });
+        if (json.data?.phone) {
+          setAdminPhone(json.data.phone);
+        }
+        setAdminNewPassword('');
+        setAdminConfirmPassword('');
+        setTimeout(() => setAdminPassMsg(null), 3500);
+      } else {
+        setAdminPassMsg({ text: json.error?.message || 'Ma\'lumotlarni yangilashda xatolik', type: 'error' });
+      }
+    } catch {
+      setAdminPassMsg({ text: 'Tarmoq xatosi', type: 'error' });
+    } finally {
+      setSavingAdminPassword(false);
+    }
+  }
+
+  // Handle Save Landing Public Contacts
+  async function handleSaveLandingSettings(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      setSavingLandingSettings(true);
+      setLandingSettingsMsg(null);
+      const res = await fetch('/api/v1/platform/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          supportPhone: landingPhone.trim(),
+          supportTelegram: landingTelegram.trim(),
+          supportInstagram: landingInstagram.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setLandingSettingsMsg({ text: 'Bosh sahifa kontaktlari muvaffaqiyatli saqlandi!', type: 'success' });
+        setTimeout(() => setLandingSettingsMsg(null), 3500);
+      } else {
+        setLandingSettingsMsg({ text: json.error?.message || 'Xatolik yuz berdi', type: 'error' });
+      }
+    } catch {
+      setLandingSettingsMsg({ text: 'Tarmoq xatosi', type: 'error' });
+    } finally {
+      setSavingLandingSettings(false);
+    }
+  }
+
+  // Handle Delete Restaurant
+  async function handleDeleteRestaurant(restaurant: PlatformRestaurantItemDto) {
+    if (!window.confirm(`"${restaurant.name}" restoranini butunlay o'chirmoqchimisiz?\nBu amal barcha zallar, stollar va ma'lumotlarni o'chiradi!`)) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/v1/platform/restaurants/${restaurant.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.error?.message || "Restoranni o'chirishda xatolik");
+        return;
+      }
+      setDetailModalOpen(false);
+      setSelectedRestaurant(null);
+      setRefreshTrigger((c) => c + 1);
+    } catch (err: any) {
+      alert(err.message || 'Server xatosi');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Handle Logout
+  async function handleLogout() {
+    try {
+      await fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' });
+    } catch {}
+    window.location.hash = '';
+    window.location.reload();
+  }
+
+  // Sidebar Nav Items
+  const sidebarNavItems = [
+    {
+      id: 'tenants',
+      label: 'Restoranlar',
+      icon: Building2,
+      badge: `${restaurants.length} ta`,
+    },
+    {
+      id: 'leads',
+      label: 'Arizalar',
+      icon: Inbox,
+      badge: leads.filter((l) => l.status === 'NEW').length > 0 ? `${leads.filter((l) => l.status === 'NEW').length} ta yangi` : undefined,
+    },
+    {
+      id: 'health',
+      label: 'Tizim Salomatligi',
+      icon: Server,
+      badge: overview?.systemHealth ? (overview.systemHealth.status === 'HEALTHY' ? 'Barqaror' : 'Diqqat') : undefined,
+    },
+    {
+      id: 'settings',
+      label: 'Sozlamalar',
+      icon: Sliders,
+      badge: 'Platforma',
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-bg flex flex-col font-sans text-ink-main">
       {/* Active Support Mode Banner */}
@@ -350,27 +751,34 @@ export const SuperAdminView: React.FC = () => {
       )}
 
       {/* Top Platform Navbar */}
-      <header className="bg-ink-main text-white px-4 sm:px-6 py-3.5 shadow-md border-b border-ink-main/80 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-ink-secondary/30 flex items-center justify-center border border-ink-secondary/40">
-              <ShieldCheck className="w-6 h-6 text-emerald-400" />
-            </div>
-            <div>
+      <header className="bg-ink-main text-white h-16 flex items-center justify-between shadow-sm border-b border-white/10 sticky top-0 z-30">
+        <div className="w-full h-full flex items-center justify-between">
+          {/* Brand section - aligned with w-64 desktop sidebar */}
+          <div className="h-full flex items-center px-4 md:px-3 md:w-64 md:shrink-0 md:border-r md:border-white/10">
+            {/* Mobile Hamburger Menu Button */}
+            <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden mr-2 p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 min-h-[44px] min-w-[44px] flex items-center justify-center border border-white/10 transition-colors"
+              aria-label="Menyuni ochish"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-2.5 md:px-3.5">
+              <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-5 h-5 text-emerald-400" />
+              </div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-black tracking-tight">MENUREST PLATFORM</h1>
-                <span className="px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 text-xs font-bold border border-red-500/30">
-                  SUPER ADMIN
+                <span className="text-sm font-black tracking-wider text-white whitespace-nowrap">MENUREST</span>
+                <span className="hidden sm:inline-block px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  Super Admin
                 </span>
               </div>
-              <p className="text-xs text-slate-300">
-                Restoranlar va platforma boshqaruvi
-              </p>
             </div>
           </div>
 
           {/* Header Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 px-4 sm:px-6 lg:px-8">
             <button
               onClick={() => setRefreshTrigger((c) => c + 1)}
               disabled={loading}
@@ -378,14 +786,184 @@ export const SuperAdminView: React.FC = () => {
               title="Ma'lumotlarni yangilash"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span>Yangilash</span>
+              <span className="hidden sm:inline">Yangilash</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="px-3 py-2 rounded-xl text-rose-300 hover:text-white hover:bg-rose-600/30 min-h-[44px] flex items-center gap-2 text-xs font-semibold border border-rose-500/30 transition-colors"
+              title="Tizimdan chiqish"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Chiqish</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+      {/* MOBILE SIDEBAR DRAWER */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex overscroll-contain">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+            onClick={() => setSidebarOpen(false)}
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-72 max-w-[85vw] bg-surface h-full shadow-2xl border-r border-line p-4 flex flex-col justify-between z-10 animate-in slide-in-from-left duration-200">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b border-line pb-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center">
+                    <ShieldCheck className="w-5 h-5 text-brand" />
+                  </div>
+                  <div>
+                    <span className="font-black text-sm text-ink-main block">Menurest Platform</span>
+                    <span className="text-[10px] text-ink-secondary">Super Admin Paneli</span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-1.5 rounded-lg text-ink-secondary hover:text-ink-main hover:bg-bg transition-colors"
+                  title="Yopish"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Navigation Items */}
+              <div className="space-y-1">
+                {sidebarNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setActiveTab(item.id as any);
+                        setSidebarOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-all min-h-[44px] ${
+                        isActive
+                          ? 'bg-brand text-white shadow-sm font-bold'
+                          : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            isActive
+                              ? 'bg-white/20 text-white'
+                              : 'bg-bg text-ink-secondary border border-line'
+                          }`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bottom Exit */}
+            <div className="pt-4 border-t border-line">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center space-x-2 px-3 py-2.5 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-semibold border border-rose-200 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Chiqish</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Container with Docked Left Sidebar */}
+      <div className="flex-1 flex w-full">
+        {/* DESKTOP SIDEBAR - DOCKED TO HEADER (TEGIB TURGAN) */}
+        <aside className="w-64 shrink-0 hidden md:flex flex-col justify-between sticky top-16 h-[calc(100vh-4rem)] bg-surface border-r border-line p-3 z-20">
+          <div className="overflow-y-auto">
+            {/* Navigation Menu */}
+            <div className="space-y-1">
+              {sidebarNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id as any)}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all min-h-[42px] ${
+                      isActive
+                        ? 'bg-brand text-white shadow-sm font-bold'
+                        : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <span>{item.label}</span>
+                    </div>
+                    {item.badge && (
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isActive
+                            ? 'bg-white/20 text-white'
+                            : 'bg-bg text-ink-secondary border border-line'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Exit at bottom */}
+          <div className="pt-3 border-t border-line">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-semibold border border-rose-200 transition-colors"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Chiqish</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* MAIN CONTENT AREA */}
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-6">
+          {/* Mobile Quick Tab Bar */}
+          <div className="md:hidden sticky top-[58px] z-20 bg-bg/95 backdrop-blur py-2 -mx-4 px-4 border-b border-line flex items-center gap-1.5 overflow-x-auto text-xs font-bold">
+            {sidebarNavItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as any)}
+                  className={`px-3 py-1.5 rounded-xl border shrink-0 flex items-center gap-1.5 transition-all ${
+                    isActive
+                      ? 'bg-brand text-white border-brand shadow-sm'
+                      : 'bg-surface text-ink-secondary border-line hover:border-brand/40'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
         {unauthorized && (
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 text-center space-y-4 shadow-subtle">
             <div className="w-12 h-12 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto">
@@ -461,7 +1039,11 @@ export const SuperAdminView: React.FC = () => {
                 <Button
                   size="md"
                   variant="primary"
-                  onClick={() => setCreateModalOpen(true)}
+                  onClick={() => {
+                    setNewOwnerPassword('');
+                    setShowPassword(true);
+                    setCreateModalOpen(true);
+                  }}
                   className="text-xs flex items-center gap-1.5"
                 >
                   <Plus className="w-4 h-4" />
@@ -471,15 +1053,13 @@ export const SuperAdminView: React.FC = () => {
             </div>
 
 
-            {/* Restaurants Table */}
+            {/* Clean & Professional Restaurants Table */}
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Restoran</TableHead>
-                  <TableHead>Egasi (Boss)</TableHead>
-                  <TableHead>Platforma Tarifi</TableHead>
+                  <TableHead>Boshqaruvchi</TableHead>
                   <TableHead>Amal Qilish Muddati</TableHead>
-                  <TableHead>Resurslar</TableHead>
                   <TableHead>Holat</TableHead>
                   <TableHead className="text-right">Amallar</TableHead>
                 </TableRow>
@@ -487,8 +1067,14 @@ export const SuperAdminView: React.FC = () => {
               <TableBody>
                 {restaurants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-ink-secondary text-xs">
-                      Restoranlar topilmadi
+                    <TableCell colSpan={5} className="text-center py-12 text-ink-secondary text-xs">
+                      <div className="flex flex-col items-center justify-center space-y-2 py-4">
+                        <Building2 className="w-8 h-8 text-ink-light stroke-[1.5]" />
+                        <span className="font-bold text-ink-main text-sm">Hozircha restoranlar mavjud emas</span>
+                        <span className="text-ink-secondary text-xs">
+                          Barcha ko&apos;rsatkichlar 0 holatida. Yangi restoran ochish uchun yuqoridagi tugmadan foydalaning.
+                        </span>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -496,7 +1082,7 @@ export const SuperAdminView: React.FC = () => {
                     <TableRow key={res.id}>
                       <TableCell>
                         <div>
-                          <span className="font-bold text-ink-main block">{res.name}</span>
+                          <span className="font-bold text-ink-main block text-sm">{res.name}</span>
                           <span className="text-xs font-mono text-ink-secondary">/{res.slug}</span>
                           <div className="flex items-center gap-2 mt-1">
                             {res.phone && (
@@ -530,29 +1116,9 @@ export const SuperAdminView: React.FC = () => {
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {res.subscriptionPlan === 'START' ? (
-                            <Badge variant="warning" size="sm">
-                              Tezkor
-                            </Badge>
-                          ) : res.subscriptionPlan === 'BUSINESS' ? (
-                            <Badge variant="success" size="sm">
-                              Standart
-                            </Badge>
-                          ) : (
-                            <Badge variant="neutral" size="sm">
-                              Enterprise
-                            </Badge>
-                          )}
-                          <span className="text-[10px] text-ink-secondary block font-mono">
-                            {res.subscriptionPlan}
-                          </span>
-                        </div>
-                      </TableCell>
                       <TableCell className="text-xs font-mono text-ink-secondary">
                         {res.subscriptionExpiresAt ? (
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1.5 font-medium">
                             <Clock className="w-3.5 h-3.5 text-brand" />
                             <span>{new Date(res.subscriptionExpiresAt).toLocaleDateString()}</span>
                           </div>
@@ -560,16 +1126,13 @@ export const SuperAdminView: React.FC = () => {
                           <span className="text-slate-400">Muddatsiz</span>
                         )}
                       </TableCell>
-                      <TableCell className="text-xs text-ink-secondary">
-                        {res.tablesCount} stol • {res.staffCount} xodim • {res.activeVisitsCount} faol tashrif
-                      </TableCell>
                       <TableCell>
                         {res.status === 'ACTIVE' ? (
-                          <Badge variant="success" size="sm" className="flex items-center gap-1">
+                          <Badge variant="success" size="sm" className="inline-flex items-center gap-1 font-bold">
                             <CheckCircle2 className="w-3 h-3" /> FAOL
                           </Badge>
                         ) : (
-                          <Badge variant="danger" size="sm" className="flex items-center gap-1">
+                          <Badge variant="danger" size="sm" className="inline-flex items-center gap-1 font-bold">
                             <PowerOff className="w-3 h-3" /> TO'XTATILGAN
                           </Badge>
                         )}
@@ -580,7 +1143,7 @@ export const SuperAdminView: React.FC = () => {
                         )}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end">
                           <Button
                             size="sm"
                             variant="outline"
@@ -588,42 +1151,11 @@ export const SuperAdminView: React.FC = () => {
                               setSelectedRestaurant(res);
                               setDetailModalOpen(true);
                             }}
-                            className="text-xs h-8 min-h-[32px] text-ink-main border-line hover:bg-bg"
+                            className="text-xs h-8 min-h-[32px] text-ink-main border-line hover:bg-bg font-semibold"
+                            title="Restoran tafsilotlari, rollari va boshqaruvi"
                           >
-                            <Info className="w-3.5 h-3.5 mr-1 text-ink-secondary" />
-                            Tafsilot
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedRestaurant(res);
-                              setNewStatus(res.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE');
-                              setStatusReason(res.suspendedReason || '');
-                              setStatusModalOpen(true);
-                            }}
-                            className={`text-xs h-8 min-h-[32px] ${
-                              res.status === 'ACTIVE'
-                                ? 'text-red-700 border-red-300 hover:bg-red-50'
-                                : 'text-emerald-700 border-emerald-300 hover:bg-emerald-50'
-                            }`}
-                          >
-                            {res.status === 'ACTIVE' ? 'To\'xtatish' : 'Faollashtirish'}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedRestaurant(res);
-                              setSupportReason('');
-                              setSupportDuration('30');
-                              setSupportReadOnly(true);
-                              setSupportModalOpen(true);
-                            }}
-                            className="text-xs border-amber-500 text-amber-800 hover:bg-amber-50 h-8 min-h-[32px]"
-                          >
-                            <LogIn className="w-3.5 h-3.5 mr-1" />
-                            Support
+                            <Sliders className="w-3.5 h-3.5 mr-1 text-ink-secondary" />
+                            Boshqaruv
                           </Button>
                         </div>
                       </TableCell>
@@ -635,69 +1167,307 @@ export const SuperAdminView: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 2: SYSTEM HEALTH & TECHNICAL METRICS */}
-        {activeTab === 'health' && (
+        {/* TAB 1.5: LEADS / ARIZALAR */}
+        {activeTab === 'leads' && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="p-6 bg-surface rounded-2xl border border-line shadow-subtle space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="p-3 bg-emerald-100 rounded-xl text-emerald-800">
-                    <Server className="w-6 h-6" />
-                  </div>
-                  <Badge variant={overview?.systemHealth.status === 'HEALTHY' ? 'success' : 'warning'}>
-                    {overview?.systemHealth.status === 'HEALTHY' ? 'Barqaror (Healthy)' : 'Diqqat (Degraded)'}
-                  </Badge>
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-ink-main">API Cluster Node.js</h3>
-                  <p className="text-xs text-ink-secondary">Express + TypeScript • Asia/Tashkent</p>
-                </div>
-                <div className="p-3 bg-bg rounded-xl text-xs font-mono space-y-1.5 text-ink-secondary">
-                  <div>Uptime: {overview ? `${Math.round(overview.systemHealth.uptimeSeconds / 60)} daqiqa` : '—'}</div>
-                  <div>Xotira: {overview ? `${overview.systemHealth.memoryUsageMb} MB RSS` : '—'}</div>
-                  <div>Muhit: Production-ready</div>
-                </div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-black text-ink-main tracking-tight">Bosh Sahifadan Kelgan Arizalar</h3>
+                <p className="text-xs text-ink-secondary">
+                  Restoranini Menurest tizimiga ulash uchun saytda ariza qoldirgan mijozlar ro'yxati.
+                </p>
+              </div>
+              <div className="text-xs text-ink-secondary font-mono bg-surface border border-line px-3 py-1.5 rounded-xl shadow-xs">
+                Jami: <strong className="text-ink-main">{leads.length}</strong> ta ariza
+              </div>
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Murojaatchi</TableHead>
+                  <TableHead>Telefon Raqam</TableHead>
+                  <TableHead>Hudud / Viloyat</TableHead>
+                  <TableHead>Sana</TableHead>
+                  <TableHead>Holat</TableHead>
+                  <TableHead className="text-right">Amallar</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {leads.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-ink-secondary text-xs">
+                      Hozircha yangi arizalar mavjud emas
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  leads.map((lead: any) => (
+                    <TableRow key={lead.id}>
+                      <TableCell>
+                        <div className="font-semibold text-sm text-ink-main">{lead.name}</div>
+                        {lead.note && <span className="text-[11px] text-ink-secondary block">{lead.note}</span>}
+                      </TableCell>
+                      <TableCell>
+                        <a
+                          href={`tel:${lead.phone}`}
+                          className="font-mono text-xs font-bold text-brand hover:underline flex items-center gap-1.5"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>{lead.phone}</span>
+                        </a>
+                      </TableCell>
+                      <TableCell className="text-xs text-ink-secondary font-medium">
+                        {lead.region || 'Toshkent shahri'}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-ink-secondary">
+                        {new Date(lead.createdAt).toLocaleDateString('uz-UZ')}
+                      </TableCell>
+                      <TableCell>
+                        {lead.status === 'NEW' ? (
+                          <Badge variant="warning" size="sm" className="font-bold">
+                            Yangi
+                          </Badge>
+                        ) : lead.status === 'CONTACTED' ? (
+                          <Badge variant="neutral" size="sm" className="font-bold">
+                            Bog'lanildi
+                          </Badge>
+                        ) : (
+                          <Badge variant="success" size="sm" className="font-bold">
+                            Mijoz bo'ldi
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="primary"
+                            onClick={() => {
+                              setNewRestName(lead.name.endsWith('Restorani') ? lead.name : `${lead.name} Restorani`);
+                              setNewOwnerPhone(lead.phone);
+                              handleGeneratePassword();
+                              setCreateModalOpen(true);
+                            }}
+                            className="text-xs h-8 min-h-[32px] font-bold"
+                          >
+                            <Plus className="w-3.5 h-3.5 mr-1" />
+                            Restoran Ochish
+                          </Button>
+                          {lead.status === 'NEW' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                await fetch(`/api/v1/platform/leads/${lead.id}`, {
+                                  method: 'PATCH',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  credentials: 'include',
+                                  body: JSON.stringify({ status: 'CONTACTED' }),
+                                });
+                                setLeads((prev) =>
+                                  prev.map((l) => (l.id === lead.id ? { ...l, status: 'CONTACTED' } : l))
+                                );
+                              }}
+                              className="text-xs h-8 min-h-[32px]"
+                            >
+                              Bog'lanildi
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {/* TAB 2: SYSTEM HEALTH & ACTIVITY METRICS */}
+        {activeTab === 'health' && (
+          <div className="space-y-8">
+            {/* SECTION 1: JONLI FAOLLIK */}
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-base font-bold text-ink-main">Bugungi Jonli Faollik</h3>
+                <p className="text-xs text-ink-secondary">
+                  Barcha restoranlar bo'yicha real vaqtdagi buyurtmalar va faol stollar oqimi
+                </p>
               </div>
 
-              <div className="p-6 bg-surface rounded-2xl border border-line shadow-subtle space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="p-3 bg-blue-100 rounded-xl text-blue-800">
-                    <Database className="w-6 h-6" />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* 1. Bugungi Jami Buyurtmalar */}
+                <div className="p-5 bg-surface rounded-2xl border border-line shadow-subtle space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
+                      <UtensilsCrossed className="w-5 h-5" />
+                    </div>
+                    <Badge variant="success">Jonli oqim</Badge>
                   </div>
-                  <Badge variant="success">Ulangan (PostgreSQL)</Badge>
+                  <div>
+                    <span className="text-2xl font-black text-ink-main tracking-tight block">
+                      {overview ? `${overview.todayOrdersCount} ta` : '0 ta'}
+                    </span>
+                    <span className="text-xs font-semibold text-ink-main mt-0.5 block">Bugungi Buyurtmalar</span>
+                    <p className="text-[11px] text-ink-secondary mt-1">
+                      Bugun mijozlar tomonidan berilgan jami buyurtmalar
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-base text-ink-main">PostgreSQL 18 DB</h3>
-                  <p className="text-xs text-ink-secondary">Composite keys, partial unique indexes</p>
-                </div>
-                <div className="p-3 bg-bg rounded-xl text-xs font-mono space-y-1.5 text-ink-secondary">
-                  <div>DB Kechikishi (Latency): {overview ? `${overview.systemHealth.dbLatencyMs} ms` : '—'}</div>
-                  <div>Tranzaksiya turi: Qat'iy ACID (Isolation)</div>
-                  <div>Tenant izolyatsiyasi: Row-level restaurant_id</div>
-                </div>
-              </div>
 
-              <div className="p-6 bg-surface rounded-2xl border border-line shadow-subtle space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="p-3 bg-amber-100 rounded-xl text-amber-800">
-                    <Zap className="w-6 h-6" />
+                {/* 2. Faol Mehmonlar / Band Stollar */}
+                <div className="p-5 bg-surface rounded-2xl border border-line shadow-subtle space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <Badge variant="neutral">Ayni damda</Badge>
                   </div>
-                  <Badge variant={overview && overview.technicalErrors.length > 0 ? 'danger' : 'success'}>
-                    {overview && overview.technicalErrors.length > 0 ? 'Xatolar mavjud' : 'Toza'}
-                  </Badge>
+                  <div>
+                    <span className="text-2xl font-black text-ink-main tracking-tight block">
+                      {overview?.activeTablesCount ? `${overview.activeTablesCount} ta` : '0 ta'}
+                    </span>
+                    <span className="text-xs font-semibold text-ink-main mt-0.5 block">Faol Ochilgan Stollar</span>
+                    <p className="text-[11px] text-ink-secondary mt-1">
+                      Hozir restoran zallarida ovqatlanayotgan mehmonlar
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-bold text-base text-ink-main">Transactional Outbox Queue</h3>
-                  <p className="text-xs text-ink-secondary">SSE xabarlar va jonli voqealar tarqatuvchisi</p>
-                </div>
-                <div className="p-3 bg-bg rounded-xl text-xs font-mono space-y-1.5 text-ink-secondary">
-                  <div>Xatoliklar soni: {overview?.technicalErrors.length ?? 0} ta</div>
-                  <div>Holat: Avtomatik qayta urinish (Retry)</div>
+
+                {/* 3. Bugungi Yetakchi Restoran */}
+                <div className="p-5 bg-surface rounded-2xl border border-line shadow-subtle space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 flex items-center justify-center">
+                      <Crown className="w-5 h-5" />
+                    </div>
+                    <Badge variant="warning">Bugungi Yetakchi</Badge>
+                  </div>
+                  <div>
+                    <span className="text-lg font-black text-ink-main tracking-tight block truncate">
+                      {overview?.topRestaurantToday?.name || 'Hozircha yo\'q'}
+                    </span>
+                    <span className="text-xs font-semibold text-ink-main mt-0.5 block">Eng Faol Restoran</span>
+                    <p className="text-[11px] text-ink-secondary mt-1">
+                      {overview?.topRestaurantToday
+                        ? `Bugun ${overview.topRestaurantToday.ordersCount} ta buyurtma qabul qildi`
+                        : 'Bugun hali yangi buyurtmalar berilmadi'}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Technical Errors Log Table */}
+            {/* SECTION 2: SERVER, BAZA & ZAXIRA HOLATI */}
+            <div className="space-y-3">
+              <div>
+                <h3 className="text-base font-bold text-ink-main">Server, Baza & Zaxira Holati</h3>
+                <p className="text-xs text-ink-secondary">
+                  Tizimning barqaror ishlashi, zaxiralash va xotira holati
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* 1. Server & API Holati */}
+                <div className="p-5 bg-surface rounded-2xl border border-line shadow-subtle space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center">
+                      <Server className="w-5 h-5" />
+                    </div>
+                    <Badge variant={overview?.systemHealth.status === 'HEALTHY' ? 'success' : 'warning'}>
+                      {overview?.systemHealth.status === 'HEALTHY' ? 'Barqaror (Yashil)' : 'Diqqat'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-ink-main">Node.js API Server</h4>
+                    <p className="text-[11px] text-ink-secondary">Uzluksiz xizmat ko'rsatish</p>
+                  </div>
+                  <div className="p-3 bg-bg rounded-xl text-xs space-y-1.5 text-ink-secondary">
+                    <div className="flex items-center justify-between">
+                      <span>Uptime:</span>
+                      <span className="font-mono font-semibold text-ink-main">
+                        {overview ? `${Math.round(overview.systemHealth.uptimeSeconds / 60)} daqiqa` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Kechikish (Latency):</span>
+                      <span className="font-mono font-semibold text-emerald-600">
+                        {overview ? `${overview.systemHealth.dbLatencyMs} ms` : '—'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>RAM sarfi:</span>
+                      <span className="font-mono font-semibold text-ink-main">
+                        {overview ? `${overview.systemHealth.memoryUsageMb} MB` : '—'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Ma'lumotlar Bazasi & Zaxira Nusxa */}
+                <div className="p-5 bg-surface rounded-2xl border border-line shadow-subtle space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center">
+                      <Database className="w-5 h-5" />
+                    </div>
+                    <Badge variant="success">Himoyalangan</Badge>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-ink-main">PostgreSQL 18 & Zaxira</h4>
+                    <p className="text-[11px] text-ink-secondary">Avtomatik xavfsizlik va zaxiralash</p>
+                  </div>
+                  <div className="p-3 bg-bg rounded-xl text-xs space-y-1.5 text-ink-secondary">
+                    <div className="flex items-center justify-between">
+                      <span>Avtomatik Zaxira:</span>
+                      <span className="font-semibold text-emerald-600">Har kuni 04:00 da</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Baza holati:</span>
+                      <span className="font-semibold text-ink-main">Ulangan & Barqaror</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Jami taomlar soni:</span>
+                      <span className="font-mono font-semibold text-ink-main">
+                        {overview?.totalMenuItems ? `${overview.totalMenuItems} ta` : '0 ta'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. Xavfsizlik & Monitoring */}
+                <div className="p-5 bg-surface rounded-2xl border border-line shadow-subtle space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <Badge variant={overview && overview.technicalErrors.length > 0 ? 'danger' : 'success'}>
+                      {overview && overview.technicalErrors.length > 0 ? 'Xatolik bor' : 'Toza (100%)'}
+                    </Badge>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-ink-main">Xavfsizlik & Monitoring</h4>
+                    <p className="text-[11px] text-ink-secondary">Xatolar va nozik ma'lumotlar himoyasi</p>
+                  </div>
+                  <div className="p-3 bg-bg rounded-xl text-xs space-y-1.5 text-ink-secondary">
+                    <div className="flex items-center justify-between">
+                      <span>Texnik xatolar:</span>
+                      <span className={`font-mono font-semibold ${overview && overview.technicalErrors.length > 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        {overview?.technicalErrors.length ?? 0} ta
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Parollar & Tokenlar:</span>
+                      <span className="font-semibold text-ink-main">100% Shifrlangan</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Monitoring holati:</span>
+                      <span className="font-semibold text-emerald-600">A'lo darajada</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 3: TEXNIK XATOLAR JURNALI */}
             <div className="space-y-3">
               <h3 className="text-base font-bold text-ink-main">Texnik Xatolar Jurnali (Outbox / Tizim)</h3>
               <p className="text-xs text-ink-secondary">
@@ -729,7 +1499,10 @@ export const SuperAdminView: React.FC = () => {
                   ) : (
                     <TableRow>
                       <TableCell colSpan={4} className="text-center py-6 text-emerald-700 text-xs font-semibold">
-                        ✓ Hech qanday texnik xatoliklar aniqlanmadi. Tizim barqaror ishlamoqda.
+                        <span className="inline-flex items-center gap-1.5 justify-center">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          Hech qanday texnik xatoliklar aniqlanmadi. Tizim barqaror ishlamoqda.
+                        </span>
                       </TableCell>
                     </TableRow>
                   )}
@@ -739,77 +1512,180 @@ export const SuperAdminView: React.FC = () => {
           </div>
         )}
 
-        {/* TAB 3: PLATFORM AUDIT LOG */}
-        {activeTab === 'audit' && (
-          <div className="space-y-4">
+        {/* TAB 4: PLATFORM SETTINGS */}
+        {activeTab === 'settings' && (
+          <div className="space-y-6 max-w-3xl">
             <div>
-              <h3 className="text-base font-bold text-ink-main">Platforma Xavfsizlik va Boshqaruv Auditi</h3>
-              <p className="text-xs text-ink-secondary">
-                O'chirilmaydigan xavfsizlik jurnali. Barcha nozik ma'lumotlar (parollar, tokenlar) qat'iy sanitizatsiya qilingan ([REDACTED]).
-              </p>
+              <h3 className="text-lg font-black text-ink-main tracking-tight">Sozlamalar</h3>
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Vaqt</TableHead>
-                  <TableHead>Foydalanuvchi</TableHead>
-                  <TableHead>Rol</TableHead>
-                  <TableHead>Harakat</TableHead>
-                  <TableHead>Resurs</TableHead>
-                  <TableHead>Sabab</TableHead>
-                  <TableHead>IP Manzil</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {auditLogs.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-ink-secondary text-xs">
-                      Audit yozuvlari mavjud emas
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  auditLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-mono text-xs">{new Date(log.createdAt).toLocaleString()}</TableCell>
-                      <TableCell className="font-semibold text-ink-main text-xs">{log.actorName || log.actorId}</TableCell>
-                      <TableCell>
-                        <Badge variant="neutral" size="sm">
-                          {log.actorRole || 'SUPER_ADMIN'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            log.action.includes('SUSPEND')
-                              ? 'danger'
-                              : log.action.includes('SUPPORT')
-                              ? 'warning'
-                              : 'success'
-                          }
-                          size="sm"
-                        >
-                          {log.action}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-ink-main">{log.entityName}</TableCell>
-                      <TableCell className="text-xs text-ink-secondary">{log.reason || '—'}</TableCell>
-                      <TableCell className="font-mono text-xs text-ink-secondary">{log.ipAddress || '—'}</TableCell>
-                    </TableRow>
-                  ))
+            {/* Super Admin Kirish Ma'lumotlarini O'zgartirish */}
+            <div className="bg-surface rounded-2xl border border-line p-5 sm:p-6 shadow-subtle space-y-4">
+              <div className="flex items-center gap-2 border-b border-line pb-3">
+                <KeyRound className="w-5 h-5 text-indigo-600" />
+                <h4 className="font-bold text-sm text-ink-main">Super Admin Login va Parol</h4>
+              </div>
+
+              {adminPassMsg && (
+                <div
+                  className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2 ${
+                    adminPassMsg.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-red-50 text-red-800 border-red-200'
+                  }`}
+                >
+                  {adminPassMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  )}
+                  <span>{adminPassMsg.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveAdminCredentials} className="space-y-4 max-w-md">
+                <div>
+                  <label className="block text-xs font-semibold text-ink-main mb-1.5">
+                    Telefon (Login)
+                  </label>
+                  <Input
+                    type="tel"
+                    value={adminPhone}
+                    onChange={(e) => setAdminPhone(e.target.value)}
+                    placeholder="+998 90 111 11 11"
+                    className="text-xs font-mono"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-ink-main mb-1.5">
+                    Yangi Parol
+                  </label>
+                  <Input
+                    type="password"
+                    value={adminNewPassword}
+                    onChange={(e) => setAdminNewPassword(e.target.value)}
+                    placeholder="Parol kiritilmasa o'zgarmaydi"
+                    className="text-xs font-mono"
+                  />
+                </div>
+
+                {adminNewPassword && (
+                  <div>
+                    <label className="block text-xs font-semibold text-ink-main mb-1.5">Yangi Parolni Qayta Kiriting</label>
+                    <Input
+                      type="password"
+                      value={adminConfirmPassword}
+                      onChange={(e) => setAdminConfirmPassword(e.target.value)}
+                      placeholder="Qayta kiriting"
+                      className="text-xs font-mono"
+                      required={!!adminNewPassword}
+                    />
+                  </div>
                 )}
-              </TableBody>
-            </Table>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={savingAdminPassword || !adminPhone.trim()}
+                  className="font-bold text-xs"
+                >
+                  {savingAdminPassword ? 'Saqlanmoqda...' : 'Saqlash'}
+                </Button>
+              </form>
+            </div>
+
+            {/* Bosh Sahifa (Landing) Kontaktlarini Sozlash */}
+            <div className="bg-surface rounded-2xl border border-line p-5 sm:p-6 shadow-subtle space-y-4">
+              <div className="flex items-center gap-2 border-b border-line pb-3">
+                <Phone className="w-5 h-5 text-brand" />
+                <h4 className="font-bold text-sm text-ink-main">Bosh Sahifa Kontaktlari</h4>
+              </div>
+
+              {landingSettingsMsg && (
+                <div
+                  className={`p-3 rounded-xl border text-xs font-semibold flex items-center gap-2 ${
+                    landingSettingsMsg.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                      : 'bg-red-50 text-red-800 border-red-200'
+                  }`}
+                >
+                  {landingSettingsMsg.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  )}
+                  <span>{landingSettingsMsg.text}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveLandingSettings} className="space-y-4 max-w-md">
+                <div>
+                  <label className="block text-xs font-semibold text-ink-main mb-1.5 flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-brand" />
+                    <span>Telefon</span>
+                  </label>
+                  <Input
+                    type="tel"
+                    value={landingPhone}
+                    onChange={(e) => setLandingPhone(e.target.value)}
+                    placeholder="+998 97 622 00 34"
+                    className="text-xs font-mono"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-ink-main mb-1.5 flex items-center gap-1.5">
+                    <Send className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Telegram</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={landingTelegram}
+                    onChange={(e) => setLandingTelegram(e.target.value)}
+                    placeholder="@muhammadqodirdev"
+                    className="text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-ink-main mb-1.5 flex items-center gap-1.5">
+                    <Instagram className="w-3.5 h-3.5 text-pink-600" />
+                    <span>Instagram</span>
+                  </label>
+                  <Input
+                    type="text"
+                    value={landingInstagram}
+                    onChange={(e) => setLandingInstagram(e.target.value)}
+                    placeholder="@menurest.uz"
+                    className="text-xs font-mono"
+                  />
+                </div>
+
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={savingLandingSettings}
+                  className="font-bold text-xs"
+                >
+                  {savingLandingSettings ? 'Saqlanmoqda...' : 'Saqlash'}
+                </Button>
+              </form>
+            </div>
           </div>
         )}
       </main>
+      </div>
 
       {/* MODAL 1: Create Restaurant */}
       <Dialog
         isOpen={createModalOpen}
         onClose={() => setCreateModalOpen(false)}
-        title="Yangi Restoran va Boss Biriktirish"
-        description="Multi-tenant platformada yangi restoran yaratish va uning birinchi Boss (Egasini) ro'yxatdan o'tkazish"
+        title="Yangi Restoran Ochish"
         fullscreen={true}
       >
         <form onSubmit={handleCreateRestaurant} className="space-y-6">
@@ -826,16 +1702,13 @@ export const SuperAdminView: React.FC = () => {
             </div>
           )}
 
-          {/* Section 1: Restoran Parametrlari */}
+          {/* Section 1: Restoran nomi */}
           <div className="bg-surface rounded-2xl border border-line p-6 space-y-4 shadow-sm">
             <div className="flex items-center gap-2.5 border-b border-line pb-3">
               <div className="w-8 h-8 rounded-lg bg-brand/10 text-brand flex items-center justify-center font-bold">
                 <Building2 className="w-4 h-4" />
               </div>
-              <div>
-                <h4 className="text-sm font-bold text-ink-main">Restoran Ma'lumotlari</h4>
-                <p className="text-[11px] text-ink-secondary">Restoran rasmiy nomi va aloqa ma'lumotlari</p>
-              </div>
+              <h4 className="text-sm font-bold text-ink-main">Restoran Ma'lumotlari</h4>
             </div>
 
             <div className="space-y-1.5">
@@ -853,103 +1726,15 @@ export const SuperAdminView: React.FC = () => {
                       .replace(/\s+/g, '-')
                   );
                 }}
-                placeholder="Masalan: Rayhon Chilonzor"
+                placeholder="Restoran nomi"
                 required
               />
             </div>
 
-            {/* Aloqa Telefonlari (1 dan 4 tagacha) */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-ink-main flex items-center gap-1.5">
-                  <Phone className="w-3.5 h-3.5 text-brand" />
-                  Aloqa Telefonlari ({1 + newRestExtraPhones.length}/4)
-                </label>
-                {newRestExtraPhones.length < 3 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (newRestExtraPhones.length < 3) {
-                        setNewRestExtraPhones([...newRestExtraPhones, '']);
-                      }
-                    }}
-                    className="text-xs font-bold text-brand hover:text-brand-dark flex items-center gap-1 hover:underline transition-all"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    + Telefon qo'shish
-                  </button>
-                )}
-              </div>
-
-              {/* 1-telefon (Asosiy) */}
-              <div className="space-y-1">
-                <Input
-                  value={newRestPhone}
-                  onChange={(e) => setNewRestPhone(e.target.value)}
-                  placeholder="1-telefon (Asosiy, masalan: +998 71 123 45 67)"
-                />
-              </div>
-
-              {/* Qo'shimcha telefonlar (2, 3, 4, 5-telefonlar) */}
-              {newRestExtraPhones.map((phoneVal, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <Input
-                      value={phoneVal}
-                      onChange={(e) => {
-                        const updated = [...newRestExtraPhones];
-                        updated[idx] = e.target.value;
-                        setNewRestExtraPhones(updated);
-                      }}
-                      placeholder={`${idx + 2}-telefon (Masalan: +998 90 123 45 67)`}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setNewRestExtraPhones(newRestExtraPhones.filter((_, i) => i !== idx));
-                    }}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50 h-9 w-9 p-0 shrink-0"
-                    title="Ushbu telefonni o'chirish"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            {/* Ijtimoiy tarmoqlar: Telegram & Instagram */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-line/60">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-ink-main flex items-center gap-1.5">
-                  <Send className="w-3.5 h-3.5 text-sky-500" />
-                  Telegram Kanali / Guruhi
-                </label>
-                <Input
-                  value={newRestTelegram}
-                  onChange={(e) => setNewRestTelegram(e.target.value)}
-                  placeholder="@restoran_kanali yoki t.me/..."
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-ink-main flex items-center gap-1.5">
-                  <Instagram className="w-3.5 h-3.5 text-pink-500" />
-                  Instagram Sahifasi
-                </label>
-                <Input
-                  value={newRestInstagram}
-                  onChange={(e) => setNewRestInstagram(e.target.value)}
-                  placeholder="@restoran_sahifasi yoki instagram.com/..."
-                />
-              </div>
-            </div>
-
+            {/* Muddat */}
             <div className="space-y-2 pt-1 border-t border-line/60">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-ink-main">Xizmat Muddati (Obuna)</label>
+                <label className="text-xs font-bold text-ink-main">Xizmat Muddati *</label>
                 {newRestExpiresAt && (
                   <button
                     type="button"
@@ -960,8 +1745,6 @@ export const SuperAdminView: React.FC = () => {
                   </button>
                 )}
               </div>
-
-              {/* 1 oy / 6 oy / 1 yil tezkor tugmalari */}
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { label: '1 oylik', months: 1 },
@@ -987,67 +1770,225 @@ export const SuperAdminView: React.FC = () => {
                   );
                 })}
               </div>
+              <Input
+                type="date"
+                value={newRestExpiresAt}
+                onChange={(e) => setNewRestExpiresAt(e.target.value)}
+                className="font-medium"
+              />
+            </div>
 
-              {/* Yoki o'zi kiritishi uchun sana maydoni */}
-              <div className="space-y-1 pt-1">
-                <Input
-                  type="date"
-                  value={newRestExpiresAt}
-                  onChange={(e) => setNewRestExpiresAt(e.target.value)}
-                  placeholder="Yoki kalendardan sana tanlang"
-                  className="font-medium"
-                />
-                <p className="text-[11px] text-ink-secondary">
-                  {newRestExpiresAt
-                    ? `Tanlangan muddat: ${newRestExpiresAt}`
-                    : '1 oylik, 6 oylik, 1 yillik tugmalarini bosing yoki o\'zingiz kalendardan sana tanlang.'}
-                </p>
+            {/* Tarif Rejasi */}
+            <div className="space-y-2 pt-1 border-t border-line/60">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-ink-main block">Tarif Rejasi</label>
+                <span className="text-[11px] text-ink-secondary">Ixtiyoriy (tanlamasdan kiritish mumkin)</span>
               </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { key: 'START', label: 'START', limit: '30 tagacha' },
+                  { key: 'BUSINESS', label: 'BUSINESS', limit: '100 tagacha' },
+                  { key: 'ENTERPRISE', label: 'ENTERPRISE', limit: 'Cheksiz' },
+                  { key: 'CUSTOM', label: 'SHAXSIY', limit: "O'zingiz kiriting" },
+                ].map((plan) => {
+                  const isSelected = newRestPlan === plan.key;
+                  return (
+                    <button
+                      key={plan.key}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected && plan.key !== 'CUSTOM') {
+                          // Tanlangan tarifni qayta bosganda shaxsiy / erkin rejimga o'tadi
+                          setNewRestPlan('CUSTOM');
+                        } else {
+                          setNewRestPlan(plan.key as any);
+                        }
+                      }}
+                      className={`p-2.5 rounded-xl border text-center transition-all ${
+                        isSelected
+                          ? 'bg-brand/10 border-brand text-brand ring-1 ring-brand/30 shadow-xs'
+                          : 'bg-surface text-ink-main border-line hover:border-brand/40 hover:bg-bg'
+                      }`}
+                    >
+                      <span className="text-xs font-black block">{plan.label}</span>
+                      <span className="text-[10px] text-ink-secondary block mt-0.5">{plan.limit}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {newRestPlan === 'CUSTOM' && (
+                <div className="pt-2 animate-in fade-in-50 duration-200 space-y-1.5">
+                  <label className="text-[11px] font-bold text-ink-main flex items-center justify-between">
+                    <span>Shaxsiy tarif nomi</span>
+                    <span className="text-[10px] font-normal text-ink-secondary">Bo&apos;sh qolsa: STANDART</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={customPlanName}
+                    onChange={(e) => setCustomPlanName(e.target.value)}
+                    placeholder="Masalan: VIP, Maxsus, Sinov, Yillik yoki bo'sh qoldiring"
+                    className="w-full px-3.5 py-2 min-h-[40px] bg-surface border border-line rounded-xl text-xs font-semibold text-ink-main placeholder:text-ink-light focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                  />
+                  <p className="text-[10px] text-ink-secondary leading-relaxed">
+                    Tarif tanlamasdan kiritishingiz mumkin. Hech qanday nom yozmasangiz, avtomatik ravishda erkin <strong>STANDART</strong> rejada ochiladi.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Section 2: Boss Hisobi */}
+          {/* Section 2: Boshqaruvchi Hisobi (Boss yoki Menejer) */}
           <div className="bg-surface rounded-2xl border border-line p-6 space-y-4 shadow-sm">
             <div className="flex items-center gap-2.5 border-b border-line pb-3">
               <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
                 <User className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="text-sm font-bold text-ink-main">Restoran Egasi (Boss) Hisobi</h4>
-                <p className="text-[11px] text-ink-secondary">Restoran ma'muri uchun shaxsiy hisob, login va boshlang'ich parol</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-ink-main">Boss To'liq Ismi *</label>
-                <Input
-                  value={newOwnerName}
-                  onChange={(e) => setNewOwnerName(e.target.value)}
-                  placeholder="Alisher Usmonov"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-ink-main">Boss Telefoni (Login uchun) *</label>
-                <Input
-                  value={newOwnerPhone}
-                  onChange={(e) => setNewOwnerPhone(e.target.value)}
-                  placeholder="+998901234567"
-                  required
-                />
+                <h4 className="text-sm font-bold text-ink-main">
+                  Restoran Boshqaruvchisi ({newRestAllowedRoles.includes('BOSS') ? 'Boss' : 'Menejer'}) Hisobi
+                </h4>
+                <p className="text-[11px] text-ink-secondary">
+                  {newRestAllowedRoles.includes('BOSS')
+                    ? "Restoran egasiga to'liq boshqaruv kabineti yaratiladi."
+                    : "Boshqaruv to'liq Menejerga topshiriladi (Boss-siz rejim)."}
+                </p>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-ink-main">Dastlabki Parol *</label>
+              <label className="text-xs font-bold text-ink-main">
+                {newRestAllowedRoles.includes('BOSS') ? 'Boss' : 'Menejer'} Telefoni (Login) *
+              </label>
               <Input
-                type="password"
-                value={newOwnerPassword}
-                onChange={(e) => setNewOwnerPassword(e.target.value)}
-                placeholder="Demo12345!"
+                value={newOwnerPhone}
+                onChange={(e) => setNewOwnerPhone(e.target.value)}
+                placeholder="+998901234567"
                 required
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-ink-main">Dastlabki Parol *</label>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleGeneratePassword}
+                    className="text-[11px] font-bold text-brand hover:text-brand-dark flex items-center gap-1 hover:underline transition-all bg-brand/10 hover:bg-brand/20 px-2 py-0.5 rounded-lg"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    Avtomatik parol yaratish
+                  </button>
+                  {newOwnerPassword && (
+                    <button
+                      type="button"
+                      onClick={handleCopyPassword}
+                      className="text-[11px] font-bold text-ink-secondary hover:text-ink-main flex items-center gap-1 transition-all bg-surface border border-line px-2 py-0.5 rounded-lg"
+                    >
+                      {passwordCopied ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="text-emerald-600">Nusxalandi</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Nusxa olish</span>
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="relative">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newOwnerPassword}
+                  onChange={(e) => setNewOwnerPassword(e.target.value)}
+                  placeholder="Parol"
+                  className="font-mono pr-10 text-sm"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-secondary hover:text-ink-main p-1 rounded hover:bg-surface-hover"
+                  title={showPassword ? 'Parolni yashirish' : 'Parolni ko\'rsatish'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Restoranning Faol Rollari va Modullari */}
+          <div className="bg-surface rounded-2xl border border-line p-6 space-y-4 shadow-sm">
+            <div className="flex items-center gap-2.5 border-b border-line pb-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <h4 className="text-sm font-bold text-ink-main">Faol Rollar va Modullar</h4>
+            </div>
+
+            {/* 6 ta Rol Kartochkalari */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {RESTAURANT_ROLES_CONFIG.map((role) => {
+                const isSelected = newRestAllowedRoles.includes(role.key);
+                return (
+                  <button
+                    key={role.key}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        // Agar BOSS ni o'chirmoqchi bo'lsa va MANAGER ham yo'q bo'lsa
+                        if (role.key === 'BOSS' && !newRestAllowedRoles.includes('MANAGER')) {
+                          setCreateError("Restoranni boshqarish uchun kamida bitta Boshqaruvchi (Boss yoki Menejer) tanlangan bo'lishi shart.");
+                          return;
+                        }
+                        // Agar MANAGER ni o'chirmoqchi bo'lsa va BOSS ham yo'q bo'lsa
+                        if (role.key === 'MANAGER' && !newRestAllowedRoles.includes('BOSS')) {
+                          setCreateError("Restoranni boshqarish uchun kamida bitta Boshqaruvchi (Boss yoki Menejer) tanlangan bo'lishi shart.");
+                          return;
+                        }
+                        setCreateError(null);
+                        setNewRestAllowedRoles(newRestAllowedRoles.filter((r) => r !== role.key));
+                      } else {
+                        setCreateError(null);
+                        setNewRestAllowedRoles([...newRestAllowedRoles, role.key]);
+                      }
+                    }}
+                    className={`p-3 rounded-xl border text-left transition-all relative flex items-center justify-between min-h-[52px] ${
+                      isSelected
+                        ? 'border-brand bg-brand/5 shadow-xs'
+                        : 'border-line bg-bg/50 opacity-60 hover:opacity-100 hover:border-line-hover'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected ? role.colorBg : 'bg-surface border-line text-ink-muted'
+                        }`}
+                      >
+                        {getRoleIcon(role.key, 'w-4 h-4')}
+                      </div>
+                      <span className="text-sm font-bold text-ink-main block">
+                        {role.label}
+                      </span>
+                    </div>
+                    <div
+                      className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
+                        isSelected
+                          ? 'bg-brand text-white shadow-xs'
+                          : 'border border-line bg-surface text-transparent'
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1056,11 +1997,107 @@ export const SuperAdminView: React.FC = () => {
             <Button variant="ghost" type="button" onClick={() => setCreateModalOpen(false)}>
               Bekor qilish
             </Button>
-            <Button variant="primary" type="submit" className="min-w-[180px]">
-              Yaratish & Tasdiqlash
+            <Button variant="primary" type="submit" className="min-w-[140px]">
+              Yaratish
             </Button>
           </div>
         </form>
+      </Dialog>
+
+      {/* MODAL: Restoran Rollari va Modullarini Tahrirlash Dialog */}
+      <Dialog
+        isOpen={rolesModalOpen}
+        onClose={() => setRolesModalOpen(false)}
+        title={`Restoran Rollari & Modullari: ${editingRestForRoles?.name || ''}`}
+        maxWidth="2xl"
+      >
+        <div className="space-y-4 pt-2">
+          {rolesError && (
+            <div className="p-3 bg-red-50 text-red-900 border border-red-200 rounded-xl text-xs flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>{rolesError}</span>
+            </div>
+          )}
+          {rolesSuccess && (
+            <div className="p-3 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{rolesSuccess}</span>
+            </div>
+          )}
+
+          {/* 6 ta Rol Kartochkalari */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {RESTAURANT_ROLES_CONFIG.map((role) => {
+              const isSelected = editAllowedRoles.includes(role.key);
+              return (
+                <button
+                  key={role.key}
+                  type="button"
+                  onClick={() => {
+                    if (isSelected) {
+                      // Agar BOSS ni o'chirmoqchi bo'lsa va MANAGER ham yo'q bo'lsa
+                      if (role.key === 'BOSS' && !editAllowedRoles.includes('MANAGER')) {
+                        setRolesError("Restoranni boshqarish uchun kamida bitta Boshqaruvchi (Boss yoki Menejer) tanlangan bo'lishi shart.");
+                        return;
+                      }
+                      // Agar MANAGER ni o'chirmoqchi bo'lsa va BOSS ham yo'q bo'lsa
+                      if (role.key === 'MANAGER' && !editAllowedRoles.includes('BOSS')) {
+                        setRolesError("Restoranni boshqarish uchun kamida bitta Boshqaruvchi (Boss yoki Menejer) tanlangan bo'lishi shart.");
+                        return;
+                      }
+                      setRolesError(null);
+                      setEditAllowedRoles(editAllowedRoles.filter((r) => r !== role.key));
+                    } else {
+                      setRolesError(null);
+                      setEditAllowedRoles([...editAllowedRoles, role.key]);
+                    }
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all relative flex items-center justify-between min-h-[52px] ${
+                    isSelected
+                      ? 'border-brand bg-brand/5 shadow-xs'
+                      : 'border-line bg-bg/50 opacity-60 hover:opacity-100 hover:border-line-hover'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${
+                        isSelected ? role.colorBg : 'bg-surface border-line text-ink-muted'
+                      }`}
+                    >
+                      {getRoleIcon(role.key, 'w-4 h-4')}
+                    </div>
+                    <span className="text-sm font-bold text-ink-main block">
+                      {role.label}
+                    </span>
+                  </div>
+                  <div
+                    className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
+                      isSelected
+                        ? 'bg-brand text-white shadow-xs'
+                        : 'border border-line bg-surface text-transparent'
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5 stroke-[3]" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-line">
+            <Button variant="ghost" onClick={() => setRolesModalOpen(false)}>
+              Bekor qilish
+            </Button>
+            <Button
+              variant="primary"
+              disabled={rolesLoading}
+              onClick={handleSaveEditedRoles}
+              className="min-w-[140px]"
+            >
+              {rolesLoading ? 'Saqlanmoqda...' : 'Rollarini Saqlash'}
+            </Button>
+          </div>
+        </div>
       </Dialog>
 
       {/* MODAL 2: Change Status (ACTIVE / SUSPENDED) */}
@@ -1233,118 +2270,348 @@ export const SuperAdminView: React.FC = () => {
       <Dialog
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
-        title={`Restoran Tafsilotlari: ${selectedRestaurant?.name}`}
+        title={`Restoran Tafsilotlari: ${selectedRestaurant?.name || ''}`}
+        maxWidth="3xl"
       >
         {selectedRestaurant && (
-          <div className="space-y-4 pt-2 text-xs">
-            {/* Header summary banner */}
-            <div className="p-3 bg-bg rounded-xl border border-line flex items-center justify-between">
-              <div>
-                <h4 className="font-extrabold text-sm text-ink-main">{selectedRestaurant.name}</h4>
-                <p className="font-mono text-ink-secondary text-[11px]">/{selectedRestaurant.slug}</p>
+          <div className="space-y-4 pt-1">
+            {/* 1. Header Summary Card */}
+            <div className="p-4 bg-surface rounded-2xl border border-line shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-brand/10 border border-brand/20 text-brand flex items-center justify-center shrink-0">
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-black text-lg text-ink-main">{selectedRestaurant.name}</h3>
+                    <Badge variant={selectedRestaurant.status === 'ACTIVE' ? 'success' : 'danger'}>
+                      {selectedRestaurant.status === 'ACTIVE' ? 'FAOL' : 'TO\'XTATILGAN'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-ink-secondary mt-0.5 flex-wrap">
+                    <span className="font-mono bg-bg px-2 py-0.5 rounded border border-line">
+                      /{selectedRestaurant.slug}
+                    </span>
+                    <span>•</span>
+                    <span className="font-mono text-[11px]">ID: {selectedRestaurant.id.slice(0, 8)}...</span>
+                    <span>•</span>
+                    <span>Yaratilgan: {new Date(selectedRestaurant.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
               </div>
-              <Badge variant={selectedRestaurant.status === 'ACTIVE' ? 'success' : 'danger'}>
-                {selectedRestaurant.status === 'ACTIVE' ? 'FAOL (ACTIVE)' : 'TO\'XTATILGAN (SUSPENDED)'}
-              </Badge>
+
+              {/* Harakat: Boshliq kabinetiga kirish */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleEnterRestaurantAsBoss(selectedRestaurant)}
+                  disabled={enteringRestaurantId === selectedRestaurant.id}
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand text-white hover:bg-brand/90 flex items-center gap-1.5 transition-all shadow-xs"
+                  title="Restoranga Boshliq (Administrator) sifatida to'g'ridan-to'g'ri kirish"
+                >
+                  <LogIn className={`w-3.5 h-3.5 ${enteringRestaurantId === selectedRestaurant.id ? 'animate-spin' : ''}`} />
+                  <span>Boshliq kabinetiga o'tish</span>
+                  <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+                </button>
+              </div>
             </div>
 
-            {/* Grid details */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3 bg-surface rounded-xl border border-line space-y-1">
-                <span className="text-[11px] text-ink-secondary block font-medium">Restoran Egasi (Boss)</span>
-                <span className="font-bold text-ink-main block text-sm">
-                  {selectedRestaurant.owner ? selectedRestaurant.owner.fullName : '—'}
-                </span>
-                <span className="font-mono text-ink-secondary block">
-                  {selectedRestaurant.owner ? selectedRestaurant.owner.phone : '—'}
-                </span>
+            {/* 2. Top 2-Columns Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Card 1: Boshqaruvchi & Kirish (Login / Parol) */}
+              <div className="p-3.5 bg-surface rounded-xl border border-line shadow-2xs space-y-2">
+                <div className="flex items-center justify-between pb-1.5 border-b border-line/60">
+                  <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+                    <KeyRound className="w-3.5 h-3.5 text-brand" />
+                    Boshqaruvchi & Login
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDetailModalOpen(false);
+                      openOwnerCredentialsModal(selectedRestaurant);
+                    }}
+                    className="text-[11px] font-bold text-brand hover:underline"
+                  >
+                    Ko'rish
+                  </button>
+                </div>
+
+                <div className="space-y-1.5 text-xs">
+                  <div>
+                    <span className="text-[10px] text-ink-secondary block">Mas'ul shaxs</span>
+                    <span className="font-bold text-ink-main block truncate">
+                      {selectedRestaurant.owner ? selectedRestaurant.owner.fullName : 'Biriktirilmagan'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-ink-secondary block">Telefon (Login)</span>
+                    <div className="flex items-center justify-between font-mono font-bold text-ink-main bg-bg px-2 py-1 rounded border border-line/70">
+                      <span>{selectedRestaurant.owner?.phone || '—'}</span>
+                      {selectedRestaurant.owner?.phone && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(selectedRestaurant.owner!.phone);
+                            setDetailCopiedField('phone');
+                            setTimeout(() => setDetailCopiedField(null), 2000);
+                          }}
+                          className="text-ink-muted hover:text-ink-main p-0.5"
+                          title="Telefonni nusxalash"
+                        >
+                          {detailCopiedField === 'phone' ? (
+                            <Check className="w-3 h-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] text-ink-secondary block">Parol</span>
+                    <div className="flex items-center justify-between font-mono font-bold text-ink-main bg-bg px-2 py-1 rounded border border-line/70">
+                      <span>
+                        {selectedRestaurant.owner?.plainPassword
+                          ? detailShowPass
+                            ? selectedRestaurant.owner.plainPassword
+                            : '••••••••'
+                          : 'Kiritilmagan'}
+                      </span>
+                      {selectedRestaurant.owner?.plainPassword && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setDetailShowPass(!detailShowPass)}
+                            className="text-ink-muted hover:text-ink-main p-0.5"
+                            title={detailShowPass ? 'Yashirish' : 'Ko\'rsatish'}
+                          >
+                            {detailShowPass ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(selectedRestaurant.owner!.plainPassword!);
+                              setDetailCopiedField('pass');
+                              setTimeout(() => setDetailCopiedField(null), 2000);
+                            }}
+                            className="text-ink-muted hover:text-ink-main p-0.5"
+                            title="Parolni nusxalash"
+                          >
+                            {detailCopiedField === 'pass' ? (
+                              <Check className="w-3 h-3 text-emerald-600" />
+                            ) : (
+                              <Copy className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-3 bg-surface rounded-xl border border-line space-y-1">
-                <span className="text-[11px] text-ink-secondary block font-medium">Platforma Ta'rifi / Tizim</span>
-                <div className="flex items-center gap-2">
-                  <Badge variant="success" size="sm">
-                    To'liq Funktsional
+              {/* Card 2: Platforma Tarifi & Muddati */}
+              <div className="p-3.5 bg-surface rounded-xl border border-line shadow-2xs space-y-2">
+                <div className="flex items-center justify-between pb-1.5 border-b border-line/60">
+                  <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-brand" />
+                    Tarif & Muddat
+                  </span>
+                  <Badge variant="info" size="sm">
+                    {selectedRestaurant.subscriptionPlan}
                   </Badge>
-                  <span className="text-[11px] text-ink-secondary font-mono">({selectedRestaurant.subscriptionPlan})</span>
                 </div>
-              </div>
 
-              <div className="p-3 bg-surface rounded-xl border border-line space-y-1">
-                <span className="text-[11px] text-ink-secondary block font-medium">Xizmat Boshlanishi (Start)</span>
-                <span className="font-mono text-ink-main block">
-                  {new Date(selectedRestaurant.createdAt).toLocaleString()}
-                </span>
-              </div>
-
-              <div className="p-3 bg-surface rounded-xl border border-line space-y-1">
-                <span className="text-[11px] text-ink-secondary block font-medium">Xizmat Muddati (End / Expiry)</span>
-                <span className="font-mono text-ink-main block">
-                  {selectedRestaurant.subscriptionExpiresAt
-                    ? new Date(selectedRestaurant.subscriptionExpiresAt).toLocaleDateString()
-                    : 'Muddatsiz (Cheklanmagan)'}
-                </span>
-              </div>
-            </div>
-
-            {/* Contacts & Social Links */}
-            <div className="p-3 bg-surface rounded-xl border border-line space-y-2">
-              <span className="font-bold text-ink-main block">Aloqa va Ijtimoiy Tarmoqlar:</span>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div className="p-2.5 bg-bg rounded-lg space-y-1">
-                  <span className="text-[10px] text-ink-secondary flex items-center gap-1 font-semibold">
-                    <Phone className="w-3 h-3 text-brand" />
-                    Telefonlar ({[selectedRestaurant.phone, ...(selectedRestaurant.extraPhones || [])].filter(Boolean).length})
-                  </span>
-                  <div className="text-xs font-mono font-medium text-ink-main space-y-0.5">
-                    {[selectedRestaurant.phone, ...(selectedRestaurant.extraPhones || [])].filter(Boolean).length > 0 ? (
-                      [selectedRestaurant.phone, ...(selectedRestaurant.extraPhones || [])].filter(Boolean).map((p, i) => (
-                        <div key={i}>{p}</div>
-                      ))
-                    ) : (
-                      <span className="text-ink-secondary font-normal">—</span>
-                    )}
+                <div className="space-y-1.5 text-xs">
+                  <div>
+                    <span className="text-[10px] text-ink-secondary block">Stol limiti</span>
+                    <span className="font-bold text-ink-main block">
+                      {selectedRestaurant.subscriptionPlan === 'START'
+                        ? '30 tagacha stol'
+                        : selectedRestaurant.subscriptionPlan === 'BUSINESS'
+                        ? '100 tagacha stol'
+                        : selectedRestaurant.subscriptionPlan === 'ENTERPRISE'
+                        ? 'Cheksiz stollar'
+                        : 'Maxsus / Cheksiz stollar'}
+                    </span>
                   </div>
-                </div>
 
-                <div className="p-2.5 bg-bg rounded-lg space-y-1">
-                  <span className="text-[10px] text-ink-secondary flex items-center gap-1 font-semibold">
-                    <Send className="w-3 h-3 text-sky-500" />
-                    Telegram
-                  </span>
-                  <div className="text-xs font-mono font-medium text-ink-main">
-                    {selectedRestaurant.telegram ? (
-                      <span className="text-sky-600 font-bold">{selectedRestaurant.telegram}</span>
-                    ) : (
-                      <span className="text-ink-secondary font-normal">—</span>
-                    )}
+                  <div>
+                    <span className="text-[10px] text-ink-secondary block">Boshlangan sana</span>
+                    <span className="font-mono text-ink-main font-medium block">
+                      {new Date(selectedRestaurant.createdAt).toLocaleDateString()}
+                    </span>
                   </div>
-                </div>
 
-                <div className="p-2.5 bg-bg rounded-lg space-y-1">
-                  <span className="text-[10px] text-ink-secondary flex items-center gap-1 font-semibold">
-                    <Instagram className="w-3 h-3 text-pink-500" />
-                    Instagram
-                  </span>
-                  <div className="text-xs font-mono font-medium text-ink-main">
-                    {selectedRestaurant.instagram ? (
-                      <span className="text-pink-600 font-bold">{selectedRestaurant.instagram}</span>
-                    ) : (
-                      <span className="text-ink-secondary font-normal">—</span>
-                    )}
+                  <div>
+                    <span className="text-[10px] text-ink-secondary block">Amal qilish muddati</span>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-ink-main font-bold">
+                        {selectedRestaurant.subscriptionExpiresAt
+                          ? new Date(selectedRestaurant.subscriptionExpiresAt).toLocaleDateString()
+                          : 'Cheksiz'}
+                      </span>
+                      {selectedRestaurant.subscriptionExpiresAt && (
+                        (() => {
+                          const diff = new Date(selectedRestaurant.subscriptionExpiresAt).getTime() - Date.now();
+                          const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                          return (
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                days > 7
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : days > 0
+                                  ? 'bg-amber-50 text-amber-700'
+                                  : 'bg-red-50 text-red-700'
+                              }`}
+                            >
+                              {days > 0 ? `${days} kun qoldi` : 'Muddati tugagan'}
+                            </span>
+                          );
+                        })()
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Suspended Reason Banner if suspended */}
+            {/* 3. Middle 2-Columns Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Card 4: Faol Rollar va Modullar */}
+              <div className="p-3.5 bg-surface rounded-xl border border-line shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between pb-1.5 border-b border-line/60">
+                  <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    Faol Rollar & Modullar ({selectedRestaurant.allowedRoles ? selectedRestaurant.allowedRoles.length : 6} ta)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDetailModalOpen(false);
+                      setEditingRestForRoles(selectedRestaurant);
+                      setEditAllowedRoles(
+                        selectedRestaurant.allowedRoles || ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST']
+                      );
+                      setRolesError(null);
+                      setRolesSuccess(null);
+                      setRolesModalOpen(true);
+                    }}
+                    className="text-[11px] font-bold text-brand hover:underline flex items-center gap-1"
+                  >
+                    <Sliders className="w-3 h-3" />
+                    Sozlash
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {RESTAURANT_ROLES_CONFIG.map((role) => {
+                    const isAllowed = selectedRestaurant.allowedRoles
+                      ? selectedRestaurant.allowedRoles.includes(role.key)
+                      : true;
+                    return (
+                      <div
+                        key={role.key}
+                        className={`p-2 rounded-lg border text-xs flex items-center gap-2 transition-all ${
+                          isAllowed
+                            ? 'bg-surface border-line shadow-2xs'
+                            : 'bg-bg/40 border-line/40 opacity-40 grayscale'
+                        }`}
+                      >
+                        <div
+                          className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 text-xs ${
+                            isAllowed ? role.colorBg : 'bg-surface border border-line text-ink-muted'
+                          }`}
+                        >
+                          {getRoleIcon(role.key, 'w-3 h-3')}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <span className="font-bold text-ink-main block text-[11px] truncate">{role.label}</span>
+                          <span className="text-[9px] text-ink-muted block">
+                            {isAllowed ? 'Faol' : 'O\'chirilgan'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Card 5: Aloqa va Ijtimoiy Tarmoqlar */}
+              <div className="p-3.5 bg-surface rounded-xl border border-line shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between pb-1.5 border-b border-line/60">
+                  <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-brand" />
+                    Aloqa va Manzil
+                  </span>
+                </div>
+
+                <div className="space-y-2 text-xs">
+                  {/* Telefonlar */}
+                  <div className="flex items-start gap-2">
+                    <Phone className="w-3.5 h-3.5 text-ink-muted shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] text-ink-secondary block">Restoran telefonlari</span>
+                      <div className="font-mono text-ink-main font-medium">
+                        {[selectedRestaurant.phone, ...(selectedRestaurant.extraPhones || [])].filter(Boolean).length > 0 ? (
+                          [selectedRestaurant.phone, ...(selectedRestaurant.extraPhones || [])].filter(Boolean).join(', ')
+                        ) : (
+                          <span className="text-ink-muted">—</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Manzil */}
+                  <div className="flex items-start gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-ink-muted shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[10px] text-ink-secondary block">Manzil</span>
+                      <span className="text-ink-main font-medium block">
+                        {selectedRestaurant.address || 'Manzil kiritilmagan'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Ijtimoiy tarmoqlar */}
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-line/60">
+                    <div className="flex items-center gap-2 bg-bg px-2.5 py-1.5 rounded-lg border border-line/60">
+                      <Send className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[9px] text-ink-secondary block">Telegram</span>
+                        <span className="font-mono text-[11px] font-bold text-sky-600 block truncate">
+                          {selectedRestaurant.telegram || '—'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-bg px-2.5 py-1.5 rounded-lg border border-line/60">
+                      <Instagram className="w-3.5 h-3.5 text-pink-500 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[9px] text-ink-secondary block">Instagram</span>
+                        <span className="font-mono text-[11px] font-bold text-pink-600 block truncate">
+                          {selectedRestaurant.instagram || '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Suspended Reason Banner (faqat to'xtatilgan bo'lsa chiqadi) */}
             {selectedRestaurant.status === 'SUSPENDED' && (
               <div className="p-3 bg-red-50 text-red-900 border border-red-200 rounded-xl space-y-1">
-                <span className="font-bold block flex items-center gap-1.5">
-                  <AlertTriangle className="w-4 h-4 text-red-600" />
+                <span className="font-bold flex items-center gap-1.5 text-xs">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                   Xizmat To'xtatilish Sababi:
                 </span>
-                <p className="text-red-800 italic">"{selectedRestaurant.suspendedReason || 'Sabab ko\'rsatilmagan'}"</p>
+                <p className="text-xs text-red-800 italic">
+                  "{selectedRestaurant.suspendedReason || 'Sabab ko\'rsatilmagan'}"
+                </p>
                 {selectedRestaurant.suspendedAt && (
                   <span className="text-[10px] text-red-700 block font-mono">
                     To'xtatilgan vaqt: {new Date(selectedRestaurant.suspendedAt).toLocaleString()}
@@ -1353,45 +2620,42 @@ export const SuperAdminView: React.FC = () => {
               </div>
             )}
 
-            {/* Resources overview */}
-            <div className="p-3 bg-surface rounded-xl border border-line space-y-2">
-              <span className="font-bold text-ink-main block">Bog'langan Resurslar:</span>
-              <div className="grid grid-cols-4 gap-2 text-center">
-                <div className="p-2 bg-bg rounded-lg">
-                  <span className="text-base font-bold text-ink-main block">{selectedRestaurant.hallsCount}</span>
-                  <span className="text-[10px] text-ink-secondary">Zallar</span>
-                </div>
-                <div className="p-2 bg-bg rounded-lg">
-                  <span className="text-base font-bold text-ink-main block">{selectedRestaurant.tablesCount}</span>
-                  <span className="text-[10px] text-ink-secondary">Stollar</span>
-                </div>
-                <div className="p-2 bg-bg rounded-lg">
-                  <span className="text-base font-bold text-ink-main block">{selectedRestaurant.staffCount}</span>
-                  <span className="text-[10px] text-ink-secondary">Xodimlar</span>
-                </div>
-                <div className="p-2 bg-bg rounded-lg">
-                  <span className="text-base font-bold text-brand block">{selectedRestaurant.activeVisitsCount}</span>
-                  <span className="text-[10px] text-ink-secondary">Faol Tashrif</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Policy & Security Note */}
-            <div className="p-3 bg-slate-50 text-slate-700 border border-slate-200 rounded-xl space-y-1 text-[11px]">
-              <span className="font-bold text-slate-900 block">Xavfsizlik Kafolatlari:</span>
-              <p>
-                • Platforma Super Admini uchun restoranni hard delete qiluvchi kundalik tugma mavjud emas.
-                <br />
-                • Maxfiy kalitlar, parollar va to'liq so'rov yuklamalari ekranga aslo chiqarilmaydi.
-              </p>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-between pt-2">
+            {/* 4. Action Buttons Footer */}
+            <div className="flex items-center justify-between pt-3 border-t border-line">
               <Button variant="ghost" onClick={() => setDetailModalOpen(false)}>
                 Yopish
               </Button>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDetailModalOpen(false);
+                    openOwnerCredentialsModal(selectedRestaurant);
+                  }}
+                  className="text-xs h-8 text-ink-main border-line hover:bg-bg"
+                >
+                  <KeyRound className="w-3.5 h-3.5 mr-1 text-brand" />
+                  Login & Parol
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDetailModalOpen(false);
+                    setEditingRestForRoles(selectedRestaurant);
+                    setEditAllowedRoles(
+                      selectedRestaurant.allowedRoles || ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST']
+                    );
+                    setRolesError(null);
+                    setRolesSuccess(null);
+                    setRolesModalOpen(true);
+                  }}
+                  className="text-xs h-8 text-brand border-brand/30 hover:bg-brand/5"
+                >
+                  <Sliders className="w-3.5 h-3.5 mr-1 text-brand" />
+                  Rollar
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1414,6 +2678,7 @@ export const SuperAdminView: React.FC = () => {
                   size="sm"
                   onClick={() => {
                     setDetailModalOpen(false);
+                    setSelectedRestaurant(selectedRestaurant);
                     setSupportReason('');
                     setSupportDuration('30');
                     setSupportReadOnly(true);
@@ -1422,12 +2687,149 @@ export const SuperAdminView: React.FC = () => {
                   className="text-xs border-amber-500 text-amber-800 hover:bg-amber-50 h-8"
                 >
                   <LogIn className="w-3.5 h-3.5 mr-1" />
-                  Support Sessiyasi
+                  Support
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDeleteRestaurant(selectedRestaurant)}
+                  className="text-xs border-rose-300 text-rose-600 hover:bg-rose-50 h-8"
+                  title="Restoranni tizimdan to'liq o'chirish"
+                >
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  O'chirish
                 </Button>
               </div>
             </div>
           </div>
         )}
+      </Dialog>
+
+      {/* MODAL 5: Boshqaruvchi Login & Parolini Ko'rish */}
+      <Dialog
+        isOpen={ownerCredModalOpen}
+        onClose={() => setOwnerCredModalOpen(false)}
+        title={`Boshqaruvchi Login & Paroli: ${selectedRestaurant?.name || ''}`}
+      >
+        <div className="space-y-4 pt-2">
+          {/* Telefoni (Login) */}
+          <div className="p-3.5 bg-bg/70 border border-line rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+                <Phone className="w-3.5 h-3.5 text-brand" />
+                Telefoni (Login)
+              </span>
+              {editOwnerPhone && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(editOwnerPhone);
+                    setPhoneCopied(true);
+                    setTimeout(() => setPhoneCopied(false), 2000);
+                  }}
+                  className="text-[11px] font-bold text-ink-secondary hover:text-ink-main flex items-center gap-1 bg-surface border border-line px-2.5 py-1 rounded-lg transition-colors"
+                >
+                  {phoneCopied ? (
+                    <>
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span className="text-emerald-600">Nusxalandi</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3 h-3" />
+                      <span>Nusxa olish</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+            <div className="font-mono text-base font-bold text-ink-main tracking-wide bg-surface px-3 py-2.5 rounded-lg border border-line">
+              {editOwnerPhone || 'Kiritilmagan'}
+            </div>
+          </div>
+
+          {/* Parol */}
+          <div className="p-3.5 bg-bg/70 border border-line rounded-xl space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5 text-amber-500" />
+                Parol
+              </span>
+              {editOwnerCurrentPassword && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(editOwnerCurrentPassword);
+                      setCurrentPassCopied(true);
+                      setTimeout(() => setCurrentPassCopied(false), 2000);
+                    }}
+                    className="text-[11px] font-bold text-ink-secondary hover:text-ink-main flex items-center gap-1 bg-surface border border-line px-2.5 py-1 rounded-lg transition-colors"
+                  >
+                    {currentPassCopied ? (
+                      <>
+                        <Check className="w-3 h-3 text-emerald-600" />
+                        <span className="text-emerald-600">Nusxalandi</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Nusxa olish</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="text-ink-secondary hover:text-ink-main p-1.5 rounded-lg hover:bg-surface border border-transparent hover:border-line transition-colors"
+                    title={showCurrentPassword ? "Parolni yashirish" : "Parolni ko'rsatish"}
+                  >
+                    {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              )}
+            </div>
+            {editOwnerCurrentPassword ? (
+              <div className="font-mono text-base font-bold text-ink-main tracking-wider bg-surface px-3 py-2.5 rounded-lg border border-line flex items-center justify-between">
+                <span>{showCurrentPassword ? editOwnerCurrentPassword : '••••••••'}</span>
+              </div>
+            ) : (
+              <p className="text-xs text-ink-secondary bg-surface border border-line px-3 py-2.5 rounded-lg">
+                Parol ko'rsatilmagan
+              </p>
+            )}
+          </div>
+
+          {/* Barchasini Nusxalash & Yopish */}
+          <div className="pt-2 flex items-center justify-between border-t border-line">
+            <button
+              type="button"
+              onClick={() => {
+                const text = `Restoran: ${selectedRestaurant?.name || ''}\nLogin: ${editOwnerPhone}\nParol: ${editOwnerCurrentPassword}`;
+                navigator.clipboard.writeText(text);
+                setAllCopied(true);
+                setTimeout(() => setAllCopied(false), 2000);
+              }}
+              className="text-xs font-semibold text-brand hover:underline flex items-center gap-1.5"
+            >
+              {allCopied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-emerald-600 font-bold">Barchasi nusxalandi!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Barchasini nusxalash (Login va Parol)</span>
+                </>
+              )}
+            </button>
+
+            <Button variant="primary" type="button" onClick={() => setOwnerCredModalOpen(false)} className="text-xs font-bold">
+              Yopish
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

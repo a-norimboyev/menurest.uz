@@ -120,15 +120,6 @@ export class WaiterService {
     const tables = await prisma.table.findMany({
       where: {
         restaurantId,
-        ...(isManager
-          ? {}
-          : {
-              OR: [
-                { assignedWaiterId: userId },
-                { visits: { some: { status: 'ACTIVE', waiterId: userId } } },
-                { assignedWaiterId: null },
-              ],
-            }),
       },
       include: {
         hall: { select: { id: true, name: true } },
@@ -136,6 +127,7 @@ export class WaiterService {
         visits: {
           where: { status: 'ACTIVE' },
           include: {
+            waiter: { select: { id: true, fullName: true, phone: true } },
             orders: {
               include: {
                 items: {
@@ -175,6 +167,18 @@ export class WaiterService {
         }
       }
 
+      const assignedWaiter =
+        tbl.assignedWaiter ||
+        (activeVisit?.waiter
+          ? {
+              id: activeVisit.waiter.id,
+              fullName: activeVisit.waiter.fullName,
+              phone: activeVisit.waiter.phone || '',
+            }
+          : null);
+      const isMyTable =
+        tbl.assignedWaiterId === userId || activeVisit?.waiterId === userId;
+
       return {
         id: tbl.id,
         number: tbl.number,
@@ -182,7 +186,8 @@ export class WaiterService {
         status: tbl.status,
         qrToken: tbl.qrToken,
         hall: tbl.hall,
-        assignedWaiter: tbl.assignedWaiter,
+        assignedWaiter,
+        isMyTable,
         activeVisit: activeVisit
           ? {
               id: activeVisit.id,
@@ -608,12 +613,16 @@ export class WaiterService {
       throw new Error('INVALID_ORDER_STATUS: Faqat YANGI (NEW) holatidagi buyurtmani tasdiqlash mumkin');
     }
 
-    // Agar restoran kichik kafe/oshxonasiz rejimda bo'lsa (START / CAFE), buyurtma tasdiqlanganda to'g'ridan-to'g'ri READY bo'ladi
+    // Agar restoran kichik kafe/oshxonasiz rejimda bo'lsa (KITCHEN o'chirilgan yoki START / CAFE), buyurtma tasdiqlanganda to'g'ridan-to'g'ri READY bo'ladi
     const restaurant = await prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { subscriptionPlan: true },
+      select: { subscriptionPlan: true, allowedRoles: true },
     });
-    const isNoKitchenMode = restaurant?.subscriptionPlan === 'START' || restaurant?.subscriptionPlan === 'NO_KITCHEN' || restaurant?.subscriptionPlan === 'CAFE';
+    const isNoKitchenMode =
+      (restaurant?.allowedRoles && !restaurant.allowedRoles.includes('KITCHEN')) ||
+      restaurant?.subscriptionPlan === 'START' ||
+      restaurant?.subscriptionPlan === 'NO_KITCHEN' ||
+      restaurant?.subscriptionPlan === 'CAFE';
     const targetItemStatus = isNoKitchenMode ? OrderItemStatus.READY : OrderItemStatus.ACCEPTED;
     const targetOrderStatus = isNoKitchenMode ? OrderStatus.READY : OrderStatus.CONFIRMED;
 
@@ -824,9 +833,13 @@ export class WaiterService {
 
     const restaurant = await prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { subscriptionPlan: true },
+      select: { subscriptionPlan: true, allowedRoles: true },
     });
-    const isNoKitchenMode = restaurant?.subscriptionPlan === 'START' || restaurant?.subscriptionPlan === 'NO_KITCHEN' || restaurant?.subscriptionPlan === 'CAFE';
+    const isNoKitchenMode =
+      (restaurant?.allowedRoles && !restaurant.allowedRoles.includes('KITCHEN')) ||
+      restaurant?.subscriptionPlan === 'START' ||
+      restaurant?.subscriptionPlan === 'NO_KITCHEN' ||
+      restaurant?.subscriptionPlan === 'CAFE';
 
     // QAT'IY INVARIANT TEKSHIRUVI (Oshxonasiz rejimda ACCEPTED ham yetkazilishi mumkin)
     if (item.status !== OrderItemStatus.READY && (!isNoKitchenMode || item.status !== OrderItemStatus.ACCEPTED)) {
@@ -895,7 +908,8 @@ export class WaiterService {
   async createStaffOrder(
     restaurantId: string,
     waiterId: string,
-    payload: CreateStaffOrderDto
+    payload: CreateStaffOrderDto,
+    isManager: boolean = false
   ) {
     const { visitId, orderNotes, items } = payload;
 
@@ -914,6 +928,16 @@ export class WaiterService {
 
     if (!visit || visit.status !== 'ACTIVE') {
       throw new Error('VISIT_NOT_ACTIVE: Faol tashrif mavjud emas');
+    }
+
+    // Stol yoki tashrif boshqa ofitsiantga biriktirilgan bo'lsa va chaqiruvchi menejer bo'lmasa
+    if (!isManager) {
+      const assignedToOther =
+        (visit.table.assignedWaiterId && visit.table.assignedWaiterId !== waiterId) ||
+        (visit.waiterId && visit.waiterId !== waiterId);
+      if (assignedToOther) {
+        throw new Error('NOT_ASSIGNED_WAITER: Ushbu stol boshqa ofitsiantga biriktirilgan');
+      }
     }
 
     if (!items || items.length === 0) {
@@ -1009,6 +1033,20 @@ export class WaiterService {
 
     // Tranzaksiyada yaratish: xodim yaratgan buyurtma avtomatik CONFIRMED va taomlar ACCEPTED
     const createdOrder = await prisma.$transaction(async (tx) => {
+      // Agar tashrif yoki stolda ofitsiant hali belgilanmagan bo'lsa, avtomatik biriktirish
+      if (!visit.waiterId) {
+        await tx.visit.update({
+          where: { id: visitId },
+          data: { waiterId },
+        });
+      }
+      if (!visit.table.assignedWaiterId) {
+        await tx.table.update({
+          where: { id: visit.tableId },
+          data: { assignedWaiterId: waiterId },
+        });
+      }
+
       const ord = await tx.order.create({
         data: {
           restaurantId,
@@ -1118,6 +1156,98 @@ export class WaiterService {
 
     outboxService.trigger();
     return createdOrder;
+  }
+
+  /**
+   * 10. Ofitsiant tomonidan bo'sh/biriktirilmagan stolni o'ziga biriktirish (Claim Table)
+   */
+  async claimTable(restaurantId: string, tableId: string, waiterId: string, isManager: boolean = false) {
+    const table = await prisma.table.findFirst({
+      where: { id: tableId, restaurantId },
+      include: { assignedWaiter: true, visits: { where: { status: 'ACTIVE' } } },
+    });
+
+    if (!table) {
+      throw new Error('TABLE_NOT_FOUND: Stol topilmadi');
+    }
+
+    if (!isManager && table.assignedWaiterId && table.assignedWaiterId !== waiterId) {
+      throw new Error(
+        `TABLE_ALREADY_ASSIGNED: Ushbu stol ${table.assignedWaiter?.fullName || 'boshqa ofitsiant'}ga biriktirilgan`
+      );
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const up = await tx.table.update({
+        where: { id: tableId },
+        data: { assignedWaiterId: waiterId },
+        include: {
+          assignedWaiter: { select: { id: true, fullName: true, phone: true } },
+          hall: { select: { id: true, name: true } },
+        },
+      });
+
+      // Agar stolda faol tashrif bo'lsa, uni ham ofitsiantga biriktirish
+      await tx.visit.updateMany({
+        where: { tableId, status: 'ACTIVE' },
+        data: { waiterId },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          restaurantId,
+          action: 'TABLE_WAITER_CLAIMED',
+          actorId: waiterId,
+          entityName: 'Table',
+          entityId: tableId,
+          newStateJson: { assignedWaiterId: waiterId },
+        },
+      });
+
+      return up;
+    });
+
+    return updated;
+  }
+
+  /**
+   * 11. Stol biriktirilishini bekor qilish / bo'shatish (Unclaim Table)
+   */
+  async unclaimTable(restaurantId: string, tableId: string, waiterId: string, isManager: boolean = false) {
+    const table = await prisma.table.findFirst({
+      where: { id: tableId, restaurantId },
+      include: { visits: { where: { status: 'ACTIVE' } } },
+    });
+
+    if (!table) {
+      throw new Error('TABLE_NOT_FOUND: Stol topilmadi');
+    }
+
+    if (!isManager && table.assignedWaiterId !== waiterId) {
+      throw new Error('FORBIDDEN: Siz faqat o\'zingizga biriktirilgan stolni ajrata olasiz');
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const up = await tx.table.update({
+        where: { id: tableId },
+        data: { assignedWaiterId: null },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          restaurantId,
+          action: 'TABLE_WAITER_UNCLAIMED',
+          actorId: waiterId,
+          entityName: 'Table',
+          entityId: tableId,
+          newStateJson: { assignedWaiterId: null },
+        },
+      });
+
+      return up;
+    });
+
+    return updated;
   }
 }
 

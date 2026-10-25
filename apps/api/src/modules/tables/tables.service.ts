@@ -23,10 +23,17 @@ export class TablesService {
    * Zallar ro'yxati
    */
   async listHalls(restaurantId: string) {
-    return prisma.hall.findMany({
+    let halls = await prisma.hall.findMany({
       where: { restaurantId },
       orderBy: { name: 'asc' },
     });
+    if (halls.length === 0) {
+      const defaultHall = await prisma.hall.create({
+        data: { restaurantId, name: 'Asosiy Zal' },
+      });
+      halls = [defaultHall];
+    }
+    return halls;
   }
 
   /**
@@ -115,11 +122,24 @@ export class TablesService {
    */
   async createTable(restaurantId: string, input: CreateTableInput) {
     // 1. Zal ushbu restoranga tegishliligini tekshirish
-    const hall = await prisma.hall.findFirst({
-      where: { id: input.hallId, restaurantId },
-    });
-    if (!hall) {
-      throw new Error('INVALID_HALL_TENANT: Ko\'rsatilgan zal ushbu restoranga tegishli emas');
+    let hallId = input.hallId;
+    if (!hallId || hallId === 'all') {
+      const firstHall = await prisma.hall.findFirst({ where: { restaurantId } });
+      if (firstHall) {
+        hallId = firstHall.id;
+      } else {
+        const newHall = await prisma.hall.create({
+          data: { restaurantId, name: 'Asosiy Zal' },
+        });
+        hallId = newHall.id;
+      }
+    } else {
+      const hall = await prisma.hall.findFirst({
+        where: { id: hallId, restaurantId },
+      });
+      if (!hall) {
+        throw new Error('INVALID_HALL_TENANT: Ko\'rsatilgan zal ushbu restoranga tegishli emas');
+      }
     }
 
     // 2. Biriktirilgan ofitsiant tekshiruvi (agar ko'rsatilgan bo'lsa)
@@ -136,6 +156,18 @@ export class TablesService {
       }
     }
 
+    // 2.5 Tarif rejasi bo'yicha stol limitini tekshirish
+    const currentTableCount = await prisma.table.count({ where: { restaurantId } });
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { subscriptionPlan: true },
+    });
+    const plan = restaurant?.subscriptionPlan || 'BUSINESS';
+    const maxTables = plan === 'ENTERPRISE' ? Infinity : 100;
+    if (currentTableCount >= maxTables) {
+      throw new Error(`PLAN_LIMIT_REACHED: Ushbu tarifda (${plan}) maksimal ${maxTables} ta stol ruxsat etilgan.`);
+    }
+
     // 3. Raqam band emasligini tekshirish
     const existingTable = await prisma.table.findFirst({
       where: { restaurantId, number: input.number },
@@ -150,7 +182,7 @@ export class TablesService {
     return prisma.table.create({
       data: {
         restaurantId,
-        hallId: input.hallId,
+        hallId,
         number: input.number,
         capacity: input.capacity || 4,
         status: TableStatus.FREE,
@@ -164,6 +196,113 @@ export class TablesService {
         },
       },
     });
+  }
+
+  /**
+   * Ommaviy stollar yaratish (100 tagacha)
+   */
+  async createTablesBatch(restaurantId: string, input: { hallId?: string; startNumber?: number; count: number; capacity?: number }) {
+    let hallId = input.hallId;
+    if (!hallId || hallId === 'all') {
+      const firstHall = await prisma.hall.findFirst({ where: { restaurantId } });
+      if (firstHall) {
+        hallId = firstHall.id;
+      } else {
+        const newHall = await prisma.hall.create({
+          data: { restaurantId, name: 'Asosiy Zal' },
+        });
+        hallId = newHall.id;
+      }
+    } else {
+      const hall = await prisma.hall.findFirst({
+        where: { id: hallId, restaurantId },
+      });
+      if (!hall) {
+        throw new Error('INVALID_HALL_TENANT: Ko\'rsatilgan zal topilmadi');
+      }
+    }
+
+    const currentTableCount = await prisma.table.count({ where: { restaurantId } });
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { subscriptionPlan: true },
+    });
+    const plan = restaurant?.subscriptionPlan || 'BUSINESS';
+    const maxTables = plan === 'ENTERPRISE' ? Infinity : 100;
+
+    const requestedCount = Math.min(Math.max(1, Number(input.count) || 1), 100);
+    const startNum = Math.max(1, Number(input.startNumber) || 1);
+    const capacity = input.capacity ? Number(input.capacity) : 4;
+
+    const existingTables = await prisma.table.findMany({
+      where: { restaurantId },
+      select: { number: true },
+    });
+    const existingNumbers = new Set(existingTables.map((t) => t.number));
+
+    const toCreate: Array<{
+      restaurantId: string;
+      hallId: string;
+      number: number;
+      capacity: number;
+      status: TableStatus;
+      qrToken: string;
+    }> = [];
+
+    let currentNum = startNum;
+    while (toCreate.length < requestedCount && (currentTableCount + toCreate.length) < maxTables && currentNum <= 500) {
+      if (!existingNumbers.has(currentNum)) {
+        toCreate.push({
+          restaurantId,
+          hallId,
+          number: currentNum,
+          capacity,
+          status: TableStatus.FREE,
+          qrToken: crypto.randomUUID(),
+        });
+      }
+      currentNum++;
+    }
+
+    if (toCreate.length > 0) {
+      await prisma.table.createMany({
+        data: toCreate,
+      });
+    }
+
+    return {
+      createdCount: toCreate.length,
+      totalCount: currentTableCount + toCreate.length,
+      tables: await this.listTables(restaurantId),
+    };
+  }
+
+  /**
+   * Stolni o'chirish
+   */
+  async deleteTable(restaurantId: string, tableId: string) {
+    const table = await prisma.table.findFirst({
+      where: { id: tableId, restaurantId },
+      include: {
+        visits: {
+          where: { status: 'ACTIVE' },
+        },
+      },
+    });
+
+    if (!table) {
+      throw new Error('TABLE_NOT_FOUND: Stol topilmadi');
+    }
+
+    if (table.visits.length > 0) {
+      throw new Error('TABLE_BUSY: Stol hozirda band (faol mehmon tashrifi mavjud), uni o\'chirib bo\'lmaydi');
+    }
+
+    await prisma.table.delete({
+      where: { id: tableId },
+    });
+
+    return { success: true };
   }
 
   /**

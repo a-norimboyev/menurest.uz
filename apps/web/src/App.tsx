@@ -14,6 +14,7 @@ import {
 import { formatMoneyUzs } from '@menurest/shared';
 import { LoginModal } from './components/LoginModal.tsx';
 import { RestaurantSelectorModal } from './components/RestaurantSelectorModal.tsx';
+import { ChangePasswordModal } from './components/ChangePasswordModal.tsx';
 import { GuestView } from './views/GuestView.tsx';
 import { WaiterView } from './views/WaiterView.tsx';
 import { KitchenView } from './views/KitchenView.tsx';
@@ -69,6 +70,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [restaurantModalOpen, setRestaurantModalOpen] = useState(false);
+  const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
 
   function detectRoleFromUrl(): PreviewRole {
     try {
@@ -95,13 +97,9 @@ export default function App() {
 
   // Active View / Preview Role Switcher (Default: HOME, or GUEST if scanning a table QR)
   const [currentRoleView, setCurrentRoleView] = useState<PreviewRole>(detectRoleFromUrl);
-  const [previewBarVisible, setPreviewBarVisible] = useState(false);
 
   const switchRole = (role: PreviewRole) => {
     setCurrentRoleView(role);
-    if (role !== 'HOME') {
-      setPreviewBarVisible(true);
-    }
     try {
       const hashName = role === 'HOME' ? '' : `#${role.toLowerCase()}`;
       if (window.location.hash !== hashName) {
@@ -110,9 +108,7 @@ export default function App() {
     } catch {}
   };
 
-  // Security test states
-  const [tenantTestResult, setTenantTestResult] = useState<string | null>(null);
-  const [tenantTesting, setTenantTesting] = useState(false);
+
 
   // Active support session in localStorage
   const [supportSession, setSupportSession] = useState<{
@@ -217,7 +213,6 @@ export default function App() {
         },
       });
       setAuthProfile(null);
-      setTenantTestResult(null);
     } catch (err) {
       console.error('Logout error:', err);
     }
@@ -238,157 +233,14 @@ export default function App() {
       if (data.success) {
         const meRes = await fetch('/api/v1/auth/me', { credentials: 'include' }).then((r) => r.json());
         if (meRes?.success) setAuthProfile(meRes.data);
-        setTenantTestResult(null);
       }
     } catch (err) {
       console.error('Switch restaurant error:', err);
     }
   }
 
-  // Cross-tenant attack simulation
-  async function testCrossTenantAttack() {
-    setTenantTesting(true);
-    setTenantTestResult(null);
-    try {
-      const foreignTenantId = '6d403a25-2a67-4474-88ce-13eb9e3a2854';
-      const res = await fetch(`/api/v1/restaurants/${foreignTenantId}/reports/summary`, {
-        credentials: 'include',
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setTenantTestResult(
-          `✓ Kutilganidek: Server kirishni rad etdi (Status: ${res.status}, Kod: ${data.error?.code}). Sabab: "${data.error?.message}"`
-        );
-      } else {
-        setTenantTestResult(`! OGOHLANTIRISH: So'rov o'tib ketdi: ${JSON.stringify(data)}`);
-      }
-    } catch (err: any) {
-      setTenantTestResult(`Xatolik: ${err.message}`);
-    } finally {
-      setTenantTesting(false);
-    }
-  }
-
-  // Preview Switcher Bar Component
-  const shouldShowBar = currentRoleView !== 'HOME' || previewBarVisible;
-
-  const PreviewSwitcherBar = shouldShowBar ? (
-    <div className="bg-ink-main text-white px-3 py-2 border-b border-white/10 sticky top-0 z-50 text-xs shadow-md">
-      <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="font-extrabold uppercase tracking-wide text-brand-200">
-            DEMO PREVIEW (ROL KO'RISH REJIMI)
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1 overflow-x-auto py-0.5">
-          <button
-            onClick={() => switchRole('HOME')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap min-h-[36px] flex items-center gap-1.5 ${
-              currentRoleView === 'HOME'
-                ? 'bg-brand text-white shadow-sm ring-1 ring-white/30'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            <span>🏠</span>
-            <span>Bosh Sahifa</span>
-          </button>
-          <div className="w-[1px] h-5 bg-white/20 mx-1" />
-          <button
-            onClick={() => switchRole('GUEST')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap min-h-[36px] ${
-              currentRoleView === 'GUEST'
-                ? 'bg-brand text-white shadow-sm ring-1 ring-white/30'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            1. Mehmon (QR)
-          </button>
-          <button
-            onClick={() => switchRole('WAITER')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap min-h-[36px] ${
-              currentRoleView === 'WAITER'
-                ? 'bg-brand text-white shadow-sm ring-1 ring-white/30'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            2. Ofitsiant
-          </button>
-          <button
-            onClick={() => switchRole('KITCHEN')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap min-h-[36px] ${
-              currentRoleView === 'KITCHEN'
-                ? 'bg-brand text-white shadow-sm ring-1 ring-white/30'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            3. Oshxona & Bar
-          </button>
-          <button
-            onClick={() => switchRole('CASHIER')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap min-h-[36px] ${
-              currentRoleView === 'CASHIER'
-                ? 'bg-brand text-white shadow-sm ring-1 ring-white/30'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            4. Kassa
-          </button>
-          <button
-            onClick={() => switchRole('MANAGER')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap min-h-[36px] ${
-              currentRoleView === 'MANAGER'
-                ? 'bg-brand text-white shadow-sm ring-1 ring-white/30'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            5. Menejer
-          </button>
-          <button
-            onClick={() => switchRole('BOSS')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap min-h-[36px] ${
-              currentRoleView === 'BOSS'
-                ? 'bg-brand text-white shadow-sm ring-1 ring-white/30'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            6. Boss
-          </button>
-          <button
-            onClick={() => switchRole('SUPER_ADMIN')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap min-h-[36px] ${
-              currentRoleView === 'SUPER_ADMIN'
-                ? 'bg-brand text-white shadow-sm ring-1 ring-white/30'
-                : 'text-slate-300 hover:text-white hover:bg-white/10'
-            }`}
-          >
-            7. Super Admin
-          </button>
-          <div className="w-[1px] h-5 bg-white/20 mx-1" />
-          <button
-            onClick={() => switchRole('SESSION')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold transition-all whitespace-nowrap min-h-[36px] ${
-              currentRoleView === 'SESSION'
-                ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-white/30'
-                : 'bg-white/10 text-white hover:bg-white/20'
-            }`}
-          >
-            Haqiqiy Sessiya (API)
-          </button>
-          {currentRoleView === 'HOME' && (
-            <button
-              onClick={() => setPreviewBarVisible(false)}
-              className="ml-2 px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white text-[11px]"
-              title="Panelni yashirish"
-            >
-              ✕ Yashirish
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  ) : null;
+  // Preview Switcher Bar - hidden
+  const PreviewSwitcherBar = null;
 
   return (
     <div className="min-h-screen bg-bg text-ink-main flex flex-col font-sans">
@@ -442,8 +294,26 @@ export default function App() {
       {currentRoleView === 'WAITER' && <WaiterView />}
       {currentRoleView === 'KITCHEN' && <KitchenView />}
       {currentRoleView === 'CASHIER' && <CashierView />}
-      {currentRoleView === 'MANAGER' && <ManagerView initialRole="MANAGER" activeRestaurantId={authProfile?.activeRestaurant?.id} />}
-      {currentRoleView === 'BOSS' && <ManagerView initialRole="BOSS" activeRestaurantId={authProfile?.activeRestaurant?.id} />}
+      {currentRoleView === 'MANAGER' && (
+        <ManagerView
+          initialRole="MANAGER"
+          activeRestaurantId={authProfile?.activeRestaurant?.id}
+          authProfile={authProfile}
+          onLogout={handleLogout}
+          onSwitchRole={(role) => switchRole(role as any)}
+          onOpenRestaurantSelector={() => setRestaurantModalOpen(true)}
+        />
+      )}
+      {currentRoleView === 'BOSS' && (
+        <ManagerView
+          initialRole="BOSS"
+          activeRestaurantId={authProfile?.activeRestaurant?.id}
+          authProfile={authProfile}
+          onLogout={handleLogout}
+          onSwitchRole={(role) => switchRole(role as any)}
+          onOpenRestaurantSelector={() => setRestaurantModalOpen(true)}
+        />
+      )}
       {currentRoleView === 'SUPER_ADMIN' && <SuperAdminView />}
 
       {/* Production RBAC Session Dashboard */}
@@ -451,14 +321,11 @@ export default function App() {
         <div className="flex-1 flex flex-col">
           {/* Header */}
           <header className="bg-brand-900 text-white shadow-md border-b border-brand-800 sticky top-10 z-40">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div className="w-full px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <img src="/logo.svg" alt="MENUREST.UZ" className="w-10 h-10 rounded-xl object-contain shadow-md shrink-0" />
                 <div>
                   <span className="text-xl font-bold tracking-tight text-white">MENUREST.UZ</span>
-                  <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-brand-800 text-brand-200 border border-brand-700">
-                    v2.0 RBAC
-                  </span>
                 </div>
               </div>
 
@@ -485,6 +352,15 @@ export default function App() {
                       </div>
                     </div>
 
+                    {/* Change Password Button */}
+                    <button
+                      onClick={() => setChangePasswordModalOpen(true)}
+                      className="p-2 rounded-xl bg-brand-800 hover:bg-brand-700 text-brand-200 hover:text-white transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
+                      title="Parolni o'zgartirish"
+                    >
+                      <KeyRound className="w-4 h-4" />
+                    </button>
+
                     {/* Logout Button */}
                     <button
                       onClick={handleLogout}
@@ -508,14 +384,14 @@ export default function App() {
           </header>
 
           {/* Main Dashboard */}
-          <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          <main className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-8 space-y-8">
             <div className="bg-surface rounded-2xl p-6 sm:p-8 shadow-subtle border border-line flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2">
+              <div className="space-y-1">
                 <h1 className="text-2xl sm:text-3xl font-bold text-ink-main tracking-tight">
-                  Server Sessiyasi & Tenant Nazorati
+                  Xodim Shaxsiy Kabineti
                 </h1>
-                <p className="text-ink-secondary max-w-2xl leading-relaxed text-sm">
-                  HttpOnly Secure cookie sessiyalari, tokenVersion orqali bir zumda sessiyani bekor qilish, eskalatsiyadan himoyalangan xodim rollari va PostgreSQL composite foreign key tenant nazorati.
+                <p className="text-ink-secondary max-w-2xl text-sm">
+                  Tizimdagi faol xodim va biriktirilgan restoran ma'lumotlari.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -541,14 +417,22 @@ export default function App() {
                       Telefon: {authProfile.user.phone} • Faol Restoran: {authProfile.activeRestaurant?.name || 'Super Admin'}
                     </div>
                   </div>
-                  {authProfile.availableRestaurants && authProfile.availableRestaurants.length > 1 && (
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setRestaurantModalOpen(true)}
-                      className="px-3 py-1.5 rounded-xl border border-brand-300 bg-brand-50 hover:bg-brand-100 text-brand text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[44px]"
+                      onClick={() => setChangePasswordModalOpen(true)}
+                      className="px-3 py-1.5 rounded-xl border border-line bg-surface hover:bg-bg text-ink-main text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[44px]"
                     >
-                      <Store className="w-3.5 h-3.5" /> Restoran Tanlash ({authProfile.availableRestaurants.length})
+                      <KeyRound className="w-3.5 h-3.5 text-brand" /> Parolni O'zgartirish
                     </button>
-                  )}
+                    {authProfile.availableRestaurants && authProfile.availableRestaurants.length > 1 && (
+                      <button
+                        onClick={() => setRestaurantModalOpen(true)}
+                        className="px-3 py-1.5 rounded-xl border border-brand-300 bg-brand-50 hover:bg-brand-100 text-brand text-xs font-semibold flex items-center gap-1.5 transition-colors min-h-[44px]"
+                      >
+                        <Store className="w-3.5 h-3.5" /> Restoran Tanlash ({authProfile.availableRestaurants.length})
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Permissions Badges */}
@@ -568,39 +452,6 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-
-                {/* Cross-tenant Isolation Test Box */}
-                <div className="pt-4 border-t border-line space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                      <h4 className="text-sm font-bold text-ink-main flex items-center gap-1.5">
-                        <ShieldAlert className="w-4 h-4 text-amber-600" />
-                        Boshqa Restoran Ma'lumotiga Hujumni Sinash (Cross-Tenant Guard)
-                      </h4>
-                      <p className="text-xs text-ink-secondary">
-                        Siz {authProfile.activeRestaurant?.name}dasiz. Boshqa restoranning hisobotini so'rab ko'ring.
-                      </p>
-                    </div>
-                    <button
-                      onClick={testCrossTenantAttack}
-                      disabled={tenantTesting}
-                      className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold transition-colors shrink-0 shadow-sm min-h-[44px]"
-                    >
-                      {tenantTesting ? 'Sinov o\'tkazilmoqda...' : 'Cross-Tenant So\'rov Yuborish'}
-                    </button>
-                  </div>
-                  {tenantTestResult && (
-                    <div
-                      className={`p-3.5 rounded-xl text-xs font-mono ${
-                        tenantTestResult.startsWith('✓')
-                          ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
-                          : 'bg-red-50 text-red-900 border border-red-200'
-                      }`}
-                    >
-                      {tenantTestResult}
-                    </div>
-                  )}
-                </div>
               </div>
             ) : (
               <div className="bg-amber-50 rounded-2xl p-6 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -610,7 +461,7 @@ export default function App() {
                     Hozirda server sessiyasiga kirmagansiz
                   </h3>
                   <p className="text-xs text-amber-700">
-                    Xodim rollari va ruxsatlarini sinash uchun demo akkauntlardan biriga kiring (Manager, Cashier, Waiter va h.k.).
+                    Tizim imkoniyatlaridan to'liq foydalanish uchun xodim hisobingiz bilan tizimga kiring.
                   </p>
                 </div>
                 <button
@@ -694,7 +545,24 @@ export default function App() {
       <LoginModal
         isOpen={loginModalOpen}
         onClose={() => setLoginModalOpen(false)}
-        onSuccess={(profile) => setAuthProfile(profile)}
+        onSuccess={(profile) => {
+          setAuthProfile(profile);
+          if (profile?.user?.isSuperAdmin) {
+            switchRole('SUPER_ADMIN');
+          } else if (profile?.roles?.includes('BOSS')) {
+            switchRole('BOSS');
+          } else if (profile?.roles?.includes('MANAGER')) {
+            switchRole('MANAGER');
+          } else if (profile?.roles?.includes('CASHIER')) {
+            switchRole('CASHIER');
+          } else if (profile?.roles?.includes('KITCHEN')) {
+            switchRole('KITCHEN');
+          } else if (profile?.roles?.includes('WAITER')) {
+            switchRole('WAITER');
+          } else {
+            switchRole('SESSION');
+          }
+        }}
       />
 
       <RestaurantSelectorModal
@@ -705,20 +573,12 @@ export default function App() {
         onSelect={handleSwitchRestaurant}
       />
 
-      {/* Floating Demo Trigger (only on HOME when top bar is hidden) */}
-      {currentRoleView === 'HOME' && !previewBarVisible && (
-        <div className="fixed bottom-5 right-5 z-50">
-          <button
-            onClick={() => setPreviewBarVisible(true)}
-            className="px-4 py-2.5 rounded-full bg-slate-900/90 hover:bg-brand backdrop-blur text-white text-xs font-bold shadow-2xl transition-all flex items-center gap-2 border border-white/20 hover:scale-105 group"
-            title="Demo rollar panelini ochish"
-          >
-            <span>🎭</span>
-            <span>Demo Rollar Paneli</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          </button>
-        </div>
-      )}
+      <ChangePasswordModal
+        isOpen={changePasswordModalOpen}
+        onClose={() => setChangePasswordModalOpen(false)}
+      />
+
+
     </div>
   );
 }

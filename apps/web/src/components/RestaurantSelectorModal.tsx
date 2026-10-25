@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Store, Check, ArrowRight } from 'lucide-react';
+import { Store, Check, ArrowRight, X } from 'lucide-react';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock.ts';
 
 interface RestaurantItem {
   id: string;
@@ -23,6 +24,8 @@ export const RestaurantSelectorModal: React.FC<RestaurantSelectorModalProps> = (
   activeRestaurantId,
   onSelect,
 }) => {
+  useBodyScrollLock(isOpen);
+
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   if (!isOpen) return null;
@@ -38,7 +41,7 @@ export const RestaurantSelectorModal: React.FC<RestaurantSelectorModalProps> = (
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 animate-in fade-in overscroll-contain">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
         <div className="bg-brand-900 text-white p-6 relative">
           <div className="flex items-center space-x-3">
@@ -47,14 +50,14 @@ export const RestaurantSelectorModal: React.FC<RestaurantSelectorModalProps> = (
             </div>
             <div>
               <h2 className="text-lg font-bold">Restoranni Tanlang</h2>
-              <p className="text-xs text-brand-200">Faol tenant va ishchi muhitni o'zgartirish</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 text-brand-300 hover:text-white text-lg font-semibold"
+            className="absolute top-6 right-6 text-brand-300 hover:text-white transition-colors"
+            aria-label="Yopish"
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
 

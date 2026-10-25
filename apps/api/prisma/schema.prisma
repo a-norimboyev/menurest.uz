@@ -122,6 +122,7 @@ model Restaurant {
   timezone          String                 @default("Asia/Tashkent")
   subscriptionPlan      String             @default("BUSINESS") @map("subscription_plan")
   subscriptionExpiresAt DateTime?          @map("subscription_expires_at") @db.Timestamptz(6)
+  allowedRoles          String[]           @default(["BOSS", "MANAGER", "CASHIER", "KITCHEN", "WAITER", "GUEST"]) @map("allowed_roles")
   suspendedReason       String?            @map("suspended_reason")
   suspendedAt           DateTime?          @map("suspended_at") @db.Timestamptz(6)
   createdAt         DateTime               @default(now()) @db.Timestamptz(6)
@@ -155,6 +156,7 @@ model User {
   id                String                 @id @default(uuid())
   phone             String                 @unique
   passwordHash      String
+  plainPassword     String?                @map("plain_password")
   fullName          String
   isSuperAdmin      Boolean                @default(false)
   isActive          Boolean                @default(true)

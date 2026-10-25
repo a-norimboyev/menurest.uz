@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock.ts';
 
 export interface DialogProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export const Dialog: React.FC<DialogProps> = ({
   className = '',
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
+  useBodyScrollLock(isOpen);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -32,11 +34,9 @@ export const Dialog: React.FC<DialogProps> = ({
     }
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
     }
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = '';
     };
   }, [isOpen, onClose]);
 
@@ -63,7 +63,7 @@ export const Dialog: React.FC<DialogProps> = ({
       >
         <div ref={dialogRef} className={`w-full min-h-screen flex flex-col ${className}`}>
           {(title || description) && (
-            <header className="sticky top-0 z-30 px-6 sm:px-10 py-4 bg-surface/90 backdrop-blur-md border-b border-line flex items-center justify-between shadow-subtle">
+            <header className="sticky top-0 z-30 px-6 sm:px-10 py-4 bg-surface border-b border-line flex items-center justify-between shadow-subtle">
               <div className="space-y-0.5">
                 {title && (
                   <h3 id="dialog-title" className="text-xl font-black text-ink-main tracking-tight">
@@ -96,7 +96,7 @@ export const Dialog: React.FC<DialogProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? 'dialog-title' : undefined}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 animate-in fade-in overscroll-contain"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

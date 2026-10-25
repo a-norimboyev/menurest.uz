@@ -767,7 +767,7 @@ export class BillingService {
         where: { id: visitId, restaurantId },
         include: {
           table: true,
-          restaurant: { select: { serviceChargeBps: true, subscriptionPlan: true } },
+          restaurant: { select: { serviceChargeBps: true, subscriptionPlan: true, allowedRoles: true } },
           orders: {
             include: {
               items: { include: { addonSnapshots: true } },
@@ -802,9 +802,10 @@ export class BillingService {
       );
 
       if (activeItems.length > 0) {
-        // Oshxonasiz rejimda (START / fast-food / choyxona) yoki majburiy yopishda (forceSettlement)
+        // Oshxonasiz rejimda (KITCHEN o'chirilgan, START / fast-food / choyxona) yoki majburiy yopishda (forceSettlement)
         // barcha faol taomlar avtomatik yetkazildi (SERVED) deb belgilanadi
-        if (visit.restaurant.subscriptionPlan === 'START' || forceSettlement) {
+        const hasKitchen = (visit.restaurant as any)?.allowedRoles?.includes('KITCHEN') ?? true;
+        if (!hasKitchen || visit.restaurant.subscriptionPlan === 'START' || forceSettlement) {
           await tx.orderItem.updateMany({
             where: {
               order: { visitId },

@@ -15,3 +15,5 @@ menurest-review.zip
 .claude/
 .cursor/
 .devin/
+.vite/
+apps/**/.vite/
