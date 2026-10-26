@@ -1,0 +1,64 @@
+name: Gemini AI Assistant
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    types: [opened, synchronize]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  gemini:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' || 
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@gemini'))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Google GenAI SDK
+        run: pip install google-genai PyGithub
+
+      - name: Run Gemini Assistant
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO_NAME: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || github.event.pull_request.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          python -c "
+          import os
+          from google import genai
+          from github import Github
+
+          client = genai.Client(api_key=os.environ['GEMINI_API_KEY'])
+          gh = Github(os.environ['GITHUB_TOKEN'])
+          repo = gh.get_repo(os.environ['REPO_NAME'])
+          issue_num = int(os.environ['ISSUE_NUMBER'])
+          issue = repo.get_issue(number=issue_num)
+
+          if os.environ['EVENT_NAME'] == 'pull_request':
+              pr = repo.get_pull(issue_num)
+              diffs = [f'File: {f.filename}\nPatch:\n{f.patch}' for f in pr.get_files() if f.patch]
+              prompt = 'Quyidagi Pull Request kod o\'zgarishlarini chuqur tahlil qilib, xatolar, xavfsizlik va monorepo arxitekturasi bo\'yicha o\'zbek tilida sifatli Code Review yozib ber:\n\n' + '\n\n'.join(diffs[:10])
+          else:
+              prompt = f'Foydalanuvchi GitHub Issue/PR da shunday yozdi: {os.environ[\"COMMENT_BODY\"]}\nUnga o\'zbek tilida loyiha arxitekturasi va talablaridan kelib chiqib professional dasturchi sifatida aniq yordam ber.'
+
+          response = client.models.generate_content(
+              model='gemini-2.5-pro',
+              contents=prompt,
+          )
+          issue.create_comment(response.text)
+          "
