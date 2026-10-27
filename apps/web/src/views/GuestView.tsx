@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-  Search,
   ShoppingCart,
   Bell,
   Receipt,
@@ -76,27 +75,9 @@ interface GuestDish {
   }[];
 }
 
-const parseBannerUrls = (raw?: string | null): string[] => {
-  if (!raw) return [];
-  const trimmed = raw.trim();
-  if (!trimmed) return [];
-  if (trimmed.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) {
-        return parsed
-          .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-          .slice(0, 5);
-      }
-    } catch {}
-  }
-  return [trimmed];
-};
-
 export const GuestView: React.FC = () => {
   const [lang, setLang] = useState<'uz' | 'ru'>('uz');
   const [activeCategory, setActiveCategory] = useState('milliy');
-  const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<CartSubmitItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [orderNotes, setOrderNotes] = useState('');
@@ -115,25 +96,10 @@ export const GuestView: React.FC = () => {
   } | null>(null);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
 
-  const bannerUrls = useMemo(() => {
-    return parseBannerUrls(restaurantInfo?.bannerUrl);
-  }, [restaurantInfo?.bannerUrl]);
-
-  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
-
-  // Muqova rasmlarini har 2 soniyada avto-almashlab turish
-  useEffect(() => {
-    if (bannerUrls.length <= 1) return;
-    const interval = setInterval(() => {
-      setActiveBannerIndex((prev) => (prev + 1) % bannerUrls.length);
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [bannerUrls.length]);
-
   // Bosqich 6-7: Stol va Mehmon Sessiyasi Holati
   const [tableStatus, setTableStatus] = useState<'FREE' | 'DIRTY' | 'OCCUPIED'>('OCCUPIED');
   const [tableNumber, setTableNumber] = useState<number>(4);
-  const [_hallName, setHallName] = useState<string>('Asosiy Zal');
+  const [hallName, setHallName] = useState<string>('Asosiy Zal');
   const [isJoined, setIsJoined] = useState<boolean>(false);
   const [qrToken] = useState<string>(() => {
     // 1. URL Path: /table/:qrToken
@@ -678,11 +644,7 @@ export const GuestView: React.FC = () => {
     }
   }
 
-  const filteredDishes = dishes.filter(
-    (d) =>
-      (d.cat === activeCategory || searchQuery.length > 0) &&
-      (!searchQuery || d.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredDishes = dishes.filter((d) => d.cat === activeCategory);
 
   return (
     <div className="w-full min-h-screen bg-slate-100 flex justify-center">
@@ -693,107 +655,66 @@ export const GuestView: React.FC = () => {
           onManualRefresh={fetchOrders}
         />
 
-      {/* 1. Restoran Banneri va Header */}
-      <div className="relative bg-brand-900 text-white">
-        <div className="h-28 sm:h-36 bg-gradient-to-r from-brand-950 via-brand-900 to-brand-800 relative overflow-hidden">
-          {bannerUrls.length > 0 ? (
-            bannerUrls.map((url, idx) => (
-              <img
-                key={idx}
-                src={url}
-                alt={`Restoran muqovasi ${idx + 1}`}
-                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${
-                  idx === (activeBannerIndex % bannerUrls.length) ? 'opacity-40' : 'opacity-0 pointer-events-none'
-                }`}
-              />
-            ))
-          ) : (
-            <img
-              src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80"
-              alt="Restoran"
-              className="w-full h-full object-cover opacity-35"
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-brand-950/80 to-transparent" />
+        {/* 1. Ixcham Yuqori Header (Stol raqami & Til almashtirish) */}
+        <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-md border-b border-line px-4 py-2.5 flex items-center justify-between shadow-subtle">
+          <div className="flex items-center space-x-2 min-w-0">
+            <div className="px-2.5 py-1 rounded-lg bg-brand/10 border border-brand/20 text-brand font-black text-xs tracking-wide">
+              {lang === 'uz' ? `Stol #${tableNumber}` : `Стол #${tableNumber}`}
+            </div>
+            {hallName && (
+              <span className="text-xs text-ink-muted truncate font-medium">
+                {hallName}
+              </span>
+            )}
+          </div>
 
           {/* Til almashtirish tugmasi */}
-          <div className="absolute top-3 right-3 z-30">
-            <button
-              onClick={() => setLang(lang === 'uz' ? 'ru' : 'uz')}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white text-xs font-semibold backdrop-blur-md border border-white/20 transition-all shadow-md active:scale-95"
-            >
-              <Globe className="w-3.5 h-3.5 text-brand-300" />
-              <span className="uppercase tracking-wide">{lang}</span>
+          <button
+            onClick={() => setLang(lang === 'uz' ? 'ru' : 'uz')}
+            className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-bg hover:bg-surface text-ink-main text-xs font-bold border border-line shadow-subtle transition-all active:scale-95 min-h-[32px]"
+          >
+            <Globe className="w-3.5 h-3.5 text-brand" />
+            <span className="uppercase">{lang}</span>
+          </button>
+        </header>
+
+        {/* FEEDBACK TOAST / BANNER */}
+        {feedbackMsg && (
+          <div className="sticky top-12 z-50 px-4 py-2 mx-4 mt-2 bg-brand-900 text-white text-xs font-bold rounded-2xl shadow-xl flex items-center justify-between border border-brand-700 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>{feedbackMsg}</span>
+            </div>
+            <button onClick={() => setFeedbackMsg(null)} className="p-1 hover:text-slate-300">
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
+        )}
 
-          {/* Ko'p rasm bo'lsa indikator nuqtalar */}
-          {bannerUrls.length > 1 && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
-              {bannerUrls.map((_, idx) => (
-                <span
-                  key={idx}
-                  className={`h-1.5 rounded-full transition-all duration-300 ${
-                    idx === (activeBannerIndex % bannerUrls.length) ? 'w-4 bg-brand-400' : 'w-1.5 bg-white/50'
-                  }`}
-                />
-              ))}
+        {/* ASOSIY KONTENT: TABLAR BO'YICHA */}
+        {activeNav === 'menu' && (
+          <>
+            {/* 2. Sticky Kategoriyalar */}
+            <div className="sticky top-[49px] z-20 bg-bg/95 backdrop-blur-md py-2.5 px-4 border-b border-line shadow-subtle">
+              <div className="flex space-x-2 overflow-x-auto no-scrollbar">
+                {categories.map((c) => {
+                  const isActive = activeCategory === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => setActiveCategory(c.id)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all min-h-[40px] ${
+                        isActive
+                          ? 'bg-brand text-white shadow-subtle font-extrabold'
+                          : 'bg-surface text-ink-muted border border-line hover:bg-bg hover:text-ink-main'
+                      }`}
+                    >
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* FEEDBACK TOAST / BANNER */}
-      {feedbackMsg && (
-        <div className="sticky top-2 z-50 px-4 py-2 mx-4 mt-2 bg-brand-900 text-white text-xs font-bold rounded-2xl shadow-xl flex items-center justify-between border border-brand-700 animate-fade-in">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>{feedbackMsg}</span>
-          </div>
-          <button onClick={() => setFeedbackMsg(null)} className="p-1 hover:text-slate-300">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* ASOSIY KONTENT: TABLAR BO'YICHA */}
-      {activeNav === 'menu' && (
-        <>
-          {/* 2. Sticky Qidiruv va Kategoriyalar */}
-          <div className="sticky top-0 z-20 bg-bg/95 backdrop-blur-md pt-3 pb-2 px-4 border-b border-line shadow-subtle space-y-3">
-            <div className="relative">
-              <Search className="w-4 h-4 text-ink-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={lang === 'uz' ? 'Taom yoki ichimlik qidirish...' : 'Поиск блюда или напитка...'}
-                className="w-full bg-surface rounded-xl pl-9 pr-4 py-2 text-xs text-ink-main border border-line focus:outline-none focus:ring-2 focus:ring-brand shadow-subtle min-h-[44px]"
-              />
-            </div>
-
-            <div className="flex space-x-2 overflow-x-auto no-scrollbar pb-1">
-              {categories.map((c) => {
-                const isActive = activeCategory === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      setActiveCategory(c.id);
-                      setSearchQuery('');
-                    }}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all min-h-[44px] ${
-                      isActive
-                        ? 'bg-brand text-white shadow-subtle font-extrabold'
-                        : 'bg-surface text-ink-muted border border-line hover:bg-bg hover:text-ink-main'
-                    }`}
-                  >
-                    {c.name}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* 3. Taomlar Ro'yxati */}
           <div className="p-4 grid grid-cols-1 gap-3.5 flex-1 content-start">
@@ -808,8 +729,8 @@ export const GuestView: React.FC = () => {
                 title={lang === 'uz' ? 'Taomlar topilmadi' : 'Блюда не найдены'}
                 description={
                   lang === 'uz'
-                    ? 'Qidiruv so\'rovi yoki tanlangan kategoriya bo\'yicha hech narsa chiqmadi.'
-                    : 'По вашему запросу ничего не найдено.'
+                    ? 'Tanlangan kategoriya bo\'yicha taomlar mavjud emas.'
+                    : 'В данной категории блюд пока нет.'
                 }
               />
             ) : (

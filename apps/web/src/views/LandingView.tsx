@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   QrCode,
-  ChefHat,
+  Users,
   CreditCard,
   BarChart3,
   Phone,
@@ -226,7 +226,7 @@ export function LandingView({
               </h1>
 
               <p className="text-base sm:text-lg text-ink-secondary max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                O'zbekistondagi restoran, kafe va choyxonalar uchun zamonaviy elektron QR menyu, kassa va oshxona avtomatlashtirish tizimi. Mijozlar menyuni QR kod orqali ilovasiz ko'radi va buyurtma beradi.
+                O'zbekistondagi restoran, kafe va choyxonalar uchun zamonaviy elektron QR menyu, ofitsiant va kassa avtomatlashtirish tizimi. Mijozlar menyuni QR kod orqali ilovasiz ko'radi va buyurtma beradi.
               </p>
 
               {/* Action Buttons */}
@@ -343,12 +343,12 @@ export function LandingView({
             </div>
 
             <div className="bg-bg rounded-2xl p-6 border border-line space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center font-black">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center font-black">
                 2
               </div>
-              <h3 className="text-base font-bold text-ink-main">Oshxonaga Yetkazish</h3>
+              <h3 className="text-base font-bold text-ink-main">Ofitsiant Tasdiqlashi</h3>
               <p className="text-xs text-ink-secondary leading-relaxed">
-                Buyurtma bir zumda oshxona ekraniga boradi. Oshpaz tayyorlaydi, ofitsiant stolga eltadi.
+                Buyurtma bir zumda ofitsiant telefoniga boradi, tasdiqlanadi va stolga yetkaziladi.
               </p>
             </div>
 
@@ -389,12 +389,12 @@ export function LandingView({
             </div>
 
             <div className="bg-surface rounded-2xl p-5 border border-line space-y-2.5">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-                <ChefHat className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+                <Users className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-base text-ink-main">Oshxona Ekrani</h3>
+              <h3 className="font-bold text-base text-ink-main">Ofitsiant Paneli</h3>
               <p className="text-xs text-ink-secondary leading-relaxed">
-                Qog'oz cheklarsiz, yangi buyurtmalar planshetda darhol ko'rinadi.
+                Telefon orqali yangi buyurtmalarni qabul qilish va stollarga tezkor xizmat ko'rsatish.
               </p>
             </div>
 
@@ -502,7 +502,7 @@ export function LandingView({
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-brand shrink-0" />
-                    <span>Oshxona ekrani (KDS)</span>
+                    <span>Menejer tahlili va nazorat</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <Check className="w-3.5 h-3.5 text-brand shrink-0" />
