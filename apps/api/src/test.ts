@@ -90,7 +90,12 @@ async function runTests() {
 
   await prisma.restaurant.update({
     where: { id: restRayhon.id },
-    data: { serviceChargeBps: 1000, name: 'Rayhon Milliy Taomlar' },
+    data: {
+      serviceChargeBps: 1000,
+      name: 'Rayhon Milliy Taomlar',
+      subscriptionPlan: 'BUSINESS',
+      allowedRoles: ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],
+    },
   });
   await prisma.refund.deleteMany({ where: { restaurantId: restRayhon.id } });
   await prisma.payment.deleteMany({ where: { restaurantId: restRayhon.id } });
@@ -1272,10 +1277,14 @@ async function runTests() {
   assert.strictEqual(waiter2Login.status, 200, `Waiter 2 logini muvaffaqiyatli bo'lishi kerak: ${JSON.stringify(waiter2Login.json)}`);
   const waiter2Token = waiter2Login.json.data.token;
 
-  // Tashrif waiterId sini null qilish (ikkala ofitsiant ham umumiy havzadagi chaqiruvga da'vogarlik qila olishi uchun)
+  // Tashrif va stol waiterId sini null qilish (ikkala ofitsiant ham umumiy havzadagi chaqiruvga da'vogarlik qila olishi uchun)
   await prisma.visit.update({
     where: { id: waiterVisitId },
     data: { waiterId: null },
+  });
+  await prisma.table.update({
+    where: { id: waiterTestTable.id },
+    data: { assignedWaiterId: null },
   });
 
   // Ikkala ofitsiant bir vaqtda parallel claim yuboradi
@@ -2298,7 +2307,12 @@ async function runTests() {
   // 54.0 Section 11 uchun toza yangi tokenlar va sozlamalarni tiklash
   await prisma.restaurant.update({
     where: { id: restRayhon.id },
-    data: { serviceChargeBps: 1000, name: 'Rayhon Milliy Taomlar' },
+    data: {
+      serviceChargeBps: 1000,
+      name: 'Rayhon Milliy Taomlar',
+      subscriptionPlan: 'BUSINESS',
+      allowedRoles: ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],
+    },
   });
 
   const freshWaiterLogin = await apiPost('/api/v1/auth/login', {
@@ -2496,6 +2510,9 @@ async function runTests() {
   console.log('✓ Section 54: Bill calculation formulasi tiyingacha to\'liq tekshirildi (PASSED)');
 
   // 55. Shift Lifecycle & Cash Reconciliation
+  // Avvalgi ochiq smenalarni tozalab olamiz
+  await prisma.shift.deleteMany({ where: { restaurantId: restRayhon.id } });
+
   // 55.1 Faol smenasiz to'lov qilishga urinish -> 400 CASHIER_SHIFT_REQUIRED
   const payNoShift = await apiPost(
     `/api/v1/restaurants/${restRayhon.id}/billing/payments`,
@@ -3478,7 +3495,12 @@ async function runTests() {
   await prisma.visit.delete({ where: { id: sec12NewVisitCreated!.id } });
   await prisma.restaurant.update({
     where: { id: restRayhon.id },
-    data: { serviceChargeBps: 1000, name: 'Rayhon Milliy Taomlar' },
+    data: {
+      serviceChargeBps: 1000,
+      name: 'Rayhon Milliy Taomlar',
+      subscriptionPlan: 'BUSINESS',
+      allowedRoles: ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],
+    },
   });
   console.log('✓ Section 68: Restoran sozlamalari va mavjud tashrif/orderlar immutability kafolati tasdiqlandi (PASSED)');
 

@@ -223,15 +223,20 @@ export class MenuService {
 
   async createMenuItem(restaurantId: string, data: CreateMenuItemDto) {
     // 1. Cross-tenant validation: Category must belong to this restaurant
-    let category = data.categoryId
-      ? await prisma.category.findUnique({
-          where: {
-            id_restaurantId: { id: data.categoryId, restaurantId },
-          },
-        })
-      : null;
-    if (!category) {
-      category = await prisma.category.findFirst({ where: { restaurantId } });
+    if (data.categoryId) {
+      const category = await prisma.category.findUnique({
+        where: {
+          id_restaurantId: { id: data.categoryId, restaurantId },
+        },
+      });
+      if (!category) {
+        const err: any = new Error('Kategoriya ushbu restoranga tegishli emas yoki topilmadi');
+        err.statusCode = 400;
+        err.code = 'INVALID_CATEGORY_TENANT';
+        throw err;
+      }
+    } else {
+      let category = await prisma.category.findFirst({ where: { restaurantId } });
       if (!category) {
         category = await prisma.category.create({
           data: {
@@ -246,15 +251,20 @@ export class MenuService {
     }
 
     // 2. Cross-tenant validation: Station must belong to this restaurant
-    let station = data.stationId
-      ? await prisma.preparationStation.findUnique({
-          where: {
-            id_restaurantId: { id: data.stationId, restaurantId },
-          },
-        })
-      : null;
-    if (!station) {
-      station = await prisma.preparationStation.findFirst({ where: { restaurantId } });
+    if (data.stationId) {
+      const station = await prisma.preparationStation.findUnique({
+        where: {
+          id_restaurantId: { id: data.stationId, restaurantId },
+        },
+      });
+      if (!station) {
+        const err: any = new Error('Stansiya ushbu restoranga tegishli emas yoki topilmadi');
+        err.statusCode = 400;
+        err.code = 'INVALID_STATION_TENANT';
+        throw err;
+      }
+    } else {
+      let station = await prisma.preparationStation.findFirst({ where: { restaurantId } });
       if (!station) {
         station = await prisma.preparationStation.create({
           data: {

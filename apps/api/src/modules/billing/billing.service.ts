@@ -155,9 +155,13 @@ export class BillingService {
         },
       });
 
-      // 2-urinish: Agar restoranda hali hech qanday smena ochilmagan bo'lsa (kichik kafelar, universal ofitsiantlar),
+      // 2-urinish: Agar restoranda hali hech qanday smena ochilmagan bo'lsa va bu tezkor/fast-food (START) rejimida bo'lsa,
       // to'lov to'xtab qolmasligi uchun xodim nomiga avtomatik boshlang'ich smena ochamiz (startingCash = 0)
-      if (!activeShift) {
+      const rest = await prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { subscriptionPlan: true },
+      });
+      if (rest?.subscriptionPlan === 'START' || rest?.subscriptionPlan === 'FAST_FOOD') {
         try {
           activeShift = await prisma.shift.create({
             data: {
@@ -825,11 +829,20 @@ export class BillingService {
         }
       }
 
-      // 3. Ochiq chaqiruvlarni avtomatik yakunlash (Hisob yoki ofitsiant so'rovlari)
+      // 3. Ochiq chaqiruvlarni tekshirish
       const openCalls = visit.serviceCalls.filter(
         (c) => c.status === 'PENDING' || c.status === 'ACKNOWLEDGED'
       );
       if (openCalls.length > 0) {
+        if (!forceSettlement) {
+          const err: any = new Error(
+            `OPEN_CALLS_EXIST: Tashrifda hali ochiq ofitsiant yoki hisob chaqiruvlari mavjud (${openCalls.length} ta). Avval chaqiruvlar yakunlanishi (RESOLVED) shart.`
+          );
+          err.statusCode = 400;
+          err.code = 'OPEN_CALLS_EXIST';
+          throw err;
+        }
+
         await tx.serviceCall.updateMany({
           where: {
             visitId,

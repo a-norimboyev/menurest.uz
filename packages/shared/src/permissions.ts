@@ -79,12 +79,10 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<Role, Permission[]> = {
   WAITER: [
     'menu.availability',
     'visits.open',
-    'visits.close',
     'orders.create_staff',
     'orders.confirm',
     'items.serve',
     'calls.claim',
-    'payments.record',
   ],
   KITCHEN: [
     'menu.availability',
