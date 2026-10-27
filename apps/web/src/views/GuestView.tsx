@@ -99,7 +99,7 @@ export const GuestView: React.FC = () => {
   // Bosqich 6-7: Stol va Mehmon Sessiyasi Holati
   const [tableStatus, setTableStatus] = useState<'FREE' | 'DIRTY' | 'OCCUPIED'>('OCCUPIED');
   const [tableNumber, setTableNumber] = useState<number>(4);
-  const [hallName, setHallName] = useState<string>('Asosiy Zal');
+  const [_hallName, setHallName] = useState<string>('Asosiy Zal');
   const [isJoined, setIsJoined] = useState<boolean>(false);
   const [qrToken] = useState<string>(() => {
     // 1. URL Path: /table/:qrToken
@@ -661,11 +661,6 @@ export const GuestView: React.FC = () => {
             <div className="px-2.5 py-1 rounded-lg bg-brand/10 border border-brand/20 text-brand font-black text-xs tracking-wide">
               {lang === 'uz' ? `Stol #${tableNumber}` : `Стол #${tableNumber}`}
             </div>
-            {hallName && (
-              <span className="text-xs text-ink-muted truncate font-medium">
-                {hallName}
-              </span>
-            )}
           </div>
 
           {/* Til almashtirish tugmasi */}
