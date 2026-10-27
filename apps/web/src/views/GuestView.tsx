@@ -695,7 +695,7 @@ export const GuestView: React.FC = () => {
 
       {/* 1. Restoran Banneri va Header */}
       <div className="relative bg-brand-900 text-white">
-        <div className="h-36 sm:h-44 bg-gradient-to-r from-brand-950 via-brand-900 to-brand-800 relative overflow-hidden">
+        <div className="h-28 sm:h-36 bg-gradient-to-r from-brand-950 via-brand-900 to-brand-800 relative overflow-hidden">
           {bannerUrls.length > 0 ? (
             bannerUrls.map((url, idx) => (
               <img
@@ -714,11 +714,22 @@ export const GuestView: React.FC = () => {
               className="w-full h-full object-cover opacity-35"
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-brand-950/90 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-brand-950/80 to-transparent" />
+
+          {/* Til almashtirish tugmasi */}
+          <div className="absolute top-3 right-3 z-30">
+            <button
+              onClick={() => setLang(lang === 'uz' ? 'ru' : 'uz')}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-black/40 hover:bg-black/60 text-white text-xs font-semibold backdrop-blur-md border border-white/20 transition-all shadow-md active:scale-95"
+            >
+              <Globe className="w-3.5 h-3.5 text-brand-300" />
+              <span className="uppercase tracking-wide">{lang}</span>
+            </button>
+          </div>
 
           {/* Ko'p rasm bo'lsa indikator nuqtalar */}
           {bannerUrls.length > 1 && (
-            <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
               {bannerUrls.map((_, idx) => (
                 <span
                   key={idx}
@@ -729,40 +740,6 @@ export const GuestView: React.FC = () => {
               ))}
             </div>
           )}
-        </div>
-
-        <div className="px-4 pb-4 -mt-10 flex items-end justify-between relative z-10 gap-2">
-          <div className="flex items-center space-x-2.5 min-w-0">
-            <div className="w-14 h-14 rounded-2xl bg-surface p-1 shadow-md border-2 border-surface shrink-0 overflow-hidden">
-              {restaurantInfo?.logoUrl ? (
-                <img
-                  src={restaurantInfo.logoUrl}
-                  alt={restaurantInfo.name || 'Logo'}
-                  className="w-full h-full object-cover rounded-xl"
-                />
-              ) : (
-                <div className="w-full h-full rounded-xl bg-brand flex items-center justify-center font-bold text-base text-white">
-                  {restaurantInfo?.name ? restaurantInfo.name.substring(0, 2).toUpperCase() : 'RM'}
-                </div>
-              )}
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm font-bold text-white tracking-tight leading-tight truncate">
-                {restaurantInfo?.name || 'Rayhon Milliy Taomlar'}
-              </h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* Til almashtirish tugmasi */}
-            <button
-              onClick={() => setLang(lang === 'uz' ? 'ru' : 'uz')}
-              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-surface/10 hover:bg-surface/20 text-white text-xs font-semibold backdrop-blur-md border border-white/20 transition-all min-h-[34px]"
-            >
-              <Globe className="w-3.5 h-3.5 text-brand-200" />
-              <span className="uppercase">{lang}</span>
-            </button>
-          </div>
         </div>
       </div>
 
