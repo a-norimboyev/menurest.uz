@@ -6,9 +6,7 @@ import {
   Layers,
   UtensilsCrossed,
   Settings,
-  ShieldCheck,
   FileText,
-  Download,
   AlertTriangle,
   Clock,
   PhoneCall,
@@ -19,16 +17,16 @@ import {
   Menu as MenuIcon,
   Search,
   X,
-  RotateCcw,
   Check,
   UserCheck,
-  Percent,
   KeyRound,
-  Zap,
   LogOut,
   Trash2,
   QrCode,
-  Printer,
+  Eye,
+  Upload,
+  Camera,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button.tsx';
 import { Money } from '../components/ui/Money.tsx';
@@ -39,6 +37,7 @@ import { ImageFallback } from '../components/ui/ImageFallback.tsx';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table.tsx';
 import { MenuItemModal, type MenuItemFormData } from '../components/menu/MenuItemModal.tsx';
 import { CategoryModal } from '../components/menu/CategoryModal.tsx';
+import { MenuPreviewModal } from '../components/menu/MenuPreviewModal.tsx';
 import { StaffModal, StaffFormData } from '../components/staff/StaffModal.tsx';
 import { TableQrModal } from '../components/tables/TableQrModal.tsx';
 import { ChangePasswordModal } from '../components/ChangePasswordModal.tsx';
@@ -47,7 +46,7 @@ import { ConnectionBanner, RealtimeIndicatorPill } from '../components/ui/Connec
 import { Role } from '@menurest/shared';
 
 interface ManagerViewProps {
-  initialRole?: 'BOSS' | 'MANAGER';
+  initialRole?: 'MANAGER';
   activeRestaurantId?: string;
   authProfile?: any;
   onLogout?: () => void;
@@ -61,24 +60,54 @@ function getCsrfToken(): string {
   return match ? decodeURIComponent(match[2]) : '';
 }
 
+export const parseBannerUrls = (raw?: string | null): string[] => {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+          .slice(0, 5);
+      }
+    } catch {}
+  }
+  return [trimmed];
+};
+
+export const serializeBannerUrls = (urls: string[]): string => {
+  const clean = urls.filter((u) => typeof u === 'string' && u.trim().length > 0).slice(0, 5);
+  if (clean.length === 0) return '';
+  if (clean.length === 1) return clean[0];
+  return JSON.stringify(clean);
+};
+
 export const ManagerView: React.FC<ManagerViewProps> = ({
-  initialRole = 'BOSS',
+  initialRole = 'MANAGER',
   activeRestaurantId,
   authProfile,
   onLogout,
-  onSwitchRole,
-  onOpenRestaurantSelector,
+  onSwitchRole: _onSwitchRole,
+  onOpenRestaurantSelector: _onOpenRestaurantSelector,
 }) => {
   const [currentUser, setCurrentUser] = useState<any>(authProfile?.user || null);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
-  const [activeRole] = useState<'BOSS' | 'MANAGER'>(initialRole);
+  const [_activeRole] = useState<'MANAGER'>(initialRole);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'operations' | 'map' | 'menu' | 'staff' | 'reports' | 'settings' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'operations' | 'map' | 'menu' | 'staff' | 'reports' | 'settings'>('overview');
 
   // Restoran identifikatori va nomi
-  const [restaurantId, setRestaurantId] = useState<string>(activeRestaurantId || 'rayhon-chilonzor');
-  const [restaurantName, setRestaurantName] = useState<string>('Rayhon Milliy Taomlar');
-  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [restaurantId, setRestaurantId] = useState<string>(activeRestaurantId || authProfile?.activeRestaurant?.id || 'rayhon-chilonzor');
+  const [restaurantName, setRestaurantName] = useState<string>(authProfile?.activeRestaurant?.name || 'Rayhon Milliy Taomlar');
+  const [, setUserPermissions] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (activeRestaurantId) setRestaurantId(activeRestaurantId);
+    else if (authProfile?.activeRestaurant?.id) setRestaurantId(authProfile.activeRestaurant.id);
+    if (authProfile?.activeRestaurant?.name) setRestaurantName(authProfile.activeRestaurant.name);
+  }, [activeRestaurantId, authProfile]);
 
   // 1. Boss Dashboard Metrics (Server Aggregations)
   const [bossMetrics, setBossMetrics] = useState<{
@@ -109,12 +138,12 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
 
   // 2. Manager Operations Summary
   const [operationsSummary, setOperationsSummary] = useState<{
-    tables: { total: number; free: number; occupied: number; dirty: number; occupancyRate: number };
+    tables: { total: number; free: number; occupied: number; occupancyRate: number };
     orders: { totalToday: number; activeCount: number; newCount: number; confirmedCount: number; preparingCount: number; readyCount: number; delayedCount: number };
     unansweredCallsCount: number;
     pendingCancellationsCount: number;
   }>({
-    tables: { total: 10, free: 6, occupied: 3, dirty: 1, occupancyRate: 30 },
+    tables: { total: 10, free: 7, occupied: 3, occupancyRate: 30 },
     orders: { totalToday: 0, activeCount: 0, newCount: 0, confirmedCount: 0, preparingCount: 0, readyCount: 0, delayedCount: 0 },
     unansweredCallsCount: 0,
     pendingCancellationsCount: 0,
@@ -126,12 +155,12 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
     { id: 'main', name: 'Asosiy Zal' },
     { id: 'terrace', name: 'Yozgi Terassa' },
   ]);
-  const [selectedHallId, setSelectedHallId] = useState<string>('all');
+  const [selectedHallId] = useState<string>('all');
   const [tablesList, setTablesList] = useState<any[]>([
     { id: 't1', number: 1, hall: { id: 'main', name: 'Asosiy Zal' }, capacity: 4, status: 'OCCUPIED', assignedWaiter: { fullName: 'Jahongir R.' }, activeMinutes: 45, totalTiyin: 48500000n },
     { id: 't2', number: 2, hall: { id: 'main', name: 'Asosiy Zal' }, capacity: 4, status: 'FREE' },
     { id: 't3', number: 3, hall: { id: 'main', name: 'Asosiy Zal' }, capacity: 6, status: 'OCCUPIED', assignedWaiter: { fullName: 'Ali V.' }, activeMinutes: 20, totalTiyin: 12000000n },
-    { id: 't4', number: 4, hall: { id: 'main', name: 'Asosiy Zal' }, capacity: 2, status: 'DIRTY' },
+    { id: 't4', number: 4, hall: { id: 'main', name: 'Asosiy Zal' }, capacity: 2, status: 'FREE' },
     { id: 't5', number: 5, hall: { id: 'main', name: 'Asosiy Zal' }, capacity: 4, status: 'FREE' },
     { id: 't6', number: 6, hall: { id: 'main', name: 'Asosiy Zal' }, capacity: 8, status: 'OCCUPIED', assignedWaiter: { fullName: 'Jahongir R.' }, activeMinutes: 75, totalTiyin: 92000000n },
     { id: 't7', number: 7, hall: { id: 'terrace', name: 'Yozgi Terassa' }, capacity: 4, status: 'FREE' },
@@ -189,14 +218,34 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
     openingHours: '09:00 - 23:00',
     defaultLanguage: 'uz',
     serviceChargeBps: 1000,
-    allowedRoles: ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],
+    allowedRoles: ['MANAGER', 'CASHIER', 'WAITER', 'GUEST'],
   });
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState<'logo' | 'banner' | null>(null);
+  const [bannerUrlInput, setBannerUrlInput] = useState('');
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
 
-  // 8. Hisobotlar (Reports)
-  const [reportDateFrom, setReportDateFrom] = useState<string>(new Date().toISOString().slice(0, 10));
-  const [reportDateTo, setReportDateTo] = useState<string>(new Date().toISOString().slice(0, 10));
+  const bannerUrls = useMemo(() => {
+    return parseBannerUrls(settingsData.bannerUrl);
+  }, [settingsData.bannerUrl]);
+
+  // Har 2 soniyada muqova rasmini avtomatik almashtirib turish
+  useEffect(() => {
+    if (bannerUrls.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveBannerIndex((prev) => (prev + 1) % bannerUrls.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [bannerUrls.length]);
+
+  // 8. Hisobotlar (Reports) - 1 oylik tahlil sukut bo'yicha
+  const [reportDateFrom, setReportDateFrom] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [reportDateTo, setReportDateTo] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [detailedReports, setDetailedReports] = useState<any | null>(null);
   const [loadingReports, setLoadingReports] = useState(false);
 
@@ -261,13 +310,8 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
   const [menuItemModalOpen, setMenuItemModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItemFormData | null>(null);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
-
-  // 10. Audit Jurnali
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [auditPage, setAuditPage] = useState(1);
-  const [auditTotalPages, setAuditTotalPages] = useState(1);
-  const [auditActionFilter, setAuditActionFilter] = useState('');
-  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<{ id?: string; name: string; sortOrder: number; isVisible: boolean } | null>(null);
+  const [menuPreviewOpen, setMenuPreviewOpen] = useState(false);
 
   // Stansiyalar
   const [stations, setStations] = useState<any[]>([
@@ -401,7 +445,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
           openingHours: json.data.openingHours || '09:00 - 23:00',
           defaultLanguage: json.data.defaultLanguage || 'uz',
           serviceChargeBps: json.data.serviceChargeBps || 1000,
-          allowedRoles: json.data.allowedRoles || ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],
+          allowedRoles: json.data.allowedRoles || ['MANAGER', 'CASHIER', 'WAITER', 'GUEST'],
         });
       }
     } catch (e) {
@@ -468,24 +512,6 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
     }
   }, [restaurantId, reportDateFrom, reportDateTo]);
 
-  const loadAuditLogs = useCallback(async (page: number, action?: string) => {
-    try {
-      setLoadingAudit(true);
-      const url = `/api/v1/restaurants/${restaurantId}/audit?page=${page}&limit=15${action ? `&action=${action}` : ''}`;
-      const res = await fetch(url, { credentials: 'include' });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setAuditLogs(json.data.logs || []);
-        setAuditPage(json.data.page || 1);
-        setAuditTotalPages(json.data.totalPages || 1);
-      }
-    } catch (e) {
-      console.warn('Audit logs fetch warning:', e);
-    } finally {
-      setLoadingAudit(false);
-    }
-  }, [restaurantId]);
-
   // Realtime hodisalarni qabul qilish
   const handleRealtimeEvent = useCallback((event: any) => {
     if (
@@ -519,8 +545,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
 
   useEffect(() => {
     if (activeTab === 'reports') loadDetailedReports();
-    if (activeTab === 'audit') loadAuditLogs(1, auditActionFilter);
-  }, [activeTab, loadDetailedReports, loadAuditLogs, auditActionFilter]);
+  }, [activeTab, loadDetailedReports]);
 
   // Restoran sozlamalarini saqlash
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -545,6 +570,150 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
       alert('Sozlamalarni saqlashda xatolik: ' + err.message);
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  // Restoran muqovasi (banner) rasmlarini yuklash (maksimal 5 ta)
+  const handleBannerFilesUpload = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
+    const current = parseBannerUrls(settingsData.bannerUrl);
+    const available = 5 - current.length;
+    if (available <= 0) {
+      alert("Maksimal 5 ta muqova rasm yuklashingiz mumkin.");
+      return;
+    }
+    const toUpload = fileArray.slice(0, available);
+    setIsUploadingImage('banner');
+    try {
+      const newUrls: string[] = [];
+      for (const file of toUpload) {
+        try {
+          const formData = new FormData();
+          formData.append('image', file);
+          const res = await fetch(`/api/v1/restaurants/${restaurantId}/menu/upload-image`, {
+            method: 'POST',
+            headers: { 'x-csrf-token': getCsrfToken() },
+            credentials: 'include',
+            body: formData,
+          });
+          const json = await res.json();
+          if (res.ok && json.success && json.data?.url) {
+            newUrls.push(json.data.url);
+          } else {
+            const dataUrl = await new Promise<string>((resolve) => {
+              const r = new FileReader();
+              r.onload = (e) => resolve((e.target?.result as string) || '');
+              r.onerror = () => resolve('');
+              r.readAsDataURL(file);
+            });
+            if (dataUrl) newUrls.push(dataUrl);
+          }
+        } catch {
+          const dataUrl = await new Promise<string>((resolve) => {
+            const r = new FileReader();
+            r.onload = (e) => resolve((e.target?.result as string) || '');
+            r.onerror = () => resolve('');
+            r.readAsDataURL(file);
+          });
+          if (dataUrl) newUrls.push(dataUrl);
+        }
+      }
+      if (newUrls.length > 0) {
+        const updated = [...current, ...newUrls].slice(0, 5);
+        setSettingsData((prev) => ({
+          ...prev,
+          bannerUrl: serializeBannerUrls(updated),
+        }));
+        setActiveBannerIndex(updated.length - 1);
+      }
+    } finally {
+      setIsUploadingImage(null);
+    }
+  };
+
+  const handleAddBannerUrl = () => {
+    const url = bannerUrlInput.trim();
+    if (!url) return;
+    const current = parseBannerUrls(settingsData.bannerUrl);
+    if (current.length >= 5) {
+      alert("Maksimal 5 ta rasm kiritishingiz mumkin.");
+      return;
+    }
+    const updated = [...current, url].slice(0, 5);
+    setSettingsData((prev) => ({
+      ...prev,
+      bannerUrl: serializeBannerUrls(updated),
+    }));
+    setActiveBannerIndex(updated.length - 1);
+    setBannerUrlInput('');
+  };
+
+  const handleRemoveBanner = (indexToRemove: number) => {
+    const current = parseBannerUrls(settingsData.bannerUrl);
+    const updated = current.filter((_, idx) => idx !== indexToRemove);
+    setSettingsData((prev) => ({
+      ...prev,
+      bannerUrl: serializeBannerUrls(updated),
+    }));
+    if (activeBannerIndex >= updated.length) {
+      setActiveBannerIndex(Math.max(0, updated.length - 1));
+    }
+  };
+
+  const handleClearAllBanners = () => {
+    setSettingsData((prev) => ({
+      ...prev,
+      bannerUrl: '',
+    }));
+    setActiveBannerIndex(0);
+  };
+
+  // Restoran logotipi va muqovasi (banner) rasmini yuklash
+  const handleFileUpload = async (file: File, type: 'logo' | 'banner') => {
+    if (type === 'banner') {
+      await handleBannerFilesUpload([file]);
+      return;
+    }
+    try {
+      setIsUploadingImage('logo');
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch(`/api/v1/restaurants/${restaurantId}/menu/upload-image`, {
+        method: 'POST',
+        headers: { 'x-csrf-token': getCsrfToken() },
+        credentials: 'include',
+        body: formData,
+      });
+      const json = await res.json();
+      if (res.ok && json.success && json.data?.url) {
+        setSettingsData((prev) => ({
+          ...prev,
+          logoUrl: json.data.url,
+        }));
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          setSettingsData((prev) => ({
+            ...prev,
+            logoUrl: result,
+          }));
+        };
+        reader.readAsDataURL(file);
+      }
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setSettingsData((prev) => ({
+          ...prev,
+          logoUrl: result,
+        }));
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setIsUploadingImage(null);
     }
   };
 
@@ -837,6 +1006,36 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
         return;
       }
       setCategoryModalOpen(false);
+      setEditingCategory(null);
+      await loadMenuItems();
+    } catch (err: any) {
+      alert(err.message || 'Xatolik yuz berdi');
+    }
+  };
+
+  // Kategoriyani o'chirish
+  const handleDeleteCategory = async (categoryId: string, categoryName: string) => {
+    const dishesCount = dishes.filter((d) => d.categoryId === categoryId).length;
+    let message = `"${categoryName}" kategoriyasini o'chirishni tasdiqlaysizmi?`;
+    if (dishesCount > 0) {
+      message = `"${categoryName}" kategoriyasida ${dishesCount} ta taom mavjud. Ushbu kategoriyani va unga tegishli barcha taomlarni o'chirishni tasdiqlaysizmi?`;
+    }
+    if (!window.confirm(message)) return;
+
+    try {
+      const res = await fetch(`/api/v1/restaurants/${restaurantId}/menu/categories/${categoryId}?force=true`, {
+        method: 'DELETE',
+        headers: { 'x-csrf-token': getCsrfToken() },
+        credentials: 'include',
+      });
+      const json = await res.json();
+      if (!json.success) {
+        alert(json.error?.message || "Kategoriyani o'chirishda xatolik yuz berdi");
+        return;
+      }
+      if (selectedMenuCategory === categoryId) {
+        setSelectedMenuCategory('all');
+      }
       await loadMenuItems();
     } catch (err: any) {
       alert(err.message || 'Xatolik yuz berdi');
@@ -854,15 +1053,6 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
     setTableNumber(nextTableNumber);
     setTableHallId(halls.find((h) => h.id !== 'all')?.id || halls[0]?.id || '');
     setTableModalMode('single');
-    setTableModalOpen(true);
-  };
-
-  const openBatchTableModal = () => {
-    setBatchStartNumber(nextTableNumber);
-    const remainingTo100 = Math.max(1, Math.min(10, 100 - tablesList.length));
-    setBatchCount(remainingTo100);
-    setBatchHallId(halls.find((h) => h.id !== 'all')?.id || halls[0]?.id || '');
-    setTableModalMode('batch');
     setTableModalOpen(true);
   };
 
@@ -947,166 +1137,6 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
     }
   };
 
-  // Barcha stollarning QR kodlarini bir vaqtda A4 formatda chop etish
-  const handlePrintAllQrCodes = () => {
-    if (!tablesList || tablesList.length === 0) {
-      alert("Chop etish uchun stollar mavjud emas");
-      return;
-    }
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert("Chop etish oynasi ochilmadi. Brauzeringizda pop-up ruxsatini yoqing.");
-      return;
-    }
-
-    const origin = window.location.origin;
-    const cardsHtml = tablesList
-      .slice()
-      .sort((a, b) => Number(a.number) - Number(b.number))
-      .map((tbl) => {
-        const qrUrl = `${origin}/api/v1/restaurants/${restaurantId}/tables/${tbl.id}/qr?format=png`;
-        return `
-          <div class="qr-card">
-            <div class="brand">${restaurantName || 'MENUREST.UZ'}</div>
-            <div class="table-num">STOL #${tbl.number}</div>
-            <div class="hall">${tbl.hall?.name || ''} (${tbl.capacity} kishilik)</div>
-            <div class="qr-box">
-              <img class="qr-img" src="${qrUrl}" alt="Stol #${tbl.number}" />
-            </div>
-            <div class="instructions">Kamerangiz bilan skanerlang</div>
-            <div class="sub">Menyuni ko'rish va chaqirish uchun</div>
-            <div class="footer">menurest.uz</div>
-          </div>
-        `;
-      })
-      .join('');
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${restaurantName || 'MenuRest'} - Barcha Stollar QR Kodlari</title>
-          <style>
-            @page { size: A4; margin: 8mm; }
-            * { box-sizing: border-box; }
-            body {
-              font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-              margin: 0;
-              padding: 0;
-              background: #fff;
-              color: #111827;
-            }
-            .grid-container {
-              display: grid;
-              grid-template-columns: repeat(3, 1fr);
-              gap: 10mm;
-              page-break-inside: auto;
-            }
-            .qr-card {
-              border: 2px solid #0F5C3C;
-              border-radius: 16px;
-              padding: 16px 12px;
-              text-align: center;
-              background: #fff;
-              break-inside: avoid;
-              page-break-inside: avoid;
-              box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-            }
-            .brand {
-              color: #0F5C3C;
-              font-size: 10px;
-              font-weight: 800;
-              text-transform: uppercase;
-              letter-spacing: 1.5px;
-            }
-            .table-num {
-              font-size: 24px;
-              font-weight: 900;
-              margin: 4px 0 2px 0;
-              color: #0F5C3C;
-            }
-            .hall {
-              font-size: 11px;
-              color: #6b7280;
-              font-weight: 600;
-              margin-bottom: 8px;
-            }
-            .qr-box {
-              background: #fff;
-              border: 1px solid #e5e7eb;
-              border-radius: 12px;
-              padding: 6px;
-              display: inline-block;
-              margin-bottom: 8px;
-            }
-            .qr-img {
-              width: 140px;
-              height: 140px;
-              display: block;
-            }
-            .instructions {
-              font-size: 12px;
-              font-weight: 700;
-              color: #111827;
-              margin-bottom: 2px;
-            }
-            .sub {
-              font-size: 9px;
-              color: #6b7280;
-            }
-            .footer {
-              margin-top: 8px;
-              font-size: 8px;
-              color: #9ca3af;
-              font-weight: bold;
-              letter-spacing: 0.5px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="grid-container">
-            ${cardsHtml}
-          </div>
-          <script>
-            window.onload = function() {
-              window.print();
-            };
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-  };
-
-  const getTabSubtitle = () => {
-    switch (activeTab) {
-      case 'overview':
-        return "Moliyaviy KPI & Tushumlar";
-      case 'operations':
-        return "Operatsiyalar & Jonli Buyurtmalar";
-      case 'map':
-        return "Zal & Stollar Xaritasi";
-      case 'menu':
-        return "Menyu & Taomlar";
-      case 'staff':
-        return "Xodimlar Boshqaruvi";
-      case 'reports':
-        return "Hisobotlar & Tahlil";
-      case 'settings':
-        return "Restoran Sozlamalari";
-      case 'audit':
-        return "Audit Jurnali";
-      default:
-        return "Operatsion Nazorat";
-    }
-  };
-
-  // CSV Audit Eksport
-  const handleExportAuditCsv = () => {
-    window.open(`/api/v1/restaurants/${restaurantId}/audit/export${auditActionFilter ? `?action=${auditActionFilter}` : ''}`, '_blank');
-  };
-
   const filteredTables = useMemo(() => {
     if (selectedHallId === 'all') return tablesList;
     return tablesList.filter((t) => t.hall?.id === selectedHallId || t.hall === selectedHallId);
@@ -1129,90 +1159,41 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
       <ConnectionBanner status={status} onManualRefresh={loadDashboardMetrics} />
 
       {/* HEADER */}
-      <header className="bg-surface border-b border-line sticky top-0 z-30 shadow-subtle">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+      <header className="bg-surface border-b border-line sticky top-0 z-30 shadow-subtle h-16">
+        <div className="w-full h-full flex items-center justify-between">
+          {/* Brand section - aligned with w-64 desktop sidebar */}
+          <div className="h-full flex items-center px-4 md:px-3 md:w-64 md:shrink-0 md:border-r md:border-line">
+            {/* Mobile Hamburger Menu Button */}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden p-2 rounded-xl border border-line text-ink-main hover:bg-bg min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="md:hidden mr-2 p-2 rounded-xl border border-line text-ink-main hover:bg-bg min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
               <MenuIcon className="w-5 h-5" />
             </button>
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center">
-                <Store className="w-5 h-5 text-brand" />
+
+            <div className="flex items-center space-x-2.5 md:px-3.5 min-w-0">
+              <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                {settingsData.logoUrl ? (
+                  <img src={settingsData.logoUrl} alt="Logo" className="w-5 h-5 rounded object-cover" />
+                ) : (
+                  <Store className="w-5 h-5 text-brand" />
+                )}
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-ink-main text-lg tracking-tight block">
-                    {restaurantName || settingsData.name}
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold text-ink-main text-sm sm:text-base tracking-tight truncate block">
+                    {settingsData.name || restaurantName}
                   </span>
-                  {onOpenRestaurantSelector && (
-                    <button
-                      onClick={onOpenRestaurantSelector}
-                      className="text-[11px] font-bold text-brand hover:underline px-2 py-0.5 rounded-lg bg-brand-50 border border-brand-200 transition-colors"
-                      title="Restoranni almashtirish"
-                    >
-                      Almashtirish
-                    </button>
-                  )}
                 </div>
-                <span className="text-xs text-ink-secondary flex items-center gap-1.5 font-medium">
-                  {getTabSubtitle()} • {bossMetrics.date || new Date().toISOString().split('T')[0]}
+                <span className="text-[11px] text-ink-secondary font-medium block leading-none mt-0.5">
+                  Boshqaruv paneli
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center space-x-2 sm:space-x-3">
+          <div className="flex-1 flex items-center justify-end space-x-2 sm:space-x-3 px-4 sm:px-6 lg:px-8">
             <RealtimeIndicatorPill status={status} soundEnabled={soundEnabled} onToggleSound={toggleSound} />
-
-            {/* User Profile Badge */}
-            {currentUser && (
-              <div className="hidden md:flex items-center gap-2 pl-2 border-l border-line">
-                <div className="text-right">
-                  <div className="text-xs font-bold text-ink-main leading-tight flex items-center justify-end gap-1">
-                    {currentUser.fullName || currentUser.phone}
-                    {currentUser.isSuperAdmin && (
-                      <span className="text-[10px] bg-red-100 text-red-900 px-1 py-0.2 rounded font-mono font-bold">Admin</span>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-ink-secondary leading-tight">
-                    {currentUser.isSuperAdmin ? 'Super Admin' : (activeRole === 'BOSS' ? 'Boshliq' : 'Menejer')}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {currentUser?.isSuperAdmin && onSwitchRole && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onSwitchRole('SUPER_ADMIN')}
-                className="text-xs font-bold bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100"
-                title="Super Admin platformasiga qaytish"
-              >
-                Platforma
-              </Button>
-            )}
-
-            <button
-              onClick={() => setChangePasswordModalOpen(true)}
-              className="p-2 rounded-xl border border-line text-ink-secondary hover:text-ink-main hover:bg-bg transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
-              title="Parolni o'zgartirish"
-            >
-              <KeyRound className="w-4 h-4" />
-            </button>
-
-            {onLogout && (
-              <button
-                onClick={onLogout}
-                className="p-2 rounded-xl border border-line text-red-600 hover:bg-red-50 transition-colors min-h-[38px] min-w-[38px] flex items-center justify-center"
-                title="Chiqish (Logout)"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            )}
           </div>
         </div>
       </header>
@@ -1229,15 +1210,19 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
           {/* Drawer Panel */}
           <div className="relative w-72 max-w-[85vw] bg-surface h-full shadow-2xl border-r border-line p-4 flex flex-col space-y-3 z-10 animate-in slide-in-from-left duration-200">
             <div className="flex items-center justify-between border-b border-line pb-3">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center">
-                  <Store className="w-4 h-4 text-brand" />
+              <div className="flex items-center space-x-2.5 px-1">
+                <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                  {settingsData.logoUrl ? (
+                    <img src={settingsData.logoUrl} alt="Logo" className="w-5 h-5 rounded object-cover" />
+                  ) : (
+                    <Store className="w-5 h-5 text-brand" />
+                  )}
                 </div>
-                <div>
+                <div className="min-w-0">
                   <span className="font-bold text-sm text-ink-main block truncate max-w-[160px]">
-                    {restaurantName || settingsData.name}
+                    {settingsData.name || restaurantName}
                   </span>
-                  <span className="text-[10px] text-ink-secondary">Menejer Paneli</span>
+                  <span className="text-[10px] text-ink-secondary block">Boshqaruv paneli</span>
                 </div>
               </div>
               <button
@@ -1251,14 +1236,13 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
 
             <div className="flex-1 overflow-y-auto space-y-1 py-1">
               {[
-                { id: 'overview', label: 'Moliyaviy KPI', icon: LayoutDashboard },
-                { id: 'operations', label: 'Operatsiyalar Nazorati', icon: TrendingUp },
-                { id: 'map', label: 'Zal & Stollar Xaritasi', icon: Layers },
-                { id: 'menu', label: 'Menyu & Taomlar', icon: UtensilsCrossed },
-                { id: 'staff', label: 'Xodimlar Boshqaruvi', icon: Users },
-                { id: 'reports', label: 'Hisobotlar & Tahlil', icon: FileText },
-                { id: 'settings', label: 'Restoran Sozlamalari', icon: Settings },
-                { id: 'audit', label: 'Audit Jurnali', icon: ShieldCheck },
+                { id: 'overview', label: 'Moliya', icon: LayoutDashboard },
+                { id: 'operations', label: 'Operatsiyalar', icon: TrendingUp },
+                { id: 'map', label: 'Stollar', icon: Layers },
+                { id: 'menu', label: 'Menyu', icon: UtensilsCrossed },
+                { id: 'staff', label: 'Xodimlar', icon: Users },
+                { id: 'reports', label: 'Hisobotlar', icon: FileText },
+                { id: 'settings', label: 'Sozlamalar', icon: Settings },
               ].map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
@@ -1269,218 +1253,178 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                       setActiveTab(item.id as any);
                       setSidebarOpen(false);
                     }}
-                    className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
+                    className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
                       isActive ? 'bg-brand text-white shadow-sm' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
                     }`}
                   >
-                    <Icon className="w-4 h-4 shrink-0" />
+                    <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 shrink-0" />
+                    </div>
                     <span>{item.label}</span>
                   </button>
                 );
               })}
             </div>
+
+            {onLogout && (
+              <div className="pt-2 border-t border-line">
+                <button
+                  onClick={onLogout}
+                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-semibold border border-rose-200 transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Chiqish</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-start gap-6">
-        {/* DESKTOP SIDEBAR - STICKY PINNED ON LEFT */}
-        <aside className="w-64 shrink-0 hidden md:block sticky top-[76px] self-start z-20 h-[calc(100vh-6rem)]">
-          <div className="bg-surface rounded-2xl border border-line p-3 shadow-subtle space-y-1 h-full overflow-y-auto">
+      {/* Main Container with Docked Left Sidebar */}
+      <div className="flex-1 flex w-full">
+        {/* DESKTOP SIDEBAR - DOCKED TO HEADER (TEGIB TURGAN) */}
+        <aside className="w-64 shrink-0 hidden md:flex flex-col justify-between sticky top-16 h-[calc(100vh-4rem)] bg-surface border-r border-line p-3 z-20">
+          <div className="overflow-y-auto space-y-1">
             <button
               onClick={() => setActiveTab('overview')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
-                activeTab === 'overview' ? 'bg-brand text-white' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
+                activeTab === 'overview' ? 'bg-brand text-white shadow-sm' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
               }`}
             >
-              <LayoutDashboard className="w-4 h-4" />
-              <span>Moliyaviy KPI</span>
+              <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                <LayoutDashboard className="w-4 h-4" />
+              </div>
+              <span>Moliya</span>
             </button>
 
             <button
               onClick={() => setActiveTab('operations')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
-                activeTab === 'operations' ? 'bg-brand text-white' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
+                activeTab === 'operations' ? 'bg-brand text-white shadow-sm' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
               }`}
             >
-              <TrendingUp className="w-4 h-4" />
-              <span>Operatsiyalar Nazorati</span>
+              <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <span>Operatsiyalar</span>
             </button>
 
             <button
               onClick={() => setActiveTab('map')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
-                activeTab === 'map' ? 'bg-brand text-white' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
+                activeTab === 'map' ? 'bg-brand text-white shadow-sm' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
               }`}
             >
-              <Layers className="w-4 h-4" />
-              <span>Zal & Stollar Xaritasi</span>
+              <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                <Layers className="w-4 h-4" />
+              </div>
+              <span>Stollar</span>
             </button>
 
             <button
               onClick={() => setActiveTab('menu')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
-                activeTab === 'menu' ? 'bg-brand text-white' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
+                activeTab === 'menu' ? 'bg-brand text-white shadow-sm' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
               }`}
             >
-              <UtensilsCrossed className="w-4 h-4" />
-              <span>Menyu & Taomlar</span>
+              <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                <UtensilsCrossed className="w-4 h-4" />
+              </div>
+              <span>Menyu</span>
             </button>
 
             <button
               onClick={() => setActiveTab('staff')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
-                activeTab === 'staff' ? 'bg-brand text-white' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
+                activeTab === 'staff' ? 'bg-brand text-white shadow-sm' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
               }`}
             >
-              <Users className="w-4 h-4" />
-              <span>Xodimlar Boshqaruvi</span>
+              <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                <Users className="w-4 h-4" />
+              </div>
+              <span>Xodimlar</span>
             </button>
 
             <button
               onClick={() => setActiveTab('reports')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
-                activeTab === 'reports' ? 'bg-brand text-white' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
+                activeTab === 'reports' ? 'bg-brand text-white shadow-sm' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
               }`}
             >
-              <FileText className="w-4 h-4" />
-              <span>Hisobotlar & Tahlil</span>
+              <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4" />
+              </div>
+              <span>Hisobotlar</span>
             </button>
 
             <button
               onClick={() => setActiveTab('settings')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
-                activeTab === 'settings' ? 'bg-brand text-white' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
+              className={`w-full flex items-center space-x-2.5 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
+                activeTab === 'settings' ? 'bg-brand text-white shadow-sm' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
               }`}
             >
-              <Settings className="w-4 h-4" />
-              <span>Restoran Sozlamalari</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('audit')}
-              className={`w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-semibold text-sm transition-colors min-h-[44px] ${
-                activeTab === 'audit' ? 'bg-brand text-white' : 'text-ink-secondary hover:bg-bg hover:text-ink-main'
-              }`}
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Audit Jurnali</span>
+              <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                <Settings className="w-4 h-4" />
+              </div>
+              <span>Sozlamalar</span>
             </button>
           </div>
+
+          {onLogout && (
+            <div className="pt-3 border-t border-line">
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-semibold border border-rose-200 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Chiqish</span>
+              </button>
+            </div>
+          )}
         </aside>
 
         {/* MAIN VIEW CONTENT */}
-        <main className="flex-1 min-w-0 space-y-6">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 space-y-6">
 
           {/* TAB 1: OVERVIEW (BOSS FINANCIAL KPI) */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
-              {/* Alert: No fake profit note */}
-              <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-start space-x-3">
-                <ShieldCheck className="w-5 h-5 text-emerald-800 shrink-0 mt-0.5" />
-                <div className="text-xs text-emerald-950 leading-relaxed">
-                  <span className="font-bold block text-sm mb-0.5">Haqiqiy Server Aggregatsiyasi (Asia/Tashkent kun chegarasi)</span>
-                  Barcha raqamlar serverda PostgreSQL ACID tranzaksiyalari asosida minor unit (tiyin) da hisoblangan.
-                  Xarajat va tannarx moduli kiritilmaguncha “sof foyda” raqami ataylab yasalmagan.
-                </div>
-              </div>
-
-              {/* 8 ta Asosiy Moliyaviy Ko'rsatkich Kartochkalari */}
+              {/* Asosiy Moliyaviy Ko'rsatkichlar */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* 1. Bugungi buyurtmalar qiymati */}
-                <div className="bg-surface rounded-2xl border border-line p-5 shadow-subtle space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-ink-secondary">
-                    <span>Buyurtmalar Qiymati</span>
-                    <span className="p-1.5 rounded-lg bg-blue-50 text-blue-700 font-mono text-[10px]">Gross</span>
+                {/* 1. Sof Tushum */}
+                <div className="bg-surface rounded-2xl border border-brand/30 p-5 shadow-subtle space-y-1 bg-gradient-to-br from-surface to-brand-50/20">
+                  <span className="text-xs font-semibold text-brand">Sof Tushum</span>
+                  <div className="text-2xl font-black font-mono text-brand">
+                    <Money amountTiyin={bossMetrics.todayNetRevenueTiyin} />
                   </div>
+                </div>
+
+                {/* 2. Buyurtmalar qiymati */}
+                <div className="bg-surface rounded-2xl border border-line p-5 shadow-subtle space-y-1">
+                  <span className="text-xs font-semibold text-ink-secondary">Buyurtmalar Qiymati</span>
                   <div className="text-2xl font-black font-mono text-ink-main">
                     <Money amountTiyin={bossMetrics.todayOrdersTotalTiyin} />
                   </div>
-                  <p className="text-[11px] text-ink-secondary">Bugungi tasdiqlangan taomlar jami</p>
                 </div>
 
-                {/* 2. Yozilgan Chegirmalar */}
-                <div className="bg-surface rounded-2xl border border-line p-5 shadow-subtle space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-ink-secondary">
-                    <span>Yozilgan Chegirmalar</span>
-                    <span className="p-1.5 rounded-lg bg-amber-50 text-amber-700 font-mono text-[10px]">Discount</span>
-                  </div>
-                  <div className="text-2xl font-black font-mono text-amber-700">
-                    <Money amountTiyin={bossMetrics.todayDiscountsTiyin} />
-                  </div>
-                  <p className="text-[11px] text-ink-secondary">Faqat food subtotaldan chegirilgan</p>
-                </div>
-
-                {/* 3. Yozilgan Xizmat Haqi */}
-                <div className="bg-surface rounded-2xl border border-line p-5 shadow-subtle space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-ink-secondary">
-                    <span>Xizmat Haqi (Servis)</span>
-                    <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-800 font-mono text-[10px]">{settingsData.serviceChargeBps / 100}%</span>
+                {/* 3. Xizmat narxi */}
+                <div className="bg-surface rounded-2xl border border-line p-5 shadow-subtle space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-ink-secondary">Xizmat narxi</span>
+                    <span className="text-[11px] font-bold text-ink-secondary font-mono">{settingsData.serviceChargeBps / 100}%</span>
                   </div>
                   <div className="text-2xl font-black font-mono text-emerald-800">
                     <Money amountTiyin={bossMetrics.todayServiceFeeTiyin} />
                   </div>
-                  <p className="text-[11px] text-ink-secondary">Chegirmadan keyingi subtotaldan</p>
                 </div>
 
-                {/* 4. Qabul Qilingan To'lov */}
-                <div className="bg-surface rounded-2xl border border-brand/30 p-5 shadow-subtle space-y-2 bg-gradient-to-br from-surface to-brand-50/20">
-                  <div className="flex items-center justify-between text-xs font-semibold text-brand">
-                    <span>Qabul Qilingan To'lov</span>
-                    <span className="p-1.5 rounded-lg bg-brand text-white font-mono text-[10px]">Posted</span>
-                  </div>
-                  <div className="text-2xl font-black font-mono text-brand">
-                    <Money amountTiyin={bossMetrics.todayPaymentsTiyin} />
-                  </div>
-                  <p className="text-[11px] text-ink-secondary">Kassaga tushgan yalpi to'lovlar</p>
-                </div>
-
-                {/* 5. Qaytarilgan Summalar (Refunds) */}
-                <div className="bg-surface rounded-2xl border border-line p-5 shadow-subtle space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-ink-secondary">
-                    <span>Qaytarishlar (Refunds)</span>
-                    <span className="p-1.5 rounded-lg bg-red-50 text-red-700 font-mono text-[10px]">Refund</span>
-                  </div>
-                  <div className="text-2xl font-black font-mono text-red-700">
-                    <Money amountTiyin={bossMetrics.todayRefundsTiyin} />
-                  </div>
-                  <p className="text-[11px] text-ink-secondary">Tasdiqlangan qaytarishlar</p>
-                </div>
-
-                {/* 6. Sof Tushum (Net Receipts) */}
-                <div className="bg-surface rounded-2xl border border-brand/20 p-5 shadow-subtle space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-brand">
-                    <span>Sof Tushum</span>
-                    <span className="p-1.5 rounded-lg bg-emerald-100 text-brand font-mono text-[10px]">Net</span>
-                  </div>
-                  <div className="text-2xl font-black font-mono text-brand">
-                    <Money amountTiyin={bossMetrics.todayNetRevenueTiyin} />
-                  </div>
-                  <p className="text-[11px] text-ink-secondary">To'lovlar - Qaytarishlar</p>
-                </div>
-
-                {/* 7. Ochiq Qarzdorlik (Open Debt) */}
-                <div className="bg-surface rounded-2xl border border-line p-5 shadow-subtle space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-ink-secondary">
-                    <span>Ochiq Qarzdorlik</span>
-                    <span className="p-1.5 rounded-lg bg-amber-50 text-amber-800 font-mono text-[10px]">Active Balance</span>
-                  </div>
+                {/* 4. Kutilayotgan to'lov (Ochiq stollar) */}
+                <div className="bg-surface rounded-2xl border border-line p-5 shadow-subtle space-y-1">
+                  <span className="text-xs font-semibold text-ink-secondary">Kutilayotgan To'lov</span>
                   <div className="text-2xl font-black font-mono text-ink-main">
                     <Money amountTiyin={bossMetrics.openDebtTiyin} />
                   </div>
-                  <p className="text-[11px] text-ink-secondary">Faol stollardagi to'lanmagan qoldiq</p>
-                </div>
-
-                {/* 8. Qaytarish Kerak Bo'lgan Qoldiq (Refund Due) */}
-                <div className="bg-surface rounded-2xl border border-line p-5 shadow-subtle space-y-2">
-                  <div className="flex items-center justify-between text-xs font-semibold text-ink-secondary">
-                    <span>Qaytarish Kerak Qoldiq</span>
-                    <span className="p-1.5 rounded-lg bg-red-50 text-red-700 font-mono text-[10px]">Refund Due</span>
-                  </div>
-                  <div className="text-2xl font-black font-mono text-red-600">
-                    <Money amountTiyin={bossMetrics.refundDueTiyin} />
-                  </div>
-                  <p className="text-[11px] text-ink-secondary">Faol tashriflar: {bossMetrics.activeVisitsCount} ta</p>
                 </div>
               </div>
             </div>
@@ -1500,7 +1444,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                     {operationsSummary.tables.occupancyRate}%
                   </div>
                   <div className="text-xs text-ink-secondary mt-1">
-                    {operationsSummary.tables.occupied} band • {operationsSummary.tables.free} bo'sh • {operationsSummary.tables.dirty} kirlangan
+                    {operationsSummary.tables.occupied} band • {operationsSummary.tables.free} bo'sh
                   </div>
                 </div>
 
@@ -1525,9 +1469,6 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                   <div className="text-3xl font-black text-amber-700 mt-2">
                     {operationsSummary.orders.delayedCount}
                   </div>
-                  <div className="text-xs text-ink-secondary mt-1">
-                    Normativdan oshgan (&gt; 20 min)
-                  </div>
                 </div>
 
                 <div className="bg-surface rounded-2xl border border-line p-5 shadow-subtle">
@@ -1538,24 +1479,16 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                   <div className="text-3xl font-black text-red-600 mt-2">
                     {operationsSummary.unansweredCallsCount}
                   </div>
-                  <div className="text-xs text-ink-secondary mt-1">
-                    Mehmonlar kutayotgan chaqiruvlar
-                  </div>
                 </div>
               </div>
 
               {/* Section 1: Kechikkan va Faol Buyurtmalar */}
               <div className="bg-surface rounded-2xl border border-line shadow-subtle p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-ink-main text-base flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-brand" />
-                      Faol va Tasdiq Kutayotgan Buyurtmalar ({liveOrders.length})
-                    </h3>
-                    <p className="text-xs text-ink-secondary">
-                      20 daqiqadan oshgan taomlar shoshilinch kechikkan deb belgilangan
-                    </p>
-                  </div>
+                  <h3 className="font-bold text-ink-main text-base flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-brand" />
+                    Faol va Tasdiq Kutayotgan Buyurtmalar ({liveOrders.length})
+                  </h3>
                   <Button size="sm" variant="outline" onClick={loadOperationsSummary}>
                     <RefreshCw className="w-3.5 h-3.5 mr-1" /> Yangilash
                   </Button>
@@ -1620,15 +1553,10 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
               {/* Section 2: Javobsiz Xizmat Chaqiruvlari */}
               <div className="bg-surface rounded-2xl border border-line shadow-subtle p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-ink-main text-base flex items-center gap-2">
-                      <PhoneCall className="w-4 h-4 text-red-600" />
-                      Javobsiz Xizmat Chaqiruvlari ({liveCalls.length})
-                    </h3>
-                    <p className="text-xs text-ink-secondary">
-                      Mehmonlar tomonidan yuborilgan ofitsiant va hisob so'rovlari
-                    </p>
-                  </div>
+                  <h3 className="font-bold text-ink-main text-base flex items-center gap-2">
+                    <PhoneCall className="w-4 h-4 text-red-600" />
+                    Javobsiz Xizmat Chaqiruvlari ({liveCalls.length})
+                  </h3>
                 </div>
 
                 {liveCalls.length > 0 ? (
@@ -1683,107 +1611,32 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                   </div>
                 )}
               </div>
-
-              {/* Section 3: Menejer Vakolatidagi Tasdiqlar (Approvals) */}
-              <div className="p-6 bg-surface rounded-2xl border border-line shadow-subtle space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <h3 className="font-bold text-ink-main text-base">Menejer Moliyaviy va Operatsion Vakolatlari</h3>
-                    <div className="text-xs text-ink-secondary flex flex-wrap items-center gap-2 mt-1">
-                      <span>Boss permission sozlamasi:</span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${userPermissions.includes('discounts.approve') ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
-                        discounts.approve: {userPermissions.includes('discounts.approve') ? 'Mavjud' : 'Cheklangan'}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${userPermissions.includes('refunds.approve') ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
-                        refunds.approve: {userPermissions.includes('refunds.approve') ? 'Mavjud' : 'Cheklangan'}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setDiscountModalOpen(true)}
-                    >
-                      <Percent className="w-3.5 h-3.5 mr-1" /> Chegirma Berish
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setRefundModalOpen(true)}
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 mr-1" /> Pul Qaytarish (Refund)
-                    </Button>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
 
           {/* TAB 3: LIVE TABLE MAP */}
           {activeTab === 'map' && (
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-3">
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-                  {halls.map((h) => (
-                    <button
-                      key={h.id}
-                      onClick={() => setSelectedHallId(h.id)}
-                      className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap min-h-[44px] ${
-                        selectedHallId === h.id
-                          ? 'bg-brand text-white shadow-sm'
-                          : 'bg-surface text-ink-secondary border border-line hover:bg-bg'
-                      }`}
-                    >
-                      {h.name}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="px-3 py-1.5 rounded-xl bg-surface border border-line text-xs font-bold text-ink-main shadow-subtle">
-                    Jami: {tablesList.length}/100 ta stol
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handlePrintAllQrCodes}
-                    className="text-xs font-bold"
-                    title="Barcha stollar QR kodlarini bir vaqtda A4 formatda chop etish"
-                  >
-                    <Printer className="w-3.5 h-3.5 mr-1 text-brand" /> Barcha QR Kodlar
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={openBatchTableModal}
-                    className="text-xs"
-                  >
-                    <Zap className="w-3.5 h-3.5 mr-1 text-amber-500" /> 100 tagacha Generatsiya
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    onClick={openSingleTableModal}
-                    className="text-xs"
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1" /> Stol Qo'shish
-                  </Button>
-                </div>
+              <div className="flex items-center justify-end pb-1">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={openSingleTableModal}
+                  className="text-xs"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Stol Qo'shish
+                </Button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {filteredTables.map((tbl: any) => {
                   const isOccupied = tbl.status === 'OCCUPIED';
-                  const isDirty = tbl.status === 'DIRTY';
                   return (
                     <div
                       key={tbl.id}
                       className={`rounded-2xl border p-4 shadow-subtle flex flex-col justify-between space-y-3 transition-all ${
                         isOccupied
                           ? 'bg-surface border-emerald-400 ring-1 ring-emerald-400/20 shadow-md'
-                          : isDirty
-                          ? 'bg-red-50/30 border-red-200'
                           : 'bg-surface border-slate-200 hover:border-slate-300'
                       }`}
                     >
@@ -1841,10 +1694,6 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                             </div>
                           )}
                         </div>
-                      ) : isDirty ? (
-                        <div className="p-2.5 rounded-xl bg-red-50 text-red-900 border border-red-200 text-xs font-semibold">
-                          Tozalash va tayyorlash kutilmoqda
-                        </div>
                       ) : (
                         <div className="p-2.5 rounded-xl bg-slate-50 text-slate-500 border border-slate-200 text-xs font-medium">
                           Bo'sh • Mehmon qabul qilishga tayyor
@@ -1895,12 +1744,21 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-bold text-ink-main">Menyu va Taomlar Boshqaruvi</h3>
+                  <h3 className="text-base font-bold text-ink-main">Menyu</h3>
                   <p className="text-xs text-ink-secondary">
-                    Taomlarni tahrirlash, yangi qo'shish, narxlarni belgilash va stop-list (mavjudlik) nazorati.
+                    Taomlar, toifalar va stop-list nazorati.
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setMenuPreviewOpen(true)}
+                    className="border-brand text-brand hover:bg-brand-50 font-bold"
+                    title="Mijozlar menyusi qanday ko'rinishini tekshirish"
+                  >
+                    <Eye className="w-3.5 h-3.5 mr-1.5" /> Menyuni ko'rish
+                  </Button>
                   <Button
                     size="sm"
                     variant="outline"
@@ -1937,25 +1795,56 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                     onClick={() => setSelectedMenuCategory('all')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap min-h-[38px] ${
                       selectedMenuCategory === 'all'
-                        ? 'bg-brand text-white'
+                        ? 'bg-brand text-white shadow-sm'
                         : 'bg-surface border border-line text-ink-secondary hover:bg-bg'
                     }`}
                   >
                     Barchasi
                   </button>
                   {categories.map((c) => (
-                    <button
+                    <div
                       key={c.id}
-                      onClick={() => setSelectedMenuCategory(c.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap min-h-[38px] ${
+                      className={`inline-flex items-center rounded-lg border text-xs font-bold whitespace-nowrap transition-all ${
                         selectedMenuCategory === c.id
-                          ? 'bg-brand text-white'
-                          : 'bg-surface border border-line text-ink-secondary hover:bg-bg'
+                          ? 'bg-brand text-white border-brand shadow-sm'
+                          : 'bg-surface border-line text-ink-secondary hover:bg-bg'
                       }`}
                     >
-                      {c.name}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedMenuCategory(c.id)}
+                        className="pl-3 pr-1.5 py-1.5 min-h-[38px] flex items-center"
+                      >
+                        {c.name}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteCategory(c.id, c.name);
+                        }}
+                        className={`pr-2.5 pl-1 py-1.5 min-h-[38px] flex items-center transition-colors ${
+                          selectedMenuCategory === c.id
+                            ? 'text-white/70 hover:text-white'
+                            : 'text-ink-secondary/60 hover:text-red-600'
+                        }`}
+                        title={`"${c.name}" kategoriyasini o'chirish`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingCategory(null);
+                      setCategoryModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-dashed border-brand/50 text-brand text-xs font-bold hover:bg-brand-50 flex items-center gap-1 min-h-[38px] whitespace-nowrap transition-colors"
+                    title="Yangi kategoriya qo'shish"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Kategoriya qo'shish
+                  </button>
                 </div>
               </div>
 
@@ -2034,9 +1923,9 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-bold text-ink-main">Restoran Xodimlari</h3>
+                  <h3 className="text-base font-bold text-ink-main">Xodimlar</h3>
                   <p className="text-xs text-ink-secondary">
-                    Xodimlarni boshqarish, rollar (Ofitsiant, Kassir, Menejer) va stollarni biriktirish.
+                    Xodimlarni boshqarish, rollar va stollarni biriktirish.
                   </p>
                 </div>
                 <Button
@@ -2135,12 +2024,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
           {activeTab === 'reports' && (
             <div className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-surface rounded-2xl border border-line shadow-subtle">
-                <div>
-                  <h3 className="text-base font-bold text-ink-main">Batafsil Hisobotlar va Ko'rsatkichlar</h3>
-                  <p className="text-xs text-ink-secondary">
-                    Asia/Tashkent kun chegarasi bo'yicha to'liq tenant agregatsiyalari
-                  </p>
-                </div>
+                <h3 className="text-base font-bold text-ink-main">Hisobotlar</h3>
 
                 {/* Date range filters */}
                 <div className="flex flex-wrap items-center gap-2">
@@ -2163,17 +2047,6 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                 </div>
               </div>
 
-              {/* Timestamp separation explainer */}
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-start space-x-3 text-xs text-blue-950 leading-relaxed">
-                <Clock className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold block mb-0.5">Hisob-kitob va Vaqt Standarti Hujjati:</span>
-                  • Buyurtmalar va taomlar yig'indisi: <code>order.createdAt</code> bo'yicha hisoblanadi.<br />
-                  • To'lovlar va kassa tushumi: <code>payment.createdAt</code> bo'yicha hisoblanadi.<br />
-                  • Barcha hisobotlar Toshkent vaqti (UTC+5, 00:00:00 — 23:59:59.999) chegaralariga qat'iy amal qiladi.
-                </div>
-              </div>
-
               {detailedReports ? (
                 <div className="space-y-6">
                   {/* To'lovlar Taqsimoti */}
@@ -2191,7 +2064,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                       </div>
                     </div>
                     <div className="p-4 bg-surface rounded-2xl border border-brand/40 shadow-subtle space-y-1 bg-brand-50/20">
-                      <span className="text-xs text-brand font-bold">Sof Tushum (Net Receipts)</span>
+                      <span className="text-xs text-brand font-bold">Sof Tushum</span>
                       <div className="text-xl font-black font-mono text-brand">
                         <Money amountTiyin={BigInt(detailedReports.paymentsSummary?.netReceiptsTiyin || 0)} />
                       </div>
@@ -2200,7 +2073,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
 
                   {/* Mashhur Taomlar Jadvali */}
                   <div className="bg-surface rounded-2xl border border-line shadow-subtle p-5 space-y-4">
-                    <h4 className="font-bold text-ink-main text-sm">Eng Ko'p Sotilgan Taomlar (Top Dishes)</h4>
+                    <h4 className="font-bold text-ink-main text-sm">Eng Ko'p Sotilgan Taomlar</h4>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -2211,16 +2084,24 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {detailedReports.popularDishes?.map((dish: any) => (
-                          <TableRow key={dish.menuItemId}>
-                            <TableCell className="font-semibold text-ink-main">{dish.name}</TableCell>
-                            <TableCell className="text-xs text-ink-secondary">{dish.categoryName}</TableCell>
-                            <TableCell className="text-center font-bold font-mono">{dish.totalQuantity} ta</TableCell>
-                            <TableCell className="text-right font-mono font-bold text-brand">
-                              <Money amountTiyin={BigInt(dish.totalRevenueTiyin || 0)} />
+                        {detailedReports.popularDishes && detailedReports.popularDishes.length > 0 ? (
+                          detailedReports.popularDishes.map((dish: any) => (
+                            <TableRow key={dish.menuItemId}>
+                              <TableCell className="font-semibold text-ink-main">{dish.name}</TableCell>
+                              <TableCell className="text-xs text-ink-secondary">{dish.categoryName}</TableCell>
+                              <TableCell className="text-center font-bold font-mono">{dish.totalQuantity} ta</TableCell>
+                              <TableCell className="text-right font-mono font-bold text-brand">
+                                <Money amountTiyin={BigInt(dish.totalRevenueTiyin || 0)} />
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-6 text-xs text-ink-secondary">
+                              Hozircha sotilgan taomlar mavjud emas
                             </TableCell>
                           </TableRow>
-                        ))}
+                        )}
                       </TableBody>
                     </Table>
                   </div>
@@ -2238,16 +2119,24 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {detailedReports.waiterPerformance?.map((w: any) => (
-                          <TableRow key={w.waiterId}>
-                            <TableCell className="font-semibold text-ink-main">{w.waiterName}</TableCell>
-                            <TableCell className="text-center font-mono">{w.servedOrdersCount} ta</TableCell>
-                            <TableCell className="text-center font-mono">{w.resolvedCallsCount} ta</TableCell>
-                            <TableCell className="text-right font-mono font-bold text-ink-main">
-                              <Money amountTiyin={BigInt(w.totalOrderValueTiyin || 0)} />
+                        {detailedReports.waiterPerformance && detailedReports.waiterPerformance.length > 0 ? (
+                          detailedReports.waiterPerformance.map((w: any) => (
+                            <TableRow key={w.waiterId}>
+                              <TableCell className="font-semibold text-ink-main">{w.waiterName}</TableCell>
+                              <TableCell className="text-center font-mono">{w.servedOrdersCount} ta</TableCell>
+                              <TableCell className="text-center font-mono">{w.resolvedCallsCount} ta</TableCell>
+                              <TableCell className="text-right font-mono font-bold text-ink-main">
+                                <Money amountTiyin={BigInt(w.totalOrderValueTiyin || 0)} />
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={4} className="text-center py-6 text-xs text-ink-secondary">
+                              Hozircha ma'lumot mavjud emas
                             </TableCell>
                           </TableRow>
-                        ))}
+                        )}
                       </TableBody>
                     </Table>
                   </div>
@@ -2261,11 +2150,22 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
           {/* TAB 7: RESTAURANT SETTINGS */}
           {activeTab === 'settings' && (
             <div className="bg-surface rounded-2xl border border-line shadow-subtle p-6 space-y-6">
-              <div>
-                <h3 className="text-base font-bold text-ink-main">Restoran Umumiy Sozlamalari</h3>
-                <p className="text-xs text-ink-secondary mt-0.5">
-                  Rekvizitlar va xizmat haqi. Muhim: O'zgartirish mavjud ochiq va yopiq tashriflar xizmat haqi snapshotiga aslo ta'sir qilmaydi!
-                </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-ink-main">Sozlamalar</h3>
+                  <p className="text-xs text-ink-secondary mt-0.5">
+                    Restoran rekvizitlari va xizmat haqi sozlamalari
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setChangePasswordModalOpen(true)}
+                  className="text-xs font-semibold"
+                >
+                  <KeyRound className="w-3.5 h-3.5 mr-1.5 text-brand" />
+                  Parol va Telefonni o'zgartirish
+                </Button>
               </div>
 
               {settingsSuccess && (
@@ -2275,7 +2175,316 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                 </div>
               )}
 
-              <form onSubmit={handleSaveSettings} className="space-y-4 max-w-2xl">
+              <form onSubmit={handleSaveSettings} className="space-y-6 max-w-2xl">
+                {/* Brending va Rasmlar (Logotip va Muqova) */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-line space-y-5">
+                  <div className="border-b border-line pb-3">
+                    <h4 className="text-sm font-bold text-ink-main flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4 text-brand" />
+                      Restoran Brendingi (Logotip va Muqova)
+                    </h4>
+                    <p className="text-[11px] text-ink-secondary mt-0.5">
+                      Ushbu rasmlar mijozlar menyusining yuqori qismida, QR menyuda va tizim boshqaruvida ko'rsatiladi
+                    </p>
+                  </div>
+
+                  {/* 1. Restoran Muqovasi (Banner) */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <label className="text-xs font-bold text-ink-main">
+                            Restoran Muqovasi (Banner)
+                          </label>
+                          <span className="px-2 py-0.5 rounded-full bg-brand-50 text-brand text-[10px] font-bold border border-brand-100">
+                            {bannerUrls.length} / 5 ta rasm
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-ink-secondary mt-0.5">
+                          Jami 5 tagacha rasm yuklashingiz mumkin. Rasmlar mijozlar menyusida har 2 soniyada avtomatik almashib turadi.
+                        </p>
+                      </div>
+
+                      {bannerUrls.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearAllBanners}
+                          className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 transition-colors shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Barchasini tozalash
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Banner Live Preview Carousel */}
+                    <div className="relative w-full h-40 sm:h-52 rounded-2xl border-2 border-dashed border-line overflow-hidden bg-slate-950 flex items-center justify-center shadow-inner">
+                      {bannerUrls.length > 0 ? (
+                        <>
+                          {bannerUrls.map((url, idx) => (
+                            <img
+                              key={idx}
+                              src={url}
+                              alt={`Muqova ${idx + 1}`}
+                              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${
+                                idx === (activeBannerIndex % bannerUrls.length)
+                                  ? 'opacity-100 z-10'
+                                  : 'opacity-0 z-0 pointer-events-none'
+                              }`}
+                            />
+                          ))}
+
+                          {/* Gradient overlay */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 z-20 pointer-events-none" />
+
+                          {/* Auto-rotation indicator badge */}
+                          <div className="absolute top-3 left-3 z-30 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold flex items-center gap-1.5 border border-white/20">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                            Jonli ko'rinish (har 2 s)
+                          </div>
+
+                          {/* Slide counter badge */}
+                          <div className="absolute top-3 right-3 z-30 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-bold border border-white/20">
+                            {(activeBannerIndex % bannerUrls.length) + 1} / {bannerUrls.length}
+                          </div>
+
+                          {/* Carousel dots */}
+                          {bannerUrls.length > 1 && (
+                            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/50 backdrop-blur-md border border-white/10">
+                              {bannerUrls.map((_, idx) => (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => setActiveBannerIndex(idx)}
+                                  className={`h-2 rounded-full transition-all ${
+                                    idx === (activeBannerIndex % bannerUrls.length)
+                                      ? 'w-6 bg-brand-400'
+                                      : 'w-2 bg-white/50 hover:bg-white'
+                                  }`}
+                                  title={`${idx + 1}-rasmga o'tish`}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-center p-6 text-white">
+                          <div className="w-12 h-12 rounded-2xl bg-white/10 text-white flex items-center justify-center mx-auto mb-3 backdrop-blur-sm">
+                            <ImageIcon className="w-6 h-6" />
+                          </div>
+                          <p className="text-sm font-bold text-white">Muqova rasmlari yuklanmagan</p>
+                          <p className="text-xs text-slate-300 mt-1 max-w-sm mx-auto">
+                            Restoraningiz interyeri, taomlari yoki jozibali muqovasidan 5 tagacha rasm yuklang
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 5 Thumbnail Slots (Gallery Manager) */}
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-semibold text-ink-secondary flex items-center justify-between">
+                        <span>Yuklangan rasmlar (tanlash va o'chirish):</span>
+                        <span>{bannerUrls.length} / 5 ta</span>
+                      </div>
+
+                      <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                        {[0, 1, 2, 3, 4].map((slotIdx) => {
+                          const url = bannerUrls[slotIdx];
+                          const isActive = url && slotIdx === (activeBannerIndex % bannerUrls.length);
+
+                          return (
+                            <div
+                              key={slotIdx}
+                              className={`relative aspect-[4/3] rounded-xl border-2 overflow-hidden group transition-all ${
+                                isActive
+                                  ? 'border-brand ring-2 ring-brand/30 shadow-md'
+                                  : url
+                                  ? 'border-line hover:border-brand/60 bg-surface'
+                                  : 'border-dashed border-line bg-surface/50 hover:bg-surface'
+                              }`}
+                            >
+                              {url ? (
+                                <>
+                                  <img
+                                    src={url}
+                                    alt={`Slot ${slotIdx + 1}`}
+                                    onClick={() => setActiveBannerIndex(slotIdx)}
+                                    className="w-full h-full object-cover cursor-pointer"
+                                  />
+                                  <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-bold">
+                                    #{slotIdx + 1}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveBanner(slotIdx);
+                                    }}
+                                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-600/90 hover:bg-red-700 text-white flex items-center justify-center shadow opacity-90 group-hover:opacity-100 transition-opacity"
+                                    title="Rasmni o'chirish"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </>
+                              ) : (
+                                <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer p-1 text-ink-secondary hover:text-brand transition-colors">
+                                  <Plus className="w-4 h-4 sm:w-5 sm:h-5 mb-0.5" />
+                                  <span className="text-[9px] font-semibold">+{slotIdx + 1}</span>
+                                  <input
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    className="hidden"
+                                    disabled={isUploadingImage === 'banner'}
+                                    onChange={(e) => {
+                                      if (e.target.files) handleBannerFilesUpload(e.target.files);
+                                    }}
+                                  />
+                                </label>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Upload Controls: URL Input & File Upload */}
+                    <div className="space-y-2 pt-1">
+                      {bannerUrls.length < 5 ? (
+                        <>
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Muqova rasm URL havolasini kiriting (https://...)"
+                              value={bannerUrlInput}
+                              onChange={(e) => setBannerUrlInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddBannerUrl();
+                                }
+                              }}
+                              className="text-xs h-9 flex-1"
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={handleAddBannerUrl}
+                              disabled={!bannerUrlInput.trim()}
+                              className="text-xs font-semibold h-9 px-3 shrink-0"
+                            >
+                              <Plus className="w-3.5 h-3.5 mr-1" /> Qo'shish
+                            </Button>
+                          </div>
+
+                          <div className="flex items-center gap-2">
+                            <label className="inline-flex cursor-pointer px-3 py-1.5 rounded-xl bg-surface hover:bg-surface-hover border border-line text-xs font-bold text-ink-main items-center gap-1.5 shadow-sm transition-all">
+                              <Upload className="w-3.5 h-3.5 text-brand" />
+                              {isUploadingImage === 'banner' ? 'Yuklanmoqda...' : 'Kompyuterdan yuklash'}
+                              <input
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp"
+                                multiple
+                                className="hidden"
+                                disabled={isUploadingImage === 'banner'}
+                                onChange={(e) => {
+                                  if (e.target.files) handleBannerFilesUpload(e.target.files);
+                                }}
+                              />
+                            </label>
+                            <span className="text-[11px] text-ink-secondary">
+                              (Maksimal 5 ta rasm, JPEG/PNG/WEBP)
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          Maksimal 5 ta muqova rasm to'liq yuklangan. Boshqasini qo'shish uchun avval bittasini o'chiring.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 2. Restoran Logotipi (Logo) */}
+                  <div className="space-y-2 pt-3 border-t border-line">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-ink-main">
+                        Restoran Logotipi (Logo)
+                      </label>
+                      {settingsData.logoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSettingsData({ ...settingsData, logoUrl: '' })}
+                          className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" /> Logotipni o'chirish
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      {/* Logo Preview */}
+                      <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-line bg-bg overflow-hidden flex items-center justify-center shrink-0 relative group">
+                        {settingsData.logoUrl ? (
+                          <>
+                            <img
+                              src={settingsData.logoUrl}
+                              alt="Logo preview"
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <label className="cursor-pointer p-2 rounded-xl bg-white/90 text-ink-main hover:bg-white transition-all shadow-md" title="O'zgartirish">
+                                <Camera className="w-4 h-4 text-brand" />
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp"
+                                  className="hidden"
+                                  disabled={isUploadingImage === 'logo'}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleFileUpload(file, 'logo');
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-center p-2">
+                            <Store className="w-6 h-6 text-ink-secondary mx-auto" />
+                            <span className="text-[9px] text-ink-secondary block mt-0.5">Logo yo'q</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Logo Upload controls */}
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <label className="inline-flex cursor-pointer px-3.5 py-1.5 rounded-xl bg-surface hover:bg-surface-hover border border-line text-xs font-bold text-ink-main items-center gap-1.5 shadow-sm transition-all">
+                            <Upload className="w-3.5 h-3.5 text-brand" />
+                            {isUploadingImage === 'logo' ? 'Yuklanmoqda...' : 'Logotip yuklash'}
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp"
+                              className="hidden"
+                              disabled={isUploadingImage === 'logo'}
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileUpload(file, 'logo');
+                              }}
+                            />
+                          </label>
+                          <span className="text-[11px] text-ink-secondary">Tavsiya: kvadrat (500x500)</span>
+                        </div>
+                        <Input
+                          placeholder="Yoki logotip URL havolasini kiriting (https://...)"
+                          value={settingsData.logoUrl}
+                          onChange={(e) => setSettingsData({ ...settingsData, logoUrl: e.target.value })}
+                          className="text-xs h-9"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-ink-main mb-1">Restoran Nomi</label>
                   <Input
@@ -2313,7 +2522,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-ink-main mb-1">Xizmat Haqi (Servis Foizi)</label>
+                    <label className="block text-xs font-semibold text-ink-main mb-1">Xizmat narxi</label>
                     <div className="relative">
                       <Input
                         type="number"
@@ -2325,7 +2534,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                       />
                       <span className="absolute right-3 top-2.5 text-xs text-ink-secondary font-bold">%</span>
                     </div>
-                    <span className="text-[11px] text-ink-secondary mt-1 block">Hozirgi: {settingsData.serviceChargeBps / 100}% ({settingsData.serviceChargeBps} bps)</span>
+                    <span className="text-[11px] text-ink-secondary mt-1 block">Hozirgi: {settingsData.serviceChargeBps / 100}%</span>
                   </div>
 
                   <div>
@@ -2347,112 +2556,6 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
                   </Button>
                 </div>
               </form>
-            </div>
-          )}
-
-          {/* TAB 8: AUDIT LOGS */}
-          {activeTab === 'audit' && (
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 bg-surface rounded-2xl border border-line shadow-subtle">
-                <div>
-                  <h3 className="text-base font-bold text-ink-main">Tizim Audit Jurnali</h3>
-                  <p className="text-xs text-ink-secondary">
-                    Kim, qachon, qaysi amalni bajardi. Barcha token va parollar [REDACTED] bilan himoyalangan.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="outline" onClick={handleExportAuditCsv}>
-                    <Download className="w-3.5 h-3.5 mr-1" /> CSV Eksport (Xavfsiz)
-                  </Button>
-                </div>
-              </div>
-
-              {/* Filter */}
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Amal bo'yicha qidirish (masalan: AUTH_LOGIN, STAFF_CREATED)..."
-                  value={auditActionFilter}
-                  onChange={(e) => setAuditActionFilter(e.target.value)}
-                  className="max-w-xs"
-                />
-                <Button size="sm" variant="outline" onClick={() => loadAuditLogs(1, auditActionFilter)}>
-                  Filtrlash
-                </Button>
-              </div>
-
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Vaqt (Asia/Tashkent)</TableHead>
-                    <TableHead>Foydalanuvchi</TableHead>
-                    <TableHead>Rol</TableHead>
-                    <TableHead>Amal</TableHead>
-                    <TableHead>Resurs</TableHead>
-                    <TableHead>Sabab</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {auditLogs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="font-mono text-xs text-ink-secondary">
-                        {new Date(log.createdAt).toLocaleString('uz-UZ')}
-                      </TableCell>
-                      <TableCell className="font-semibold text-xs text-ink-main">
-                        {log.actorName || log.actorId || 'Tizim'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="neutral" size="sm">
-                          {log.actorRole || '—'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs font-bold text-brand">
-                        {log.action}
-                      </TableCell>
-                      <TableCell className="text-xs text-ink-secondary">
-                        {log.entityName} {log.entityId ? `(#${log.entityId.substring(0, 6)})` : ''}
-                      </TableCell>
-                      <TableCell className="text-xs text-ink-secondary max-w-xs truncate">
-                        {log.reason || '—'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {auditLogs.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-ink-secondary text-xs">
-                        Audit yozuvlari topilmadi.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-
-              {/* Pagination */}
-              {auditTotalPages > 1 && (
-                <div className="flex items-center justify-between pt-2">
-                  <span className="text-xs text-ink-secondary">
-                    Sahifa {auditPage} / {auditTotalPages}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={auditPage <= 1 || loadingAudit}
-                      onClick={() => loadAuditLogs(auditPage - 1, auditActionFilter)}
-                    >
-                      Oldingi
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={auditPage >= auditTotalPages || loadingAudit}
-                      onClick={() => loadAuditLogs(auditPage + 1, auditActionFilter)}
-                    >
-                      Keyingi
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -2598,7 +2701,7 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-ink-secondary mb-1">Sababi (Audit uchun majburiy)</label>
+                <label className="block text-xs font-semibold text-ink-secondary mb-1">Sababi (Majburiy)</label>
                 <Input
                   value={discountForm.reason}
                   onChange={(e) => setDiscountForm({ ...discountForm, reason: e.target.value })}
@@ -2878,9 +2981,12 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
 
       <CategoryModal
         isOpen={categoryModalOpen}
-        onClose={() => setCategoryModalOpen(false)}
+        onClose={() => {
+          setCategoryModalOpen(false);
+          setEditingCategory(null);
+        }}
         onSave={handleSaveCategory}
-        initialData={null}
+        initialData={editingCategory}
       />
 
       <StaffModal
@@ -2890,13 +2996,19 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
         initialData={editingStaff}
         availableStations={stations}
         availableTables={tablesList.map((t: any) => ({ id: t.id, number: t.number }))}
-        actorRoles={currentUser?.isSuperAdmin ? [Role.SUPER_ADMIN] : (activeRole === 'BOSS' ? [Role.BOSS] : [Role.MANAGER])}
+        actorRoles={currentUser?.isSuperAdmin ? [Role.SUPER_ADMIN] : [Role.MANAGER]}
         allowedRoles={settingsData.allowedRoles}
       />
 
       <ChangePasswordModal
         isOpen={changePasswordModalOpen}
         onClose={() => setChangePasswordModalOpen(false)}
+        initialPhone={currentUser?.phone || ''}
+        onSuccess={(updatedUser) => {
+          if (updatedUser?.phone) {
+            setCurrentUser((prev: any) => ({ ...prev, phone: updatedUser.phone }));
+          }
+        }}
       />
 
       <TableQrModal
@@ -2913,6 +3025,16 @@ export const ManagerView: React.FC<ManagerViewProps> = ({
             setSelectedTableForQr({ ...selectedTableForQr, qrToken: newQrToken });
           }
         }}
+      />
+
+      <MenuPreviewModal
+        isOpen={menuPreviewOpen}
+        onClose={() => setMenuPreviewOpen(false)}
+        restaurantId={restaurantId}
+        restaurantName={restaurantName || settingsData.name}
+        tables={tablesList}
+        dishesCount={dishes.length}
+        categoriesCount={categories.length}
       />
     </div>
   );

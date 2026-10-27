@@ -49,11 +49,20 @@ export function getTashkentRangeBounds(
 }
 
 export class ReportsService {
+  private async resolveRestaurantId(idOrSlug: string): Promise<string> {
+    const rest = await prisma.restaurant.findFirst({
+      where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+      select: { id: true },
+    });
+    return rest?.id || idOrSlug;
+  }
+
   /**
    * 1. Boss Dashboard Asosiy Ko'rsatkichlari (Haqiqiy server aggregatsiyasi)
    * Diqqat: Xarajat/tannarx moduli yo'qligi sababli "sof foyda" raqami aslo yasalmaydi!
    */
-  async getBossDashboardMetrics(restaurantId: string, dateStr?: string): Promise<BossDashboardMetrics> {
+  async getBossDashboardMetrics(restaurantIdInput: string, dateStr?: string): Promise<BossDashboardMetrics> {
+    const restaurantId = await this.resolveRestaurantId(restaurantIdInput);
     const { fromUtc, toUtc, dateStr: canonicalDate } = getTashkentDayBounds(dateStr);
 
     const restaurant = await prisma.restaurant.findUnique({
@@ -201,7 +210,8 @@ export class ReportsService {
   /**
    * 2. Manager Operatsion Ko'rsatkichlari (Zal, stollar, kechikishlar, calls)
    */
-  async getManagerOperationsSummary(restaurantId: string): Promise<ManagerOperationsSummary> {
+  async getManagerOperationsSummary(restaurantIdInput: string): Promise<ManagerOperationsSummary> {
+    const restaurantId = await this.resolveRestaurantId(restaurantIdInput);
     const { fromUtc, toUtc } = getTashkentDayBounds();
 
     // 2.1 Stollar holati
@@ -295,7 +305,8 @@ export class ReportsService {
   /**
    * 3. Davr Bo'yicha Kengaytirilgan Hisobotlar (Orders, Payments, Refunds, Shifts, Dishes, Waiters)
    */
-  async getDetailedReports(restaurantId: string, filter?: { from?: string; to?: string }) {
+  async getDetailedReports(restaurantIdInput: string, filter?: { from?: string; to?: string }) {
+    const restaurantId = await this.resolveRestaurantId(restaurantIdInput);
     const { fromUtc, toUtc, fromDateStr, toDateStr } = getTashkentRangeBounds(filter?.from, filter?.to);
 
     // 3.1 To'lovlar va Qaytarishlar hisoboti

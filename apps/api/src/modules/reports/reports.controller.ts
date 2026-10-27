@@ -15,7 +15,7 @@ reportsRouter.get(
   requirePermission('reports.view'),
   async (req: Request, res: Response) => {
     try {
-      const restaurantId = req.params.restaurantId;
+      const restaurantId = req.restaurantId || req.params.restaurantId;
       const dateStr = req.query.date as string | undefined;
 
       const metrics = await reportsService.getBossDashboardMetrics(restaurantId, dateStr);
@@ -63,7 +63,7 @@ reportsRouter.get(
   requirePermission('reports.view'),
   async (req: Request, res: Response) => {
     try {
-      const restaurantId = req.params.restaurantId;
+      const restaurantId = req.restaurantId || req.params.restaurantId;
       const operations = await reportsService.getManagerOperationsSummary(restaurantId);
 
       return res.status(200).json({
@@ -93,7 +93,7 @@ reportsRouter.get(
   requirePermission('reports.view'),
   async (req: Request, res: Response) => {
     try {
-      const restaurantId = req.params.restaurantId;
+      const restaurantId = req.restaurantId || req.params.restaurantId;
       const { from, to } = req.query as { from?: string; to?: string };
 
       const detailed = await reportsService.getDetailedReports(restaurantId, { from, to });

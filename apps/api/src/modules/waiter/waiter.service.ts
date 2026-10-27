@@ -21,12 +21,21 @@ export interface CreateStaffOrderDto {
   }[];
 }
 
+async function resolveRestaurantId(idOrSlug: string): Promise<string> {
+  const rest = await prisma.restaurant.findFirst({
+    where: { OR: [{ id: idOrSlug }, { slug: idOrSlug }] },
+    select: { id: true },
+  });
+  return rest?.id || idOrSlug;
+}
+
 export class WaiterService {
   /**
    * 1. Ofitsiant Asosiy Dashboardi
    * Yangi chaqiruvlar, tayyor taomlar, tasdiq kutayotgan buyurtmalar, hisob so'ragan stollar va mening stollarim
    */
-  async getDashboard(restaurantId: string, userId: string, isManager: boolean) {
+  async getDashboard(restaurantIdInput: string, userId: string, isManager: boolean) {
+    const restaurantId = await resolveRestaurantId(restaurantIdInput);
     // 1. Faol chaqiruvlar (OPEN yoki CLAIMED)
     const activeCalls = await prisma.serviceCall.findMany({
       where: {

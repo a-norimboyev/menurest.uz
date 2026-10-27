@@ -183,3 +183,51 @@ authRouter.post('/change-password', requireAuth, csrfProtection, async (req: Req
     });
   }
 });
+
+/**
+ * 6. POST /api/v1/auth/update-credentials
+ * Telefon raqami va/yoki parolni yangilash
+ */
+authRouter.post('/update-credentials', requireAuth, csrfProtection, async (req: Request, res: Response) => {
+  try {
+    const { currentPassword, newPhone, newPassword } = req.body;
+    if (!currentPassword) {
+      return res.status(422).json({
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: 'O\'zgarishlarni tasdiqlash uchun amaldagi parolingizni kiriting.' },
+        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+      });
+    }
+
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const result = await authService.updateCredentials(
+      req.user!.id,
+      { currentPassword, newPhone, newPassword },
+      ip
+    );
+
+    // Yangi yaratilgan xavfsiz sessiya cookie larini o'rnatish
+    res.cookie(SESSION_COOKIE_NAME, result.sessionToken, SESSION_COOKIE_OPTIONS);
+    res.cookie(CSRF_COOKIE_NAME, result.csrfToken, CSRF_COOKIE_OPTIONS);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: result.message,
+        user: result.user,
+        csrfToken: result.csrfToken,
+      },
+      meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+    });
+  } catch (err: any) {
+    const status = err.statusCode || 500;
+    return res.status(status).json({
+      success: false,
+      error: {
+        code: err.code || 'INTERNAL_ERROR',
+        message: err.message || 'Ma\'lumotlarni yangilashda xatolik yuz berdi.',
+      },
+      meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+    });
+  }
+});

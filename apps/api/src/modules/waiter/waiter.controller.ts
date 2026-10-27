@@ -7,7 +7,7 @@ import { serializeBigInt } from '../menu/menu.utils.js';
 export const waiterRouter = Router({ mergeParams: true });
 
 function getRestaurantId(req: Request): string {
-  return (req.params.restaurantId || req.restaurantId || req.user?.activeRestaurantId)!;
+  return (req.restaurantId || req.user?.activeRestaurantId || req.params.restaurantId)!;
 }
 
 /**

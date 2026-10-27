@@ -119,7 +119,7 @@ export class MenuService {
     });
   }
 
-  async deleteCategory(restaurantId: string, categoryId: string) {
+  async deleteCategory(restaurantId: string, categoryId: string, force = false) {
     const existing = await prisma.category.findUnique({
       where: {
         id_restaurantId: { id: categoryId, restaurantId },
@@ -139,12 +139,19 @@ export class MenuService {
     }
 
     if (existing.menuItems.length > 0) {
-      const err: any = new Error(
-        `Ushbu kategoriyada ${existing.menuItems.length} ta faol taom mavjud. Avval taomlarni boshqa kategoriyaga o'tkazing`
-      );
-      err.statusCode = 400;
-      err.code = 'CATEGORY_NOT_EMPTY';
-      throw err;
+      if (force) {
+        await prisma.menuItem.updateMany({
+          where: { categoryId, restaurantId },
+          data: { isArchived: true, isAvailable: false },
+        });
+      } else {
+        const err: any = new Error(
+          `Ushbu kategoriyada ${existing.menuItems.length} ta faol taom mavjud. Avval taomlarni boshqa kategoriyaga o'tkazing`
+        );
+        err.statusCode = 400;
+        err.code = 'CATEGORY_NOT_EMPTY';
+        throw err;
+      }
     }
 
     return prisma.category.delete({
@@ -644,6 +651,8 @@ export class MenuService {
         address: true,
         serviceChargeBps: true,
         currency: true,
+        logoUrl: true,
+        bannerUrl: true,
       },
     });
 

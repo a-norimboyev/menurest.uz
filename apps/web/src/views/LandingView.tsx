@@ -36,7 +36,7 @@ interface LandingViewProps {
     roles: string[];
   } | null;
   onOpenLogin: () => void;
-  onSelectRoleView: (role: 'GUEST' | 'WAITER' | 'KITCHEN' | 'CASHIER' | 'MANAGER' | 'BOSS' | 'SUPER_ADMIN' | 'SESSION') => void;
+  onSelectRoleView: (role: 'GUEST' | 'WAITER' | 'CASHIER' | 'MANAGER' | 'SUPER_ADMIN' | 'SESSION') => void;
   onOpenRestaurantMenu?: (slugOrId: string) => void;
 }
 

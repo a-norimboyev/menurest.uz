@@ -149,8 +149,24 @@ interface ShiftSummaryDto {
   };
 }
 
-export const CashierView: React.FC = () => {
-  const [restaurantId] = useState('rayhon-chilonzor');
+interface CashierViewProps {
+  restaurantId?: string;
+  authProfile?: any;
+}
+
+export const CashierView: React.FC<CashierViewProps> = ({
+  restaurantId: propRestId,
+  authProfile,
+}) => {
+  const [restaurantId, setRestaurantId] = useState(
+    authProfile?.activeRestaurant?.slug || authProfile?.activeRestaurant?.id || propRestId || 'rayhon-chilonzor'
+  );
+
+  useEffect(() => {
+    if (authProfile?.activeRestaurant?.slug || authProfile?.activeRestaurant?.id) {
+      setRestaurantId(authProfile.activeRestaurant.slug || authProfile.activeRestaurant.id);
+    }
+  }, [authProfile]);
 
   // State
   const [openBills, setOpenBills] = useState<OpenBillDto[]>([]);
@@ -562,7 +578,7 @@ export const CashierView: React.FC = () => {
       );
       const data = await res.json();
       if (res.ok && data.success) {
-        showToast(`Stol ${detailedBill.visit.tableNumber} tashrifi rasman yopildi (Stol 'DIRTY' holatiga o'tdi)`, 'success');
+        showToast(`Stol ${detailedBill.visit.tableNumber} tashrifi rasman yopildi (Stol bo'shatildi)`, 'success');
         setSelectedVisitId(null);
         setDetailedBill(null);
         fetchOpenBills();
@@ -600,9 +616,9 @@ export const CashierView: React.FC = () => {
               <Receipt className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">Kassa & Moliyaviy Domen</h1>
+              <h1 className="text-xl font-bold tracking-tight">Kassa</h1>
               <p className="text-xs text-brand-200">
-                Ochiq hisoblar: {openBills.length} ta • Qat'iy minor unit (tiyin) hisobi
+                Ochiq hisoblar: {openBills.length} ta
               </p>
             </div>
           </div>
@@ -1147,7 +1163,7 @@ export const CashierView: React.FC = () => {
                     onClick={handleCloseVisit}
                   >
                     <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                    Tashrifni Yopish & Stolni Bo'shatish (DIRTY)
+                    Tashrifni Yopish & Stolni Bo'shatish
                   </Button>
                   {!canCloseVisit && (
                     <p className="text-[10px] text-ink-secondary text-center mt-1.5">

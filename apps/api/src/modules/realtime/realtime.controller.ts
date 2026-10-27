@@ -10,7 +10,7 @@ import { Role, PaymentMethod, PaymentStatus, serializeBigInt } from '@menurest/s
 export const realtimeRouter = Router({ mergeParams: true });
 
 function getRestaurantId(req: Request): string {
-  return (req.params.restaurantId || req.restaurantId || req.user?.activeRestaurantId)!;
+  return (req.restaurantId || req.user?.activeRestaurantId || req.params.restaurantId)!;
 }
 
 function checkIsManager(req: Request): boolean {

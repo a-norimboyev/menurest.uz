@@ -253,6 +253,15 @@ export async function requireTenant(req: Request, res: Response, next: NextFunct
   }
 
   if (requestedTenant && req.user.activeRestaurantId && requestedTenant !== req.user.activeRestaurantId) {
+    const activeRest = await prisma.restaurant.findUnique({
+      where: { id: req.user.activeRestaurantId },
+      select: { id: true, slug: true },
+    });
+    if (activeRest && (activeRest.slug === requestedTenant || activeRest.id === requestedTenant)) {
+      req.restaurantId = activeRest.id;
+      return next();
+    }
+
     return res.status(404).json({
       success: false,
       error: {

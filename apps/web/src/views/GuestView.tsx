@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Search,
   ShoppingCart,
@@ -30,7 +30,7 @@ import { Skeleton } from '../components/ui/Skeleton.tsx';
 import { EmptyState } from '../components/ui/EmptyState.tsx';
 import { DishDetailModal, SelectedDishDetail, CartSubmitItem } from '../components/menu/DishDetailModal.tsx';
 import { useRealtime } from '../hooks/useRealtime.ts';
-import { ConnectionBanner, RealtimeIndicatorPill } from '../components/ui/ConnectionBanner.tsx';
+import { ConnectionBanner } from '../components/ui/ConnectionBanner.tsx';
 
 interface GuestOrderItemAddon {
   name: string;
@@ -76,6 +76,23 @@ interface GuestDish {
   }[];
 }
 
+const parseBannerUrls = (raw?: string | null): string[] => {
+  if (!raw) return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  if (trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+          .slice(0, 5);
+      }
+    } catch {}
+  }
+  return [trimmed];
+};
+
 export const GuestView: React.FC = () => {
   const [lang, setLang] = useState<'uz' | 'ru'>('uz');
   const [activeCategory, setActiveCategory] = useState('milliy');
@@ -93,13 +110,30 @@ export const GuestView: React.FC = () => {
     telegram?: string | null;
     instagram?: string | null;
     address?: string | null;
+    logoUrl?: string | null;
+    bannerUrl?: string | null;
   } | null>(null);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
+
+  const bannerUrls = useMemo(() => {
+    return parseBannerUrls(restaurantInfo?.bannerUrl);
+  }, [restaurantInfo?.bannerUrl]);
+
+  const [activeBannerIndex, setActiveBannerIndex] = useState(0);
+
+  // Muqova rasmlarini har 2 soniyada avto-almashlab turish
+  useEffect(() => {
+    if (bannerUrls.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveBannerIndex((prev) => (prev + 1) % bannerUrls.length);
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [bannerUrls.length]);
 
   // Bosqich 6-7: Stol va Mehmon Sessiyasi Holati
   const [tableStatus, setTableStatus] = useState<'FREE' | 'DIRTY' | 'OCCUPIED'>('OCCUPIED');
   const [tableNumber, setTableNumber] = useState<number>(4);
-  const [hallName, setHallName] = useState<string>('Asosiy Zal');
+  const [_hallName, setHallName] = useState<string>('Asosiy Zal');
   const [isJoined, setIsJoined] = useState<boolean>(false);
   const [qrToken] = useState<string>(() => {
     // 1. URL Path: /table/:qrToken
@@ -206,11 +240,21 @@ export const GuestView: React.FC = () => {
     },
   ]);
 
+  const targetRestaurantSlug = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const fromParam = urlParams.get('restaurant') || urlParams.get('slug');
+      if (fromParam) return fromParam;
+    }
+    return '';
+  }, []);
+
   // Public Menu Load
-  const loadPublicMenu = useCallback(async () => {
+  const loadPublicMenu = useCallback(async (slugOrId?: string) => {
+    const effectiveSlug = slugOrId || targetRestaurantSlug || 'rayhon-chilonzor';
     try {
       setLoadingMenu(true);
-      const res = await fetch(`/api/v1/public/restaurants/rayhon-chilonzor/menu?lang=${lang}`);
+      const res = await fetch(`/api/v1/public/restaurants/${effectiveSlug}/menu?lang=${lang}`);
       const json = await res.json();
       if (json.success && json.data) {
         if (json.data.restaurant) {
@@ -261,7 +305,7 @@ export const GuestView: React.FC = () => {
     } finally {
       setLoadingMenu(false);
     }
-  }, [lang, activeCategory]);
+  }, [lang, activeCategory, targetRestaurantSlug]);
 
   // Tashrif Buyurtmalarini yuklash (GET /api/v1/guest/orders)
   const fetchOrders = useCallback(async () => {
@@ -290,15 +334,23 @@ export const GuestView: React.FC = () => {
     try {
       const res = await fetch(`/api/v1/public/tables/${qrToken}`);
       const json = await res.json();
-      if (res.ok && json.success && json.data?.table) {
-        if (json.data.table.number) setTableNumber(json.data.table.number);
-        if (json.data.table.hall?.name) setHallName(json.data.table.hall.name);
-        if (json.data.table.status) setTableStatus(json.data.table.status);
+      if (res.ok && json.success && json.data) {
+        if (json.data.table) {
+          if (json.data.table.number) setTableNumber(json.data.table.number);
+          if (json.data.table.hall?.name) setHallName(json.data.table.hall.name);
+          if (json.data.table.status) setTableStatus(json.data.table.status);
+        }
+        if (json.data.restaurant) {
+          setRestaurantInfo((prev) => ({ ...prev, ...json.data.restaurant }));
+          if (json.data.restaurant.slug || json.data.restaurant.id) {
+            loadPublicMenu(json.data.restaurant.slug || json.data.restaurant.id);
+          }
+        }
       }
     } catch {
       // Fallback
     }
-  }, [qrToken]);
+  }, [qrToken, loadPublicMenu]);
 
   // Stolga avtomatik ulanish (PIN-siz to'g'ridan-to'g'ri)
   const joinTableDirectly = useCallback(async () => {
@@ -326,7 +378,7 @@ export const GuestView: React.FC = () => {
   }, [loadPublicMenu, loadTableInfo, joinTableDirectly]);
 
   // Jonli yangilanish (SSE) va ulanish nazorati
-  const { status, soundEnabled, toggleSound } = useRealtime({
+  const { status } = useRealtime({
     enabled: isJoined,
     guestToken: isJoined ? 'session-active' : undefined,
     onReconnect: () => {
@@ -633,71 +685,79 @@ export const GuestView: React.FC = () => {
   );
 
   return (
-    <div className="w-full max-w-5xl mx-auto min-h-screen bg-bg flex flex-col pb-28 relative select-none shadow-xl border-x border-line">
-      {/* Offline Ogohlantirish Paneli */}
-      <ConnectionBanner
-        status={status}
-        onManualRefresh={fetchOrders}
-      />
+    <div className="w-full min-h-screen bg-slate-100 flex justify-center">
+      <div className="w-full max-w-[480px] min-h-screen bg-bg flex flex-col pb-28 relative select-none sm:shadow-2xl sm:border-x sm:border-line">
+        {/* Offline Ogohlantirish Paneli */}
+        <ConnectionBanner
+          status={status}
+          onManualRefresh={fetchOrders}
+        />
 
       {/* 1. Restoran Banneri va Header */}
       <div className="relative bg-brand-900 text-white">
-        <div className="h-36 bg-gradient-to-r from-brand-950 via-brand-900 to-brand-800 relative overflow-hidden">
-          <img
-            src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80"
-            alt="Restoran"
-            className="w-full h-full object-cover opacity-25"
-          />
+        <div className="h-36 sm:h-44 bg-gradient-to-r from-brand-950 via-brand-900 to-brand-800 relative overflow-hidden">
+          {bannerUrls.length > 0 ? (
+            bannerUrls.map((url, idx) => (
+              <img
+                key={idx}
+                src={url}
+                alt={`Restoran muqovasi ${idx + 1}`}
+                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ease-in-out ${
+                  idx === (activeBannerIndex % bannerUrls.length) ? 'opacity-40' : 'opacity-0 pointer-events-none'
+                }`}
+              />
+            ))
+          ) : (
+            <img
+              src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80"
+              alt="Restoran"
+              className="w-full h-full object-cover opacity-35"
+            />
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-brand-950/90 to-transparent" />
+
+          {/* Ko'p rasm bo'lsa indikator nuqtalar */}
+          {bannerUrls.length > 1 && (
+            <div className="absolute top-3 right-3 z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+              {bannerUrls.map((_, idx) => (
+                <span
+                  key={idx}
+                  className={`h-1.5 rounded-full transition-all duration-300 ${
+                    idx === (activeBannerIndex % bannerUrls.length) ? 'w-4 bg-brand-400' : 'w-1.5 bg-white/50'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="px-4 pb-4 -mt-12 flex items-end justify-between relative z-10">
-          <div className="flex items-center space-x-3">
-            <div className="w-16 h-16 rounded-2xl bg-surface p-1 shadow-md border-2 border-surface shrink-0">
-              <div className="w-full h-full rounded-xl bg-brand flex items-center justify-center font-bold text-lg text-white">
-                RM
-              </div>
+        <div className="px-4 pb-4 -mt-10 flex items-end justify-between relative z-10 gap-2">
+          <div className="flex items-center space-x-2.5 min-w-0">
+            <div className="w-14 h-14 rounded-2xl bg-surface p-1 shadow-md border-2 border-surface shrink-0 overflow-hidden">
+              {restaurantInfo?.logoUrl ? (
+                <img
+                  src={restaurantInfo.logoUrl}
+                  alt={restaurantInfo.name || 'Logo'}
+                  className="w-full h-full object-cover rounded-xl"
+                />
+              ) : (
+                <div className="w-full h-full rounded-xl bg-brand flex items-center justify-center font-bold text-base text-white">
+                  {restaurantInfo?.name ? restaurantInfo.name.substring(0, 2).toUpperCase() : 'RM'}
+                </div>
+              )}
             </div>
-            <div>
-              <h1 className="text-base font-bold text-white tracking-tight leading-tight">
+            <div className="min-w-0">
+              <h1 className="text-sm font-bold text-white tracking-tight leading-tight truncate">
                 {restaurantInfo?.name || 'Rayhon Milliy Taomlar'}
               </h1>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="px-2 py-0.5 rounded-full bg-brand-800 text-brand-200 text-[11px] font-bold border border-brand-700">
-                  Stol #{tableNumber}
-                </span>
-                <span className="text-[11px] text-brand-200">{hallName}</span>
-                {isJoined && (
-                  <span className="inline-flex items-center gap-1 text-[10px] text-emerald-300 font-bold bg-emerald-950/60 px-2 py-0.5 rounded-full border border-emerald-500/30">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Ulangan
-                  </span>
-                )}
-              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {isJoined && (
-              <RealtimeIndicatorPill
-                status={status}
-                soundEnabled={soundEnabled}
-                onToggleSound={toggleSound}
-              />
-            )}
-            {/* Restoran haqida va Aloqa tugmasi */}
-            <button
-              onClick={() => setInfoModalOpen(true)}
-              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-surface/10 hover:bg-surface/20 text-white text-xs font-semibold backdrop-blur-md border border-white/20 transition-all min-h-[36px]"
-              title={lang === 'uz' ? "Restoran ma'lumotlari va aloqa" : 'О ресторане и контакты'}
-            >
-              <Info className="w-3.5 h-3.5 text-brand-200" />
-              <span className="hidden sm:inline">{lang === 'uz' ? 'Aloqa' : 'Контакты'}</span>
-            </button>
+          <div className="flex items-center gap-1.5 shrink-0">
             {/* Til almashtirish tugmasi */}
             <button
               onClick={() => setLang(lang === 'uz' ? 'ru' : 'uz')}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-surface/10 hover:bg-surface/20 text-white text-xs font-semibold backdrop-blur-md border border-white/20 transition-all min-h-[36px]"
+              className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-surface/10 hover:bg-surface/20 text-white text-xs font-semibold backdrop-blur-md border border-white/20 transition-all min-h-[34px]"
             >
               <Globe className="w-3.5 h-3.5 text-brand-200" />
               <span className="uppercase">{lang}</span>
@@ -759,7 +819,7 @@ export const GuestView: React.FC = () => {
           </div>
 
           {/* 3. Taomlar Ro'yxati */}
-          <div className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-3.5 flex-1 content-start">
+          <div className="p-4 grid grid-cols-1 gap-3.5 flex-1 content-start">
             {loadingMenu ? (
               <div className="space-y-3">
                 <Skeleton className="h-24 w-full rounded-2xl" />
@@ -1164,7 +1224,7 @@ export const GuestView: React.FC = () => {
 
       {/* 4. Qulay Savat Suzuvchi Paneli */}
       {totalCartCount > 0 && activeNav === 'menu' && (
-        <div className="fixed bottom-20 left-0 right-0 max-w-5xl mx-auto px-4 z-30 pointer-events-none">
+        <div className="fixed bottom-20 left-0 right-0 max-w-[480px] mx-auto px-4 z-30 pointer-events-none">
           <div
             onClick={() => setCartOpen(true)}
             className="pointer-events-auto bg-brand hover:bg-brand-hover text-white p-3.5 rounded-2xl shadow-xl flex items-center justify-between cursor-pointer border border-brand-hover transition-transform active:scale-[0.98]"
@@ -1194,7 +1254,7 @@ export const GuestView: React.FC = () => {
       )}
 
       {/* 5. Pastki Navigatsiya Paneli */}
-      <nav className="fixed bottom-0 left-0 right-0 max-w-5xl mx-auto h-16 bg-surface border-t border-line px-6 flex items-center justify-between z-40 shadow-lg">
+      <nav className="fixed bottom-0 left-0 right-0 max-w-[480px] mx-auto h-16 bg-surface border-t border-line px-6 flex items-center justify-between z-40 shadow-lg">
         <button
           onClick={() => setActiveNav('menu')}
           className={`flex flex-col items-center justify-center space-y-1 transition-colors min-h-[44px] min-w-[44px] ${
@@ -1468,5 +1528,6 @@ export const GuestView: React.FC = () => {
         </div>
       </Dialog>
     </div>
+  </div>
   );
 };

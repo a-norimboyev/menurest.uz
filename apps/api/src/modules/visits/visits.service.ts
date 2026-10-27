@@ -303,10 +303,10 @@ export class VisitsService {
         data: { isRevoked: true },
       });
 
-      // Stol holati: OCCUPIED -> DIRTY
+      // Stol holati: OCCUPIED -> FREE
       await tx.table.update({
         where: { id: visit.tableId },
-        data: { status: TableStatus.DIRTY },
+        data: { status: TableStatus.FREE },
       });
 
       // Audit log
@@ -321,7 +321,7 @@ export class VisitsService {
             tableId: visit.tableId,
             tableNumber: visit.table.number,
             previousTableStatus: TableStatus.OCCUPIED,
-            newTableStatus: TableStatus.DIRTY,
+            newTableStatus: TableStatus.FREE,
             closedAt: closedVisit.closedAt,
           },
         },
@@ -347,7 +347,7 @@ export class VisitsService {
         eventType: 'table.state_changed',
         payload: {
           tableId: visit.tableId,
-          status: TableStatus.DIRTY,
+          status: TableStatus.FREE,
         },
         scope: {
           restaurantId,
@@ -364,7 +364,7 @@ export class VisitsService {
       visitId: result.id,
       status: result.status,
       closedAt: result.closedAt,
-      tableStatus: TableStatus.DIRTY,
+      tableStatus: TableStatus.FREE,
     };
   }
 }

@@ -2,17 +2,15 @@ import React, { useState, useEffect } from 'react';
 import {
   Eye,
   EyeOff,
-  Crown,
   Briefcase,
-  ChefHat,
   Users,
-  Sparkles,
-  Lightbulb,
+  CreditCard,
+  Check,
 } from 'lucide-react';
 import { Dialog } from '../ui/Dialog.tsx';
 import { Button } from '../ui/Button.tsx';
 import { Input } from '../ui/Input.tsx';
-import { Role, type Permission } from '@menurest/shared';
+import { Role } from '@menurest/shared';
 
 export interface StaffFormData {
   id?: string;
@@ -38,14 +36,18 @@ interface StaffModalProps {
   allowedRoles?: string[];
 }
 
+const ROLE_CONFIG: Record<string, { label: string; icon: any; desc: string }> = {
+  [Role.MANAGER]: { label: 'Menejer', icon: Briefcase, desc: 'Boshqaruv va nazorat' },
+  [Role.CASHIER]: { label: 'Kassir', icon: CreditCard, desc: 'Hisob va to\'lovlar' },
+  [Role.WAITER]: { label: 'Ofitsiant', icon: Users, desc: 'Zal xizmati' },
+};
+
 export const StaffModal: React.FC<StaffModalProps> = ({
   isOpen,
   onClose,
   onSave,
   initialData,
-  availableStations = [],
-  availableTables = [],
-  actorRoles = [Role.BOSS],
+  actorRoles: _actorRoles = [Role.MANAGER],
   allowedRoles,
 }) => {
   const [formData, setFormData] = useState<StaffFormData>({
@@ -109,36 +111,6 @@ export const StaffModal: React.FC<StaffModalProps> = ({
     });
   };
 
-  const handleStationToggle = (stationId: string) => {
-    setFormData((prev) => {
-      const exists = prev.stationIds.includes(stationId);
-      const stationIds = exists
-        ? prev.stationIds.filter((id) => id !== stationId)
-        : [...prev.stationIds, stationId];
-      return { ...prev, stationIds };
-    });
-  };
-
-  const handleTableToggle = (tableId: string) => {
-    setFormData((prev) => {
-      const exists = prev.tableIds.includes(tableId);
-      const tableIds = exists
-        ? prev.tableIds.filter((id) => id !== tableId)
-        : [...prev.tableIds, tableId];
-      return { ...prev, tableIds };
-    });
-  };
-
-  const handlePermissionToggle = (perm: Permission) => {
-    setFormData((prev) => {
-      const exists = prev.customPermissions.includes(perm);
-      const customPermissions = exists
-        ? prev.customPermissions.filter((p) => p !== perm)
-        : [...prev.customPermissions, perm];
-      return { ...prev, customPermissions };
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.fullName.trim() || !formData.phone.trim()) {
@@ -162,33 +134,29 @@ export const StaffModal: React.FC<StaffModalProps> = ({
     }
   };
 
-  const canAssignBoss = actorRoles.includes(Role.SUPER_ADMIN);
-  const baseRoles: Role[] = [Role.MANAGER, Role.CASHIER, Role.WAITER, Role.KITCHEN];
+  const baseRoles: Role[] = [Role.MANAGER, Role.CASHIER, Role.WAITER];
   const selectableRoles: Role[] = allowedRoles && allowedRoles.length > 0
     ? baseRoles.filter((r) => allowedRoles.includes(r))
     : baseRoles;
-  if (canAssignBoss && (!allowedRoles || allowedRoles.includes('BOSS'))) {
-    selectableRoles.unshift(Role.BOSS);
-  }
 
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
       title={isEditing ? 'Xodimni Tahrirlash' : 'Yangi Xodim Qo\'shish'}
-      maxWidth="xl"
+      maxWidth="md"
     >
-      <div className="space-y-5">
+      <div className="space-y-4 pt-1">
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-sm rounded-xl">
+          <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-xs rounded-xl">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-ink-main mb-1">To'liq ismi</label>
+              <label className="block text-xs font-semibold text-ink-main mb-1">To'liq ismi *</label>
               <Input
                 placeholder="Azizbek Rahimov"
                 value={formData.fullName}
@@ -197,7 +165,7 @@ export const StaffModal: React.FC<StaffModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-ink-main mb-1">Telefon raqami</label>
+              <label className="block text-xs font-semibold text-ink-main mb-1">Telefon raqami (Login) *</label>
               <Input
                 placeholder="+998901234567"
                 value={formData.phone}
@@ -209,12 +177,12 @@ export const StaffModal: React.FC<StaffModalProps> = ({
 
           <div>
             <label className="block text-xs font-semibold text-ink-main mb-1">
-              Parol {isEditing && <span className="text-ink-secondary font-normal">(O'zgartirmaslik uchun bo'sh qoldiring)</span>}
+              Parol {isEditing && <span className="text-ink-secondary font-normal">(o'zgartirmaslik uchun bo'sh qoldiring)</span>} {!isEditing && '*'}
             </label>
             <div className="relative">
               <Input
                 type={showPassword ? 'text' : 'password'}
-                placeholder={isEditing ? '••••••••' : 'Kamida 6 belgi'}
+                placeholder={isEditing ? '••••••••' : 'Kamida 6 ta belgi'}
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required={!isEditing}
@@ -233,205 +201,45 @@ export const StaffModal: React.FC<StaffModalProps> = ({
             </div>
           </div>
 
-          {/* Rollar */}
-          <div>
-            <label className="block text-xs font-semibold text-ink-main mb-1.5">
-              Biriktirilgan Rollar (Bir nechta tanlash mumkin)
-            </label>
-
-            {/* Tezkor Shablonlar */}
-            <div className="mb-3 space-y-2 p-3 bg-bg rounded-xl border border-line">
-              <span className="text-[11px] text-ink-secondary flex items-center gap-1 font-bold">
-                <Lightbulb className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                O'zbekiston kafelari uchun jamoa kombinatsiyalari (1, 2, 3, 4, 5+ xodim):
-              </span>
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] text-ink-muted uppercase font-bold tracking-wider">1-2 xodim:</span>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, roles: [Role.WAITER, Role.CASHIER, Role.MANAGER] })}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-purple-100 text-purple-950 border border-purple-300 hover:bg-purple-200 transition-colors"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-purple-700" />
-                    Universal Operator (3 in 1: Kassa+Zal+Menejer)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, roles: [Role.WAITER, Role.CASHIER] })}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-100 text-amber-950 border border-amber-300 hover:bg-amber-200 transition-colors"
-                  >
-                    <Users className="w-3.5 h-3.5 text-amber-700" />
-                    Ofitsiant-Kassir (2 in 1)
-                  </button>
-                  {canAssignBoss && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, roles: [Role.BOSS, Role.MANAGER, Role.CASHIER, Role.WAITER] })}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-100 text-indigo-950 border border-indigo-300 hover:bg-indigo-200 transition-colors"
-                    >
-                      <Crown className="w-3.5 h-3.5 text-indigo-700" />
-                      Solo Egasi (4 in 1)
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] text-ink-muted uppercase font-bold tracking-wider">2-3 xodim:</span>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, roles: [Role.MANAGER, Role.CASHIER] })}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-surface text-ink-main border border-line hover:border-brand transition-colors"
-                  >
-                    <Briefcase className="w-3.5 h-3.5 text-indigo-600" />
-                    Menejer-Kassir
-                  </button>
-                  {selectableRoles.includes(Role.KITCHEN) && (
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, roles: [Role.KITCHEN] })}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-surface text-ink-main border border-line hover:border-brand transition-colors"
-                    >
-                      <ChefHat className="w-3.5 h-3.5 text-rose-600" />
-                      Oshpaz / Barman
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] text-ink-muted uppercase font-bold tracking-wider">Alohida rollar:</span>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, roles: [Role.WAITER] })}
-                    className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-surface text-ink-secondary border border-line hover:border-brand/40 transition-colors"
-                  >
-                    Faqat Ofitsiant
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, roles: [Role.CASHIER] })}
-                    className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-surface text-ink-secondary border border-line hover:border-brand/40 transition-colors"
-                  >
-                    Faqat Kassa
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, roles: [Role.MANAGER] })}
-                    className="px-2 py-0.5 rounded-lg text-[11px] font-medium bg-surface text-ink-secondary border border-line hover:border-brand/40 transition-colors"
-                  >
-                    Faqat Menejer
-                  </button>
-                </div>
-              </div>
+          {/* Xodim Lavozimlari (Rollar) */}
+          <div className="space-y-2 pt-2 border-t border-line">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-ink-main">
+                Lavozimi (Roli) *
+              </label>
+              <span className="text-[11px] text-ink-secondary">Bir nechta tanlash mumkin</span>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {selectableRoles.map((role) => {
                 const isSelected = formData.roles.includes(role);
+                const conf = ROLE_CONFIG[role] || { label: role, icon: Users, desc: '' };
+                const IconComponent = conf.icon;
                 return (
                   <button
                     key={role}
                     type="button"
                     onClick={() => handleRoleToggle(role)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors min-h-[38px] ${
+                    className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between min-h-[56px] relative ${
                       isSelected
-                        ? 'bg-brand text-white border-brand'
-                        : 'bg-bg text-ink-secondary border-line hover:border-brand/40'
+                        ? 'bg-brand/10 border-brand text-brand ring-1 ring-brand/30'
+                        : 'bg-bg text-ink-secondary border-line hover:border-brand/40 hover:bg-surface'
                     }`}
                   >
-                    {role}
+                    <div className="flex items-center justify-between w-full">
+                      <IconComponent className={`w-4 h-4 ${isSelected ? 'text-brand' : 'text-ink-muted'}`} />
+                      {isSelected && <Check className="w-3.5 h-3.5 text-brand" />}
+                    </div>
+                    <span className={`text-xs font-bold mt-1.5 block ${isSelected ? 'text-brand' : 'text-ink-main'}`}>
+                      {conf.label}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Stansiyalar (Oshxona / Bar) */}
-          {availableStations.length > 0 && (
-            <div>
-              <label className="block text-xs font-semibold text-ink-main mb-2">
-                Oshxona Stansiyalari (Oshpaz / Barman uchun)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {availableStations.map((st) => {
-                  const isSelected = formData.stationIds.includes(st.id);
-                  return (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => handleStationToggle(st.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors min-h-[38px] ${
-                        isSelected
-                          ? 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold'
-                          : 'bg-bg text-ink-secondary border-line'
-                      }`}
-                    >
-                      {st.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Stollar (Ofitsiant biriktiruvi) */}
-          {availableTables.length > 0 && (
-            <div>
-              <label className="block text-xs font-semibold text-ink-main mb-2">
-                Biriktirilgan Stollar (Ofitsiant uchun)
-              </label>
-              <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-bg rounded-xl border border-line">
-                {availableTables.map((t) => {
-                  const isSelected = formData.tableIds.includes(t.id);
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => handleTableToggle(t.id)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors min-h-[32px] ${
-                        isSelected
-                          ? 'bg-brand text-white border-brand'
-                          : 'bg-surface text-ink-secondary border-line'
-                      }`}
-                    >
-                      Stol {t.number}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Maxsus Ruxsatlar (Moliyaviy va ma'muriy huquqlar) */}
-          <div>
-            <label className="block text-xs font-semibold text-ink-main mb-1">
-              Maxsus Ruxsatlar (Boss sozlamasi bo'yicha)
-            </label>
-            <p className="text-[11px] text-ink-secondary mb-2">
-              Masalan: Menejerga chegirma tasdiqlash yoki refund huquqini berish/cheklash
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {['discounts.approve', 'refunds.approve', 'settings.manage', 'reports.view', 'audit.view', 'menu.manage'].map((perm) => {
-                const isChecked = formData.customPermissions.includes(perm);
-                return (
-                  <label
-                    key={perm}
-                    className="flex items-center space-x-2 text-xs p-2 rounded-xl bg-bg border border-line cursor-pointer hover:bg-surface"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => handlePermissionToggle(perm as Permission)}
-                      className="rounded text-brand focus:ring-brand"
-                    />
-                    <span className="font-mono text-[11px] text-ink-main">{perm}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-line flex justify-end gap-2">
+          <div className="pt-3 border-t border-line flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
               Bekor qilish
             </Button>

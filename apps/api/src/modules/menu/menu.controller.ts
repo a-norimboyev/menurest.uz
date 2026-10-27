@@ -173,7 +173,8 @@ menuRouter.delete(
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { restaurantId, categoryId } = req.params;
-      await menuService.deleteCategory(restaurantId, categoryId);
+      const force = req.query.force === 'true';
+      await menuService.deleteCategory(restaurantId, categoryId, force);
 
       return res.status(200).json({
         success: true,

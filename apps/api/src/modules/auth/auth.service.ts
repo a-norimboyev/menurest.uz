@@ -404,6 +404,160 @@ export class AuthService {
   }
 
   /**
+   * Foydalanuvchi hisob ma'lumotlarini (telefon va/yoki parol) yangilash
+   */
+  async updateCredentials(
+    userId: string,
+    payload: {
+      currentPassword: string;
+      newPhone?: string;
+      newPassword?: string;
+    },
+    ipAddress: string
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        memberships: {
+          where: { isActive: true },
+          include: {
+            restaurant: true,
+            roles: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw {
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: 'Foydalanuvchi topilmadi.',
+      };
+    }
+
+    const isMatch = await bcrypt.compare(payload.currentPassword, user.passwordHash);
+    if (!isMatch) {
+      throw {
+        statusCode: 400,
+        code: 'INVALID_CREDENTIALS',
+        message: 'Amaldagi parol noto\'g\'ri kiritildi.',
+      };
+    }
+
+    const cleanNewPhone = payload.newPhone ? payload.newPhone.trim() : null;
+    const hasPhoneChange = Boolean(cleanNewPhone && cleanNewPhone !== user.phone);
+    const hasPasswordChange = Boolean(payload.newPassword && payload.newPassword.trim().length > 0);
+
+    if (!hasPhoneChange && !hasPasswordChange) {
+      throw {
+        statusCode: 400,
+        code: 'NO_CHANGES',
+        message: 'O\'zgartirish uchun yangi telefon raqami yoki yangi parol kiritilmadi.',
+      };
+    }
+
+    if (hasPhoneChange) {
+      const digits = cleanNewPhone!.replace(/\D/g, '');
+      if (digits.length < 9) {
+        throw {
+          statusCode: 422,
+          code: 'VALIDATION_ERROR',
+          message: 'Telefon raqami kamida 9 ta raqamdan iborat bo\'lishi kerak.',
+        };
+      }
+
+      const existing = await prisma.user.findFirst({
+        where: {
+          phone: cleanNewPhone!,
+          NOT: { id: userId },
+        },
+      });
+
+      if (existing) {
+        throw {
+          statusCode: 409,
+          code: 'PHONE_ALREADY_EXISTS',
+          message: 'Ushbu telefon raqami boshqa foydalanuvchiga biriktirilgan.',
+        };
+      }
+    }
+
+    let newHash: string | undefined;
+    if (hasPasswordChange) {
+      if (payload.newPassword!.length < 6) {
+        throw {
+          statusCode: 422,
+          code: 'VALIDATION_ERROR',
+          message: 'Yangi parol kamida 6 ta belgidan iborat bo\'lishi kerak.',
+        };
+      }
+      newHash = await bcrypt.hash(payload.newPassword!, 10);
+    }
+
+    const updateData: any = {
+      tokenVersion: { increment: 1 },
+    };
+    if (hasPhoneChange) {
+      updateData.phone = cleanNewPhone!;
+    }
+    if (hasPasswordChange && newHash) {
+      updateData.passwordHash = newHash;
+      updateData.plainPassword = payload.newPassword!;
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+
+    // Yangi token va CSRF generatsiya qilish
+    const activeMembership = user.memberships[0];
+    const roles = activeMembership
+      ? activeMembership.roles.map((r) => r.role as Role)
+      : user.isSuperAdmin
+      ? [Role.SUPER_ADMIN]
+      : [];
+
+    const sessionPayload: SessionPayload = {
+      userId: updatedUser.id,
+      activeRestaurantId: activeMembership?.restaurantId,
+      tokenVersion: updatedUser.tokenVersion,
+      membershipTokenVersion: activeMembership?.tokenVersion,
+    };
+
+    const sessionToken = jwt.sign(sessionPayload, JWT_SECRET, {
+      expiresIn: JWT_EXPIRES_IN,
+    });
+
+    const csrfToken = crypto.randomUUID();
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: userId,
+        action: 'AUTH_CREDENTIALS_UPDATE',
+        entityName: 'User',
+        entityId: userId,
+        reason: `Hisob ma'lumotlari yangilandi: ${hasPhoneChange ? 'telefon raqami ' : ''}${hasPasswordChange ? 'parol' : ''}`,
+        ipAddress,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Hisob ma\'lumotlari muvaffaqiyatli yangilandi.',
+      sessionToken,
+      csrfToken,
+      user: {
+        id: updatedUser.id,
+        phone: updatedUser.phone,
+        fullName: updatedUser.fullName,
+        isSuperAdmin: updatedUser.isSuperAdmin,
+      },
+    };
+  }
+
+  /**
    * Xodimni faolsizlantirish (va uning sessiyalarini darhol bekor qilish)
    */
   async deactivateStaff(actorUser: any, targetUserId: string, restaurantId: string, ipAddress: string) {

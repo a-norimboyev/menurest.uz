@@ -100,10 +100,24 @@ interface WaiterTableItem {
   } | null;
 }
 
-export const WaiterView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'calls' | 'ready' | 'pending' | 'tables'>('calls');
+interface WaiterViewProps {
+  restaurantSlug?: string;
+  authProfile?: any;
+}
+
+export const WaiterView: React.FC<WaiterViewProps> = ({
+  restaurantSlug: propSlug,
+  authProfile,
+}) => {
+  const [activeTab, setActiveTab] = useState<'calls' | 'ready' | 'pending' | 'tables'>('tables');
   const [loading, setLoading] = useState(false);
-  const [restaurantSlug] = useState('rayhon-chilonzor');
+  const [restaurantSlug, setRestaurantSlug] = useState(authProfile?.activeRestaurant?.slug || propSlug || 'rayhon-chilonzor');
+
+  useEffect(() => {
+    if (authProfile?.activeRestaurant?.slug) {
+      setRestaurantSlug(authProfile.activeRestaurant.slug);
+    }
+  }, [authProfile]);
 
   // Dashboard Data
   const [metrics, setMetrics] = useState({
@@ -626,7 +640,7 @@ export const WaiterView: React.FC = () => {
       />
 
       {/* Header */}
-      <div className="bg-brand-900 text-white p-4 sticky top-0 z-20 shadow-subtle space-y-3">
+      <div className="bg-brand-900 text-white p-4 sm:px-6 lg:px-8 sticky top-0 z-20 shadow-subtle space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
             <div className="w-9 h-9 rounded-xl bg-brand-700 flex items-center justify-center font-bold text-sm text-white shadow-inner">
@@ -634,7 +648,7 @@ export const WaiterView: React.FC = () => {
             </div>
             <div>
               <h1 className="text-sm font-bold tracking-tight">Ofitsiant Paneli</h1>
-              <p className="text-[11px] text-brand-200">Rayhon Milliy Taomlar • Mobil</p>
+              <p className="text-[11px] text-brand-200">Stollar va buyurtmalar</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -715,7 +729,7 @@ export const WaiterView: React.FC = () => {
       {/* FEEDBACK TOAST / BANNER */}
       {feedbackMsg && (
         <div
-          className={`mx-4 mt-3 p-3 rounded-2xl text-xs font-bold shadow-lg flex items-center justify-between animate-fade-in ${
+          className={`mx-4 sm:mx-6 lg:mx-8 mt-3 p-3 rounded-2xl text-xs font-bold shadow-lg flex items-center justify-between animate-fade-in ${
             feedbackMsg.type === 'success'
               ? 'bg-emerald-800 text-white border border-emerald-600'
               : 'bg-rose-800 text-white border border-rose-600'
@@ -737,7 +751,7 @@ export const WaiterView: React.FC = () => {
 
       {/* Not Logged In Warning Banner */}
       {!isLoggedIn && (
-        <div className="mx-4 mt-3 p-4 bg-amber-50 border border-amber-300 rounded-2xl text-xs text-amber-900 space-y-1.5">
+        <div className="mx-4 sm:mx-6 lg:mx-8 mt-3 p-4 bg-amber-50 border border-amber-300 rounded-2xl text-xs text-amber-900 space-y-1.5">
           <div className="font-bold flex items-center gap-1.5 text-amber-950">
             <AlertTriangle className="w-4 h-4 text-amber-600" />
             Ofitsiant sessiyasi talab qilinadi

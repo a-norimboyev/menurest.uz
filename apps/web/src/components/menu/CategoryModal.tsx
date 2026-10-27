@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog } from '../ui/Dialog.tsx';
 import { Button } from '../ui/Button.tsx';
 import { Input } from '../ui/Input.tsx';
@@ -19,6 +19,14 @@ export const CategoryModal: React.FC<CategoryModalProps> = ({
   const [name, setName] = useState(initialData?.name || '');
   const [sortOrder, setSortOrder] = useState(initialData?.sortOrder ?? 0);
   const [isVisible, setIsVisible] = useState(initialData?.isVisible ?? true);
+
+  useEffect(() => {
+    if (isOpen) {
+      setName(initialData?.name || '');
+      setSortOrder(initialData?.sortOrder ?? 0);
+      setIsVisible(initialData?.isVisible ?? true);
+    }
+  }, [isOpen, initialData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -11,7 +11,7 @@ import { serializeBigInt } from '@menurest/shared';
 export const billingRouter = Router();
 
 function getRestaurantId(req: Request): string {
-  return req.params.restaurantId || (req.restaurantId as string);
+  return (req.restaurantId || req.user?.activeRestaurantId || req.params.restaurantId)!;
 }
 
 /**

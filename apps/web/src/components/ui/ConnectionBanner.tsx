@@ -1,4 +1,4 @@
-import { WifiOff, RefreshCw, Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX } from 'lucide-react';
 import type { ConnectionStatus } from '../../hooks/useRealtime.ts';
 
 interface ConnectionBannerProps {
@@ -7,44 +7,10 @@ interface ConnectionBannerProps {
 }
 
 export function ConnectionBanner({
-  status,
-  onManualRefresh,
+  status: _status,
+  onManualRefresh: _onManualRefresh,
 }: ConnectionBannerProps) {
-  if (status === 'CONNECTED') {
-    return null;
-  }
-
-  return (
-    <div className="w-full">
-      {/* Offline Alert Bar */}
-      {status === 'DISCONNECTED' && (
-        <div className="bg-red-600 text-white px-4 py-2.5 flex items-center justify-between text-xs sm:text-sm font-medium shadow-md transition-all animate-pulse">
-          <div className="flex items-center space-x-2">
-            <WifiOff className="w-4 h-4 shrink-0" />
-            <span>Ulanish uzildi, holat yangilanmayapti. Qayta ulanish kutilmoqda...</span>
-          </div>
-          {onManualRefresh && (
-            <button
-              onClick={onManualRefresh}
-              className="ml-3 px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors"
-            >
-              <RefreshCw className="w-3 h-3" /> Yangilash
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Connecting status bar */}
-      {status === 'CONNECTING' && (
-        <div className="bg-amber-600 text-white px-4 py-1.5 flex items-center justify-between text-xs font-medium shadow-sm">
-          <div className="flex items-center space-x-2">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            <span>Serverga jonli ulanish o'rnatilmoqda...</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return null;
 }
 
 export function RealtimeIndicatorPill({

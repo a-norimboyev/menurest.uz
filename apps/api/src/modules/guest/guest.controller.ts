@@ -33,6 +33,12 @@ guestRouter.get('/session', async (req: Request, res: Response, next: NextFuncti
             name: true,
             slug: true,
             currency: true,
+            logoUrl: true,
+            bannerUrl: true,
+            phone: true,
+            address: true,
+            telegram: true,
+            instagram: true,
           },
         },
         orders: {

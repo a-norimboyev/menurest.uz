@@ -13,20 +13,17 @@ export const Status: React.FC<StatusProps> = ({ type, value }) => {
 
   if (type === 'table') {
     switch (value) {
-      case 'FREE':
-        label = "Bo'sh (Buyurtma yo'q)";
-        variant = 'neutral';
-        dotColor = 'bg-slate-400';
-        break;
       case 'OCCUPIED':
         label = 'Faol (Band)';
         variant = 'success';
         dotColor = 'bg-emerald-500 animate-pulse';
         break;
+      case 'FREE':
       case 'DIRTY':
-        label = 'Tozalash kutilmoqda';
-        variant = 'danger';
-        dotColor = 'bg-red-500';
+      default:
+        label = "Bo'sh (Buyurtma yo'q)";
+        variant = 'neutral';
+        dotColor = 'bg-slate-400';
         break;
     }
   } else if (type === 'item') {

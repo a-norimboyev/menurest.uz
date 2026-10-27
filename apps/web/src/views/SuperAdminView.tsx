@@ -27,13 +27,9 @@ import {
   LogOut,
   Sliders,
   Crown,
-  Briefcase,
   CreditCard,
-  ChefHat,
-  ConciergeBell,
   UtensilsCrossed,
   Users,
-  QrCode,
   ExternalLink,
   MapPin,
   Menu,
@@ -46,76 +42,6 @@ import { Badge } from '../components/ui/Badge.tsx';
 import { Dialog } from '../components/ui/Dialog.tsx';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '../components/ui/Table.tsx';
 import type { PlatformOverviewDto, PlatformRestaurantItemDto } from '@menurest/shared';
-
-export const RESTAURANT_ROLES_CONFIG = [
-  {
-    key: 'BOSS',
-    label: 'Boss',
-    desc: '',
-    badge: 'Boss',
-    colorBg: 'bg-amber-500/10 text-amber-600 border-amber-200/60',
-    required: false,
-  },
-  {
-    key: 'MANAGER',
-    label: 'Menejer',
-    desc: '',
-    badge: 'Menejer',
-    colorBg: 'bg-indigo-500/10 text-indigo-600 border-indigo-200/60',
-    required: false,
-  },
-  {
-    key: 'CASHIER',
-    label: 'Kassa',
-    desc: '',
-    badge: 'Kassa',
-    colorBg: 'bg-emerald-500/10 text-emerald-600 border-emerald-200/60',
-    required: false,
-  },
-  {
-    key: 'KITCHEN',
-    label: 'Oshxona',
-    desc: '',
-    badge: 'Oshxona',
-    colorBg: 'bg-rose-500/10 text-rose-600 border-rose-200/60',
-    required: false,
-  },
-  {
-    key: 'WAITER',
-    label: 'Ofitsiant',
-    desc: '',
-    badge: 'Ofitsiant',
-    colorBg: 'bg-purple-500/10 text-purple-600 border-purple-200/60',
-    required: false,
-  },
-  {
-    key: 'GUEST',
-    label: 'QR Menyu',
-    desc: '',
-    badge: 'QR Menyu',
-    colorBg: 'bg-blue-500/10 text-blue-600 border-blue-200/60',
-    required: false,
-  },
-];
-
-export function getRoleIcon(key: string, className = 'w-5 h-5') {
-  switch (key) {
-    case 'BOSS':
-      return <Crown className={className} />;
-    case 'MANAGER':
-      return <Briefcase className={className} />;
-    case 'CASHIER':
-      return <CreditCard className={className} />;
-    case 'KITCHEN':
-      return <ChefHat className={className} />;
-    case 'WAITER':
-      return <ConciergeBell className={className} />;
-    case 'GUEST':
-      return <QrCode className={className} />;
-    default:
-      return <User className={className} />;
-  }
-}
 
 export interface ActiveSupportSession {
   token: string;
@@ -177,16 +103,8 @@ export const SuperAdminView: React.FC = () => {
   const [showPassword, setShowPassword] = useState(true);
   const [passwordCopied, setPasswordCopied] = useState(false);
   const [newRestAllowedRoles, setNewRestAllowedRoles] = useState<string[]>([
-    'BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST',
+    'MANAGER', 'CASHIER', 'WAITER', 'GUEST',
   ]);
-
-  // Form states for Roles Edit Modal
-  const [rolesModalOpen, setRolesModalOpen] = useState(false);
-  const [editingRestForRoles, setEditingRestForRoles] = useState<PlatformRestaurantItemDto | null>(null);
-  const [editAllowedRoles, setEditAllowedRoles] = useState<string[]>([]);
-  const [rolesLoading, setRolesLoading] = useState(false);
-  const [rolesError, setRolesError] = useState<string | null>(null);
-  const [rolesSuccess, setRolesSuccess] = useState<string | null>(null);
 
   function handleGeneratePassword() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
@@ -364,44 +282,12 @@ export const SuperAdminView: React.FC = () => {
         setCustomPlanName('');
         setNewOwnerPhone('');
         setNewOwnerPassword('');
-        setNewRestAllowedRoles(['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST']);
+        setNewRestAllowedRoles(['MANAGER', 'CASHIER', 'WAITER', 'GUEST']);
         setShowPassword(true);
         setRefreshTrigger((c) => c + 1);
       }, 1500);
     } catch (err: any) {
       setCreateError(err.message || 'Server xatosi');
-    }
-  }
-
-  // Handle Save Edited Roles for Existing Restaurant
-  async function handleSaveEditedRoles() {
-    if (!editingRestForRoles) return;
-    setRolesLoading(true);
-    setRolesError(null);
-    setRolesSuccess(null);
-
-    try {
-      const res = await fetch(`/api/v1/platform/restaurants/${editingRestForRoles.id}/roles`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ allowedRoles: editAllowedRoles }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setRolesError(json.error?.message || 'Rollarni yangilashda xatolik yuz berdi');
-        return;
-      }
-      setRolesSuccess('Restoran rollari muvaffaqiyatli saqlandi!');
-      setTimeout(() => {
-        setRolesModalOpen(false);
-        setRolesSuccess(null);
-        setRefreshTrigger((c) => c + 1);
-      }, 1200);
-    } catch (err: any) {
-      setRolesError(err.message || 'Server xatosi');
-    } finally {
-      setRolesLoading(false);
     }
   }
 
@@ -566,7 +452,7 @@ export const SuperAdminView: React.FC = () => {
     }
   }
 
-  // Handle Direct Entry into Restaurant as Boss / Administrator
+  // Handle Direct Entry into Restaurant as Manager / Administrator
   async function handleEnterRestaurantAsBoss(restaurant: PlatformRestaurantItemDto) {
     try {
       setEnteringRestaurantId(restaurant.id);
@@ -581,7 +467,7 @@ export const SuperAdminView: React.FC = () => {
       }
 
       window.dispatchEvent(new Event('menurest_auth_change'));
-      window.location.hash = '#boss';
+      window.location.hash = '#manager';
       window.location.reload();
     } catch (err: any) {
       alert(err.message || 'Restoranga kirib bo\'lmadi');
@@ -813,8 +699,8 @@ export const SuperAdminView: React.FC = () => {
           <div className="relative w-72 max-w-[85vw] bg-surface h-full shadow-2xl border-r border-line p-4 flex flex-col justify-between z-10 animate-in slide-in-from-left duration-200">
             <div className="space-y-4">
               <div className="flex items-center justify-between border-b border-line pb-3">
-                <div className="flex items-center space-x-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center">
+                <div className="flex items-center space-x-2.5 px-1">
+                  <div className="w-5 h-5 flex items-center justify-center shrink-0">
                     <ShieldCheck className="w-5 h-5 text-brand" />
                   </div>
                   <div>
@@ -1838,7 +1724,7 @@ export const SuperAdminView: React.FC = () => {
             </div>
           </div>
 
-          {/* Section 2: Boshqaruvchi Hisobi (Boss yoki Menejer) */}
+          {/* Section 2: Boshqaruvchi Hisobi (Menejer) */}
           <div className="bg-surface rounded-2xl border border-line p-6 space-y-4 shadow-sm">
             <div className="flex items-center gap-2.5 border-b border-line pb-3">
               <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
@@ -1846,19 +1732,17 @@ export const SuperAdminView: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-sm font-bold text-ink-main">
-                  Restoran Boshqaruvchisi ({newRestAllowedRoles.includes('BOSS') ? 'Boss' : 'Menejer'}) Hisobi
+                  Restoran Menejeri (Boshqaruvchi) Hisobi
                 </h4>
                 <p className="text-[11px] text-ink-secondary">
-                  {newRestAllowedRoles.includes('BOSS')
-                    ? "Restoran egasiga to'liq boshqaruv kabineti yaratiladi."
-                    : "Boshqaruv to'liq Menejerga topshiriladi (Boss-siz rejim)."}
+                  Restoran boshqaruvchisiga to'liq boshqaruv kabineti yaratiladi.
                 </p>
               </div>
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-ink-main">
-                {newRestAllowedRoles.includes('BOSS') ? 'Boss' : 'Menejer'} Telefoni (Login) *
+                Menejer Telefoni (Login) *
               </label>
               <Input
                 value={newOwnerPhone}
@@ -1923,75 +1807,6 @@ export const SuperAdminView: React.FC = () => {
             </div>
           </div>
 
-          {/* Section 3: Restoranning Faol Rollari va Modullari */}
-          <div className="bg-surface rounded-2xl border border-line p-6 space-y-4 shadow-sm">
-            <div className="flex items-center gap-2.5 border-b border-line pb-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
-                <ShieldCheck className="w-4 h-4" />
-              </div>
-              <h4 className="text-sm font-bold text-ink-main">Faol Rollar va Modullar</h4>
-            </div>
-
-            {/* 6 ta Rol Kartochkalari */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {RESTAURANT_ROLES_CONFIG.map((role) => {
-                const isSelected = newRestAllowedRoles.includes(role.key);
-                return (
-                  <button
-                    key={role.key}
-                    type="button"
-                    onClick={() => {
-                      if (isSelected) {
-                        // Agar BOSS ni o'chirmoqchi bo'lsa va MANAGER ham yo'q bo'lsa
-                        if (role.key === 'BOSS' && !newRestAllowedRoles.includes('MANAGER')) {
-                          setCreateError("Restoranni boshqarish uchun kamida bitta Boshqaruvchi (Boss yoki Menejer) tanlangan bo'lishi shart.");
-                          return;
-                        }
-                        // Agar MANAGER ni o'chirmoqchi bo'lsa va BOSS ham yo'q bo'lsa
-                        if (role.key === 'MANAGER' && !newRestAllowedRoles.includes('BOSS')) {
-                          setCreateError("Restoranni boshqarish uchun kamida bitta Boshqaruvchi (Boss yoki Menejer) tanlangan bo'lishi shart.");
-                          return;
-                        }
-                        setCreateError(null);
-                        setNewRestAllowedRoles(newRestAllowedRoles.filter((r) => r !== role.key));
-                      } else {
-                        setCreateError(null);
-                        setNewRestAllowedRoles([...newRestAllowedRoles, role.key]);
-                      }
-                    }}
-                    className={`p-3 rounded-xl border text-left transition-all relative flex items-center justify-between min-h-[52px] ${
-                      isSelected
-                        ? 'border-brand bg-brand/5 shadow-xs'
-                        : 'border-line bg-bg/50 opacity-60 hover:opacity-100 hover:border-line-hover'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${
-                          isSelected ? role.colorBg : 'bg-surface border-line text-ink-muted'
-                        }`}
-                      >
-                        {getRoleIcon(role.key, 'w-4 h-4')}
-                      </div>
-                      <span className="text-sm font-bold text-ink-main block">
-                        {role.label}
-                      </span>
-                    </div>
-                    <div
-                      className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
-                        isSelected
-                          ? 'bg-brand text-white shadow-xs'
-                          : 'border border-line bg-surface text-transparent'
-                      }`}
-                    >
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-line">
             <Button variant="ghost" type="button" onClick={() => setCreateModalOpen(false)}>
@@ -2002,102 +1817,6 @@ export const SuperAdminView: React.FC = () => {
             </Button>
           </div>
         </form>
-      </Dialog>
-
-      {/* MODAL: Restoran Rollari va Modullarini Tahrirlash Dialog */}
-      <Dialog
-        isOpen={rolesModalOpen}
-        onClose={() => setRolesModalOpen(false)}
-        title={`Restoran Rollari & Modullari: ${editingRestForRoles?.name || ''}`}
-        maxWidth="2xl"
-      >
-        <div className="space-y-4 pt-2">
-          {rolesError && (
-            <div className="p-3 bg-red-50 text-red-900 border border-red-200 rounded-xl text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-              <span>{rolesError}</span>
-            </div>
-          )}
-          {rolesSuccess && (
-            <div className="p-3 bg-emerald-50 text-emerald-900 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{rolesSuccess}</span>
-            </div>
-          )}
-
-          {/* 6 ta Rol Kartochkalari */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {RESTAURANT_ROLES_CONFIG.map((role) => {
-              const isSelected = editAllowedRoles.includes(role.key);
-              return (
-                <button
-                  key={role.key}
-                  type="button"
-                  onClick={() => {
-                    if (isSelected) {
-                      // Agar BOSS ni o'chirmoqchi bo'lsa va MANAGER ham yo'q bo'lsa
-                      if (role.key === 'BOSS' && !editAllowedRoles.includes('MANAGER')) {
-                        setRolesError("Restoranni boshqarish uchun kamida bitta Boshqaruvchi (Boss yoki Menejer) tanlangan bo'lishi shart.");
-                        return;
-                      }
-                      // Agar MANAGER ni o'chirmoqchi bo'lsa va BOSS ham yo'q bo'lsa
-                      if (role.key === 'MANAGER' && !editAllowedRoles.includes('BOSS')) {
-                        setRolesError("Restoranni boshqarish uchun kamida bitta Boshqaruvchi (Boss yoki Menejer) tanlangan bo'lishi shart.");
-                        return;
-                      }
-                      setRolesError(null);
-                      setEditAllowedRoles(editAllowedRoles.filter((r) => r !== role.key));
-                    } else {
-                      setRolesError(null);
-                      setEditAllowedRoles([...editAllowedRoles, role.key]);
-                    }
-                  }}
-                  className={`p-3 rounded-xl border text-left transition-all relative flex items-center justify-between min-h-[52px] ${
-                    isSelected
-                      ? 'border-brand bg-brand/5 shadow-xs'
-                      : 'border-line bg-bg/50 opacity-60 hover:opacity-100 hover:border-line-hover'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 transition-colors ${
-                        isSelected ? role.colorBg : 'bg-surface border-line text-ink-muted'
-                      }`}
-                    >
-                      {getRoleIcon(role.key, 'w-4 h-4')}
-                    </div>
-                    <span className="text-sm font-bold text-ink-main block">
-                      {role.label}
-                    </span>
-                  </div>
-                  <div
-                    className={`w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
-                      isSelected
-                        ? 'bg-brand text-white shadow-xs'
-                        : 'border border-line bg-surface text-transparent'
-                    }`}
-                  >
-                    <Check className="w-3.5 h-3.5 stroke-[3]" />
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-line">
-            <Button variant="ghost" onClick={() => setRolesModalOpen(false)}>
-              Bekor qilish
-            </Button>
-            <Button
-              variant="primary"
-              disabled={rolesLoading}
-              onClick={handleSaveEditedRoles}
-              className="min-w-[140px]"
-            >
-              {rolesLoading ? 'Saqlanmoqda...' : 'Rollarini Saqlash'}
-            </Button>
-          </div>
-        </div>
       </Dialog>
 
       {/* MODAL 2: Change Status (ACTIVE / SUSPENDED) */}
@@ -2292,25 +2011,21 @@ export const SuperAdminView: React.FC = () => {
                     <span className="font-mono bg-bg px-2 py-0.5 rounded border border-line">
                       /{selectedRestaurant.slug}
                     </span>
-                    <span>•</span>
-                    <span className="font-mono text-[11px]">ID: {selectedRestaurant.id.slice(0, 8)}...</span>
-                    <span>•</span>
-                    <span>Yaratilgan: {new Date(selectedRestaurant.createdAt).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Harakat: Boshliq kabinetiga kirish */}
+              {/* Harakat: Menejer kabinetiga kirish */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => handleEnterRestaurantAsBoss(selectedRestaurant)}
                   disabled={enteringRestaurantId === selectedRestaurant.id}
                   className="px-3 py-1.5 text-xs font-bold rounded-lg bg-brand text-white hover:bg-brand/90 flex items-center gap-1.5 transition-all shadow-xs"
-                  title="Restoranga Boshliq (Administrator) sifatida to'g'ridan-to'g'ri kirish"
+                  title="Restoranga Menejer sifatida to'g'ridan-to'g'ri kirish"
                 >
                   <LogIn className={`w-3.5 h-3.5 ${enteringRestaurantId === selectedRestaurant.id ? 'animate-spin' : ''}`} />
-                  <span>Boshliq kabinetiga o'tish</span>
+                  <span>Menejer kabinetiga o'tish</span>
                   <ExternalLink className="w-3.5 h-3.5 opacity-80" />
                 </button>
               </div>
@@ -2479,74 +2194,13 @@ export const SuperAdminView: React.FC = () => {
               </div>
             </div>
 
-            {/* 3. Middle 2-Columns Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {/* Card 4: Faol Rollar va Modullar */}
-              <div className="p-3.5 bg-surface rounded-xl border border-line shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between pb-1.5 border-b border-line/60">
-                  <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    Faol Rollar & Modullar ({selectedRestaurant.allowedRoles ? selectedRestaurant.allowedRoles.length : 6} ta)
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDetailModalOpen(false);
-                      setEditingRestForRoles(selectedRestaurant);
-                      setEditAllowedRoles(
-                        selectedRestaurant.allowedRoles || ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST']
-                      );
-                      setRolesError(null);
-                      setRolesSuccess(null);
-                      setRolesModalOpen(true);
-                    }}
-                    className="text-[11px] font-bold text-brand hover:underline flex items-center gap-1"
-                  >
-                    <Sliders className="w-3 h-3" />
-                    Sozlash
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                  {RESTAURANT_ROLES_CONFIG.map((role) => {
-                    const isAllowed = selectedRestaurant.allowedRoles
-                      ? selectedRestaurant.allowedRoles.includes(role.key)
-                      : true;
-                    return (
-                      <div
-                        key={role.key}
-                        className={`p-2 rounded-lg border text-xs flex items-center gap-2 transition-all ${
-                          isAllowed
-                            ? 'bg-surface border-line shadow-2xs'
-                            : 'bg-bg/40 border-line/40 opacity-40 grayscale'
-                        }`}
-                      >
-                        <div
-                          className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 text-xs ${
-                            isAllowed ? role.colorBg : 'bg-surface border border-line text-ink-muted'
-                          }`}
-                        >
-                          {getRoleIcon(role.key, 'w-3 h-3')}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <span className="font-bold text-ink-main block text-[11px] truncate">{role.label}</span>
-                          <span className="text-[9px] text-ink-muted block">
-                            {isAllowed ? 'Faol' : 'O\'chirilgan'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Card 5: Aloqa va Ijtimoiy Tarmoqlar */}
-              <div className="p-3.5 bg-surface rounded-xl border border-line shadow-2xs space-y-2.5">
-                <div className="flex items-center justify-between pb-1.5 border-b border-line/60">
-                  <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-brand" />
-                    Aloqa va Manzil
-                  </span>
+            {/* Card: Aloqa va Manzil */}
+            <div className="p-3.5 bg-surface rounded-xl border border-line shadow-2xs space-y-2.5">
+              <div className="flex items-center justify-between pb-1.5 border-b border-line/60">
+                <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
+                  <Phone className="w-3.5 h-3.5 text-brand" />
+                  Aloqa va Manzil
+                </span>
                 </div>
 
                 <div className="space-y-2 text-xs">
@@ -2600,7 +2254,6 @@ export const SuperAdminView: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </div>
 
             {/* Suspended Reason Banner (faqat to'xtatilgan bo'lsa chiqadi) */}
             {selectedRestaurant.status === 'SUSPENDED' && (
@@ -2637,24 +2290,6 @@ export const SuperAdminView: React.FC = () => {
                 >
                   <KeyRound className="w-3.5 h-3.5 mr-1 text-brand" />
                   Login & Parol
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setDetailModalOpen(false);
-                    setEditingRestForRoles(selectedRestaurant);
-                    setEditAllowedRoles(
-                      selectedRestaurant.allowedRoles || ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST']
-                    );
-                    setRolesError(null);
-                    setRolesSuccess(null);
-                    setRolesModalOpen(true);
-                  }}
-                  className="text-xs h-8 text-brand border-brand/30 hover:bg-brand/5"
-                >
-                  <Sliders className="w-3.5 h-3.5 mr-1 text-brand" />
-                  Rollar
                 </Button>
                 <Button
                   variant="outline"

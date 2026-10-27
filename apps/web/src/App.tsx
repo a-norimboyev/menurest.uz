@@ -17,7 +17,6 @@ import { RestaurantSelectorModal } from './components/RestaurantSelectorModal.ts
 import { ChangePasswordModal } from './components/ChangePasswordModal.tsx';
 import { GuestView } from './views/GuestView.tsx';
 import { WaiterView } from './views/WaiterView.tsx';
-import { KitchenView } from './views/KitchenView.tsx';
 import { CashierView } from './views/CashierView.tsx';
 import { ManagerView } from './views/ManagerView.tsx';
 import { SuperAdminView } from './views/SuperAdminView.tsx';
@@ -61,7 +60,7 @@ interface UserProfile {
   csrfToken?: string;
 }
 
-type PreviewRole = 'HOME' | 'SESSION' | 'GUEST' | 'WAITER' | 'KITCHEN' | 'CASHIER' | 'MANAGER' | 'BOSS' | 'SUPER_ADMIN';
+type PreviewRole = 'HOME' | 'SESSION' | 'GUEST' | 'WAITER' | 'CASHIER' | 'MANAGER' | 'SUPER_ADMIN';
 
 export default function App() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
@@ -83,10 +82,8 @@ export default function App() {
         return 'SUPER_ADMIN';
       }
       if (target.includes('waiter')) return 'WAITER';
-      if (target.includes('kitchen')) return 'KITCHEN';
       if (target.includes('cashier')) return 'CASHIER';
-      if (target.includes('manager')) return 'MANAGER';
-      if (target.includes('boss')) return 'BOSS';
+      if (target.includes('manager') || target.includes('boss') || target.includes('kitchen')) return 'MANAGER';
       if (target.includes('session')) return 'SESSION';
       if (target.includes('/table/') || target.includes('qr=') || target.includes('token=') || target.includes('guest')) {
         return 'GUEST';
@@ -181,6 +178,32 @@ export default function App() {
     }
   }
 
+  async function handleQuickDemoLogin(role: 'MANAGER' | 'WAITER' | 'CASHIER' | 'SUPER_ADMIN') {
+    const creds = {
+      MANAGER: { phone: '+998903333333', password: 'Demo12345!' },
+      WAITER: { phone: '+998905555555', password: 'Demo12345!' },
+      CASHIER: { phone: '+998904444444', password: 'Demo12345!' },
+      SUPER_ADMIN: { phone: '+998901111111', password: 'Demo12345!' },
+    }[role];
+
+    try {
+      const res = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(creds),
+      });
+      const data = await res.json();
+      if (data?.success && data?.data) {
+        setAuthProfile(data.data);
+        return data.data;
+      }
+    } catch (e) {
+      console.error('Demo login error:', e);
+    }
+    return null;
+  }
+
   // Fetch initial status and session
   useEffect(() => {
     async function loadInitialData() {
@@ -192,7 +215,15 @@ export default function App() {
         ]);
         if (resHealth?.success) setHealth(resHealth.data);
         if (resReady?.success) setReady(resReady.data);
-        if (resMe?.success) setAuthProfile(resMe.data);
+        if (resMe?.success && resMe.data) {
+          setAuthProfile(resMe.data);
+        } else {
+          // Sessiya bo'lmasa, ochilgan rol bo'yicha darhol demo avto-login qilinadi
+          const detectedRole = detectRoleFromUrl();
+          if (['MANAGER', 'WAITER', 'CASHIER', 'SUPER_ADMIN'].includes(detectedRole)) {
+            await handleQuickDemoLogin(detectedRole as any);
+          }
+        }
       } catch (err) {
         console.error('Initial data load error:', err);
       } finally {
@@ -281,6 +312,24 @@ export default function App() {
         </div>
       )}
 
+      {/* Quick Demo Login Banner if unauthenticated */}
+      {!authProfile && ['MANAGER', 'WAITER', 'CASHIER'].includes(currentRoleView) && (
+        <div className="bg-emerald-600 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-md sticky top-0 z-50">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-200 animate-pulse" />
+            <span className="text-xs sm:text-sm font-semibold">
+              Hozirda tizimga kirmagansiz. 1 oylik barcha natijalarni va hisobotlarni jonli ko'rish uchun:
+            </span>
+          </div>
+          <button
+            onClick={() => handleQuickDemoLogin(currentRoleView as any)}
+            className="px-4 py-1.5 rounded-xl bg-white text-emerald-900 font-bold text-xs hover:bg-emerald-50 transition-colors shadow-sm min-h-[34px]"
+          >
+            ⚡ 1-bosishda {currentRoleView === 'MANAGER' ? 'Menejer' : currentRoleView === 'WAITER' ? 'Ofitsiant' : 'Kassir'} bo'lib kirish
+          </button>
+        </div>
+      )}
+
       {/* Render Selected View */}
       {currentRoleView === 'HOME' && (
         <LandingView
@@ -291,22 +340,11 @@ export default function App() {
         />
       )}
       {currentRoleView === 'GUEST' && <GuestView />}
-      {currentRoleView === 'WAITER' && <WaiterView />}
-      {currentRoleView === 'KITCHEN' && <KitchenView />}
-      {currentRoleView === 'CASHIER' && <CashierView />}
+      {currentRoleView === 'WAITER' && <WaiterView authProfile={authProfile} />}
+      {currentRoleView === 'CASHIER' && <CashierView authProfile={authProfile} />}
       {currentRoleView === 'MANAGER' && (
         <ManagerView
           initialRole="MANAGER"
-          activeRestaurantId={authProfile?.activeRestaurant?.id}
-          authProfile={authProfile}
-          onLogout={handleLogout}
-          onSwitchRole={(role) => switchRole(role as any)}
-          onOpenRestaurantSelector={() => setRestaurantModalOpen(true)}
-        />
-      )}
-      {currentRoleView === 'BOSS' && (
-        <ManagerView
-          initialRole="BOSS"
           activeRestaurantId={authProfile?.activeRestaurant?.id}
           authProfile={authProfile}
           onLogout={handleLogout}
@@ -549,14 +587,10 @@ export default function App() {
           setAuthProfile(profile);
           if (profile?.user?.isSuperAdmin) {
             switchRole('SUPER_ADMIN');
-          } else if (profile?.roles?.includes('BOSS')) {
-            switchRole('BOSS');
-          } else if (profile?.roles?.includes('MANAGER')) {
+          } else if (profile?.roles?.includes('MANAGER') || profile?.roles?.includes('BOSS')) {
             switchRole('MANAGER');
           } else if (profile?.roles?.includes('CASHIER')) {
             switchRole('CASHIER');
-          } else if (profile?.roles?.includes('KITCHEN')) {
-            switchRole('KITCHEN');
           } else if (profile?.roles?.includes('WAITER')) {
             switchRole('WAITER');
           } else {
