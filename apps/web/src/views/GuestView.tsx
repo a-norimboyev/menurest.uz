@@ -658,8 +658,9 @@ export const GuestView: React.FC = () => {
         {/* 1. Ixcham Yuqori Header (Stol raqami & Til almashtirish) */}
         <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-md border-b border-line px-4 py-2.5 flex items-center justify-between shadow-subtle">
           <div className="flex items-center space-x-2 min-w-0">
-            <div className="px-2.5 py-1 rounded-lg bg-brand/10 border border-brand/20 text-brand font-black text-xs tracking-wide">
-              {lang === 'uz' ? `Stol #${tableNumber}` : `Стол #${tableNumber}`}
+            <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-brand/10 border border-brand/20 text-brand font-black text-sm tracking-wide shadow-subtle">
+              <span>{lang === 'uz' ? 'Stol' : 'Стол'}</span>
+              <span>#{tableNumber}</span>
             </div>
           </div>
 
