@@ -21,3 +21,4 @@ apps/**/.vite/
 cookies.txt
 test.png
 screenshots/
+*.pdf

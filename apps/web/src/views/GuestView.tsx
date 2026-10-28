@@ -111,11 +111,8 @@ export const GuestView: React.FC = () => {
   const [_tableStatus, setTableStatus] = useState<'FREE' | 'OCCUPIED'>('OCCUPIED');
   const [tableNumber, setTableNumber] = useState<number>(1);
   const [_hallName, setHallName] = useState<string>('Asosiy Zal');
-  const [waiterInfo, setWaiterInfo] = useState<{ fullName: string; phone?: string } | null>({
-    fullName: 'Sardor Rustamov',
-    phone: '+998 91 100 00 04',
-  });
-  const [isJoined, setIsJoined] = useState<boolean>(true);
+  const [waiterInfo, setWaiterInfo] = useState<{ fullName: string; phone?: string } | null>(null);
+  const [isJoined, setIsJoined] = useState<boolean>(false);
   const [qrToken] = useState<string>(() => {
     // 1. URL Path: /table/:qrToken
     if (typeof window !== 'undefined') {
@@ -140,42 +137,7 @@ export const GuestView: React.FC = () => {
 
   // Buyurtma Yuborish & Idempotency Holati
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
-  const [orders, setOrders] = useState<GuestOrder[]>([
-    {
-      id: 'ord-104',
-      orderNumber: 104,
-      status: 'PREPARING',
-      notes: "Zirasi ko'proq bo'lsin",
-      createdAt: new Date(Date.now() - 14 * 60000).toISOString(),
-      items: [
-        {
-          id: 'item-1',
-          name: 'Gijduvoncha Qiyma Shashlik',
-          priceTiyin: '2200000',
-          quantity: 2,
-          status: 'PREPARING',
-          variantName: "To'liq porsiya",
-          addons: [{ name: 'Qazi', priceTiyin: '800000' }],
-        },
-        {
-          id: 'item-2',
-          name: 'Klassik Achchiq-Chuchuk',
-          priceTiyin: '1600000',
-          quantity: 1,
-          status: 'READY',
-          addons: [],
-        },
-        {
-          id: 'item-3',
-          name: 'Shosh Maxsus Choyi',
-          priceTiyin: '1800000',
-          quantity: 1,
-          status: 'SERVED',
-          addons: [],
-        },
-      ],
-    },
-  ]);
+  const [orders, setOrders] = useState<GuestOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
   // Default Categories
@@ -340,8 +302,7 @@ export const GuestView: React.FC = () => {
           setIsJoined(true);
         }
       } else if (res.status === 401) {
-        // Agar sessiya bo'lmasa, demo buyurtmalar saqlanib turadi
-        setIsJoined(true);
+        setIsJoined(false);
       }
     } catch {
       // Offline yoki tarmoq xatoligi
