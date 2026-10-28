@@ -58,7 +58,7 @@ export class LocalStorageAdapter implements StorageAdapter {
   async upload(file: UploadedFilePayload): Promise<UploadResult> {
     const maxSizeBytes = 5 * 1024 * 1024; // 5 MB
     if (file.size > maxSizeBytes) {
-      throw new Error(`Fayl hajmi ruxsat etilgan maksimal 5 MB dan oshib ketdi (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
+      throw new Error(`Fayl hajmi ruxsat etilgan maksimal 5 MB dan oshib ketdi: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
     }
 
     // Real content inspection via magic bytes

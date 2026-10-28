@@ -134,7 +134,7 @@ export const MenuItemModal: React.FC<MenuItemModalProps> = ({
             required
           />
           <Input
-            label="Narxi (UZS)"
+            label="Narxi"
             type="number"
             value={formData.basePriceUzs}
             onChange={(e) => setFormData({ ...formData, basePriceUzs: Number(e.target.value) })}
@@ -147,7 +147,7 @@ export const MenuItemModal: React.FC<MenuItemModalProps> = ({
 
         {/* 3. Tavsif */}
         <div className="space-y-1">
-          <label className="text-xs font-semibold text-ink-main block">Tavsif (Ixtiyoriy)</label>
+          <label className="text-xs font-semibold text-ink-main block">Tavsif</label>
           <textarea
             className="w-full rounded-xl border border-line bg-surface p-2.5 text-sm text-ink-main focus:outline-none focus:ring-2 focus:ring-brand min-h-[72px]"
             rows={2}

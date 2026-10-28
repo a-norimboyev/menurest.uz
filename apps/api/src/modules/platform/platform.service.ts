@@ -531,7 +531,7 @@ export class PlatformService {
     }
 
     if (params.status === 'SUSPENDED' && (!params.reason || !params.reason.trim())) {
-      throw new Error('REASON_REQUIRED: Restoran xizmatini to\'xtatish (SUSPEND) uchun sabab kiritilishi shart');
+      throw new Error('REASON_REQUIRED: Restoran xizmatini to\'xtatish uchun sabab kiritilishi shart');
     }
 
     const isSuspending = params.status === 'SUSPENDED';
@@ -601,7 +601,7 @@ export class PlatformService {
 
     const cleanRoles = Array.from(new Set(allowedRoles));
     if (!cleanRoles.includes('BOSS') && !cleanRoles.includes('MANAGER')) {
-      throw new Error('VALIDATION_ERROR: Restoranda kamida bitta Boshqaruvchi roli (Boss yoki Menejer) bo\'lishi shart');
+      throw new Error('VALIDATION_ERROR: Restoranda kamida bitta Boshqaruvchi roli bo\'lishi shart');
     }
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -912,7 +912,7 @@ export class PlatformService {
     });
 
     if (!membership || !membership.user) {
-      throw { statusCode: 404, code: 'OWNER_NOT_FOUND', message: 'Restoran boshqaruvchisi (Boss yoki Menejer) topilmadi.' };
+      throw { statusCode: 404, code: 'OWNER_NOT_FOUND', message: 'Restoran boshqaruvchisi topilmadi.' };
     }
 
     const updates: any = {};
@@ -975,21 +975,21 @@ export class PlatformService {
     sessionTimeoutHours: 24,
     plans: {
       START: {
-        name: 'START (Tezkor Kafe)',
+        name: 'START - Tezkor Kafe',
         maxTables: 15,
         monthlyPriceUzs: 450000,
         roles: ['BOSS', 'CASHIER', 'WAITER', 'GUEST'],
         description: 'Kichik kafelar va fast-food oshxonasiz nuqtalar uchun',
       },
       BUSINESS: {
-        name: 'BUSINESS (To\'liq Restoran)',
+        name: 'BUSINESS - To\'liq Restoran',
         maxTables: 100,
         monthlyPriceUzs: 950000,
         roles: ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],
         description: 'Katta restoranlar, KDS oshxona ekrani va menejer hisobotlari',
       },
       ENTERPRISE: {
-        name: 'ENTERPRISE (Tarmoq)',
+        name: 'ENTERPRISE - Tarmoq',
         maxTables: 500,
         monthlyPriceUzs: 1800000,
         roles: ['BOSS', 'MANAGER', 'CASHIER', 'KITCHEN', 'WAITER', 'GUEST'],

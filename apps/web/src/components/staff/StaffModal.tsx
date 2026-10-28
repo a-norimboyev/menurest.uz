@@ -39,7 +39,7 @@ interface StaffModalProps {
 const ROLE_CONFIG: Record<string, { label: string; icon: any; desc: string }> = {
   [Role.MANAGER]: { label: 'Menejer', icon: Briefcase, desc: 'Boshqaruv va nazorat' },
   [Role.CASHIER]: { label: 'Kassir', icon: CreditCard, desc: 'Hisob va to\'lovlar' },
-  [Role.WAITER]: { label: 'Ofitsiant', icon: Users, desc: 'Zal xizmati' },
+  [Role.WAITER]: { label: 'Ofitsiant', icon: Users, desc: 'Stollar xizmati' },
 };
 
 export const StaffModal: React.FC<StaffModalProps> = ({
@@ -73,7 +73,7 @@ export const StaffModal: React.FC<StaffModalProps> = ({
         userId: initialData.userId,
         fullName: initialData.fullName || '',
         phone: initialData.phone || '',
-        password: '',
+        password: initialData.password || '',
         roles: initialData.roles || [Role.WAITER],
         customPermissions: Array.isArray(initialData.customPermissions)
           ? initialData.customPermissions
@@ -97,18 +97,11 @@ export const StaffModal: React.FC<StaffModalProps> = ({
     setError(null);
   }, [initialData, isOpen]);
 
-  const handleRoleToggle = (role: Role) => {
-    setFormData((prev) => {
-      const exists = prev.roles.includes(role);
-      let updated: Role[];
-      if (exists) {
-        if (prev.roles.length === 1) return prev; // kamida 1 ta rol qolishi kerak
-        updated = prev.roles.filter((r) => r !== role);
-      } else {
-        updated = [...prev.roles, role];
-      }
-      return { ...prev, roles: updated };
-    });
+  const handleRoleSelect = (role: Role) => {
+    setFormData((prev) => ({
+      ...prev,
+      roles: [role],
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -119,6 +112,10 @@ export const StaffModal: React.FC<StaffModalProps> = ({
     }
     if (!isEditing && !formData.password?.trim()) {
       setError('Yangi xodim uchun parol kiritilishi shart.');
+      return;
+    }
+    if (formData.password?.trim() && formData.password.trim().length < 4) {
+      setError('Parol kamida 4 ta belgidan iborat bo\'lishi kerak.');
       return;
     }
 
@@ -165,7 +162,7 @@ export const StaffModal: React.FC<StaffModalProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-ink-main mb-1">Telefon raqami (Login) *</label>
+              <label className="block text-xs font-semibold text-ink-main mb-1">Telefon raqami *</label>
               <Input
                 placeholder="+998901234567"
                 value={formData.phone}
@@ -176,41 +173,55 @@ export const StaffModal: React.FC<StaffModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-ink-main mb-1">
-              Parol {isEditing && <span className="text-ink-secondary font-normal">(o'zgartirmaslik uchun bo'sh qoldiring)</span>} {!isEditing && '*'}
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-ink-main">
+                Parol {isEditing ? "(ko'rish yoki o'zgartirish)" : '*'}
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-[11px] text-brand hover:underline flex items-center gap-1 font-medium focus:outline-none"
+              >
+                {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                {showPassword ? "Parolni yashirish" : "Parolni ko'rish"}
+              </button>
+            </div>
             <div className="relative">
               <Input
                 type={showPassword ? 'text' : 'password'}
-                placeholder={isEditing ? '••••••••' : 'Kamida 6 ta belgi'}
+                placeholder="Kamida 4 ta belgi"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required={!isEditing}
-                className="pr-10"
+                className="pr-10 font-mono text-sm"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-ink-muted hover:text-ink-main focus:outline-none p-0.5 rounded transition-colors"
+                className="absolute right-3 top-2.5 text-ink-muted hover:text-ink-main focus:outline-none p-1 rounded transition-colors"
                 title={showPassword ? "Parolni yashirish" : "Parolni ko'rsatish"}
                 aria-label={showPassword ? "Parolni yashirish" : "Parolni ko'rsatish"}
                 tabIndex={-1}
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff className="w-4 h-4 text-brand" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            <p className="text-[11px] text-ink-secondary mt-1">
+              {showPassword
+                ? "Parol ochiq ko'rsatilmoqda. Yangi parol o'rnatish uchun bemalol o'zgartirishingiz mumkin."
+                : "Ko'zcha belgisini bosib joriy parolni ko'rishingiz yoki yangi parol yozishingiz mumkin."}
+            </p>
           </div>
 
-          {/* Xodim Lavozimlari (Rollar) */}
+          {/* Xodim Lavozimi */}
           <div className="space-y-2 pt-2 border-t border-line">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-ink-main">
-                Lavozimi (Roli) *
+                Lavozimi *
               </label>
-              <span className="text-[11px] text-ink-secondary">Bir nechta tanlash mumkin</span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {selectableRoles.map((role) => {
                 const isSelected = formData.roles.includes(role);
                 const conf = ROLE_CONFIG[role] || { label: role, icon: Users, desc: '' };
@@ -219,7 +230,7 @@ export const StaffModal: React.FC<StaffModalProps> = ({
                   <button
                     key={role}
                     type="button"
-                    onClick={() => handleRoleToggle(role)}
+                    onClick={() => handleRoleSelect(role)}
                     className={`p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between min-h-[56px] relative ${
                       isSelected
                         ? 'bg-brand/10 border-brand text-brand ring-1 ring-brand/30'

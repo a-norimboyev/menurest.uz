@@ -16,6 +16,7 @@ export interface UpdateTableInput {
   number?: number;
   capacity?: number;
   assignedWaiterId?: string | null;
+  status?: TableStatus;
 }
 
 export class TablesService {
@@ -354,6 +355,7 @@ export class TablesService {
         number: input.number ?? table.number,
         capacity: input.capacity ?? table.capacity,
         assignedWaiterId: input.assignedWaiterId !== undefined ? input.assignedWaiterId : table.assignedWaiterId,
+        status: input.status ?? table.status,
       },
       include: {
         hall: true,

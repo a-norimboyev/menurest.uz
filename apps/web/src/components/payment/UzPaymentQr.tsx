@@ -237,7 +237,7 @@ export const UzPaymentQr: React.FC<UzPaymentQrProps> = ({
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
-          <span>Mijoz QR orqali to'ladi (Tasdiqlash)</span>
+          <span>Mijoz QR orqali to'ladi - Tasdiqlash</span>
         </button>
       )}
     </div>

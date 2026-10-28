@@ -5,7 +5,35 @@ import type {
   ManagerOperationsSummary,
   PopularDishItem,
   WaiterPerformanceItem,
+  DailyBreakdownItem,
 } from '@menurest/shared';
+
+export function generateTashkentDateList(fromDateStr: string, toDateStr: string): string[] {
+  const result: string[] = [];
+  const [sy, sm, sd] = fromDateStr.split('-').map(Number);
+  const [ey, em, ed] = toDateStr.split('-').map(Number);
+
+  let cur = new Date(Date.UTC(sy, sm - 1, sd, 12, 0, 0));
+  const end = new Date(Date.UTC(ey, em - 1, ed, 12, 0, 0));
+
+  let count = 0;
+  while (cur <= end && count < 366) {
+    result.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+    count++;
+  }
+  return result;
+}
+
+export function getTashkentDayLabel(dateStr: string): string {
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return dateStr;
+  const day = parts[2];
+  const monthNum = parseInt(parts[1], 10);
+  const months = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyn', 'Iyl', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
+  const monthName = months[monthNum - 1] || parts[1];
+  return `${day}-${monthName}`;
+}
 
 /**
  * Asia/Tashkent (UTC+5) sanasining UTC boshlanishi va tugashini hisoblash
@@ -389,7 +417,7 @@ export class ReportsService {
       }
     }
 
-    // Mashhur taomlar saralash
+    // Mashhur taomlar saralash (barcha sotilgan taomlar to'liq qaytariladi, TOP 10 bilan cheklanmaydi)
     const popularDishes: PopularDishItem[] = Array.from(dishSalesMap.entries())
       .map(([menuItemId, data]) => ({
         menuItemId,
@@ -398,8 +426,7 @@ export class ReportsService {
         totalQuantity: data.quantity,
         totalRevenueTiyin: data.revenueTiyin,
       }))
-      .sort((a, b) => b.totalQuantity - a.totalQuantity)
-      .slice(0, 10);
+      .sort((a, b) => b.totalQuantity - a.totalQuantity);
 
     // 3.3 Smenalar hisoboti
     const shifts = await prisma.shift.findMany({
@@ -414,13 +441,51 @@ export class ReportsService {
     });
 
     // 3.4 Ofitsiantlar ko'rsatkichi (Waiter performance)
+    // Restorandagi BARCHA ofitsiantlarni olish (ro'yxatda barcha ofitsiantlar to'liq ko'rinishi uchun)
+    const waiterMemberships = await prisma.restaurantMembership.findMany({
+      where: {
+        restaurantId,
+        roles: {
+          some: {
+            role: 'WAITER',
+          },
+        },
+      },
+      include: {
+        user: { select: { id: true, fullName: true, phone: true } },
+      },
+    });
+
+    const waiterMap = new Map<string, {
+      waiterId: string;
+      waiterName: string;
+      phone?: string;
+      servedOrdersCount: number;
+      totalValueTiyin: bigint;
+      resolvedCallsCount: number;
+    }>();
+
+    // Avval restorandagi barcha ofitsiantlarni 0 qiymati bilan xaritaga kiritamiz
+    for (const m of waiterMemberships) {
+      if (m.user) {
+        waiterMap.set(m.user.id, {
+          waiterId: m.user.id,
+          waiterName: m.user.fullName,
+          phone: m.user.phone,
+          servedOrdersCount: 0,
+          totalValueTiyin: 0n,
+          resolvedCallsCount: 0,
+        });
+      }
+    }
+
     const visits = await prisma.visit.findMany({
       where: {
         restaurantId,
         openedAt: { gte: fromUtc, lte: toUtc },
       },
       include: {
-        waiter: { select: { id: true, fullName: true } },
+        waiter: { select: { id: true, fullName: true, phone: true } },
         orders: {
           include: {
             items: { include: { addonSnapshots: true } },
@@ -432,25 +497,30 @@ export class ReportsService {
       },
     });
 
-    const waiterMap = new Map<string, { waiterName: string; servedOrdersCount: number; totalValueTiyin: bigint; resolvedCallsCount: number }>();
-
     for (const v of visits) {
       if (v.waiter) {
         const wId = v.waiter.id;
-        const existing = waiterMap.get(wId) || {
-          waiterName: v.waiter.fullName,
-          servedOrdersCount: 0,
-          totalValueTiyin: 0n,
-          resolvedCallsCount: 0,
-        };
+        let existing = waiterMap.get(wId);
+        if (!existing) {
+          existing = {
+            waiterId: wId,
+            waiterName: v.waiter.fullName,
+            phone: v.waiter.phone,
+            servedOrdersCount: 0,
+            totalValueTiyin: 0n,
+            resolvedCallsCount: 0,
+          };
+          waiterMap.set(wId, existing);
+        }
 
         existing.resolvedCallsCount += v.serviceCalls.length;
 
         for (const order of v.orders) {
-          if (order.status === 'SERVED') {
-            existing.servedOrdersCount++;
+          if (order.status !== 'CANCELLED') {
+            let hasServed = false;
             for (const item of order.items) {
-              if (item.status === 'SERVED') {
+              if (item.status === 'SERVED' || v.status === 'CLOSED' || order.status === 'SERVED') {
+                hasServed = true;
                 const itemPrice = BigInt(item.snapshotPriceTiyin);
                 const addonsTotal = (item.addonSnapshots || []).reduce(
                   (acc: bigint, a: { priceTiyin: bigint }) => acc + BigInt(a.priceTiyin),
@@ -459,19 +529,111 @@ export class ReportsService {
                 existing.totalValueTiyin += (itemPrice + addonsTotal) * BigInt(item.quantity);
               }
             }
+            if (hasServed || order.status === 'SERVED' || v.status === 'CLOSED') {
+              existing.servedOrdersCount++;
+            }
           }
         }
-        waiterMap.set(wId, existing);
       }
     }
 
-    const waiterPerformance: WaiterPerformanceItem[] = Array.from(waiterMap.entries()).map(([waiterId, d]) => ({
-      waiterId,
-      waiterName: d.waiterName,
-      servedOrdersCount: d.servedOrdersCount,
-      totalOrderValueTiyin: d.totalValueTiyin,
-      resolvedCallsCount: d.resolvedCallsCount,
-    }));
+    const waiterPerformance: WaiterPerformanceItem[] = Array.from(waiterMap.entries())
+      .map(([waiterId, d]) => ({
+        waiterId,
+        waiterName: d.waiterName,
+        phone: d.phone,
+        servedOrdersCount: d.servedOrdersCount,
+        totalOrderValueTiyin: d.totalValueTiyin,
+        resolvedCallsCount: d.resolvedCallsCount,
+      }))
+      .sort((a, b) => {
+        if (b.servedOrdersCount !== a.servedOrdersCount) {
+          return b.servedOrdersCount - a.servedOrdersCount;
+        }
+        if (b.totalOrderValueTiyin !== a.totalOrderValueTiyin) {
+          return b.totalOrderValueTiyin > a.totalOrderValueTiyin ? 1 : -1;
+        }
+        return a.waiterName.localeCompare(b.waiterName);
+      });
+
+    // 3.5 Kunlik trend (Daily Breakdown)
+    const dateList = generateTashkentDateList(fromDateStr, toDateStr);
+    const dailyMap = new Map<string, DailyBreakdownItem>();
+
+    for (const dStr of dateList) {
+      dailyMap.set(dStr, {
+        date: dStr,
+        dayLabel: getTashkentDayLabel(dStr),
+        netReceiptsTiyin: 0n,
+        cashTiyin: 0n,
+        terminalTiyin: 0n,
+        ordersCount: 0,
+        orderTotalTiyin: 0n,
+      });
+    }
+
+    for (const p of payments) {
+      const pDay = new Date(p.createdAt.getTime() + 5 * 3600 * 1000).toISOString().slice(0, 10);
+      let entry = dailyMap.get(pDay);
+      if (!entry) {
+        entry = {
+          date: pDay,
+          dayLabel: getTashkentDayLabel(pDay),
+          netReceiptsTiyin: 0n,
+          cashTiyin: 0n,
+          terminalTiyin: 0n,
+          ordersCount: 0,
+          orderTotalTiyin: 0n,
+        };
+        dailyMap.set(pDay, entry);
+      }
+      if (p.status === 'COMPLETED') {
+        const amt = BigInt(p.amountTiyin);
+        entry.netReceiptsTiyin += amt;
+        if (p.method === 'CASH') entry.cashTiyin += amt;
+        if (p.method === 'TERMINAL') entry.terminalTiyin += amt;
+      }
+    }
+
+    for (const r of refunds) {
+      const rDay = new Date(r.createdAt.getTime() + 5 * 3600 * 1000).toISOString().slice(0, 10);
+      const entry = dailyMap.get(rDay);
+      if (entry) {
+        entry.netReceiptsTiyin -= BigInt(r.amountTiyin);
+      }
+    }
+
+    for (const order of orders) {
+      const oDay = new Date(order.createdAt.getTime() + 5 * 3600 * 1000).toISOString().slice(0, 10);
+      let entry = dailyMap.get(oDay);
+      if (!entry) {
+        entry = {
+          date: oDay,
+          dayLabel: getTashkentDayLabel(oDay),
+          netReceiptsTiyin: 0n,
+          cashTiyin: 0n,
+          terminalTiyin: 0n,
+          ordersCount: 0,
+          orderTotalTiyin: 0n,
+        };
+        dailyMap.set(oDay, entry);
+      }
+      entry.ordersCount += 1;
+      let oTotal = 0n;
+      for (const item of order.items) {
+        if (item.status !== 'CANCELLED') {
+          const itemPrice = BigInt(item.snapshotPriceTiyin);
+          const addonsTotal = (item.addonSnapshots || []).reduce(
+            (acc: bigint, a: { priceTiyin: bigint }) => acc + BigInt(a.priceTiyin),
+            0n
+          );
+          oTotal += (itemPrice + addonsTotal) * BigInt(item.quantity);
+        }
+      }
+      entry.orderTotalTiyin += oTotal;
+    }
+
+    const dailyBreakdown = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
 
     return {
       restaurantId,
@@ -503,6 +665,7 @@ export class ReportsService {
         expectedCashTiyin: s.expectedCashTiyin,
       })),
       waiterPerformance,
+      dailyBreakdown,
     };
   }
 

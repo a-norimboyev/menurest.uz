@@ -554,7 +554,7 @@ export const SuperAdminView: React.FC = () => {
 
   // Handle Delete Restaurant
   async function handleDeleteRestaurant(restaurant: PlatformRestaurantItemDto) {
-    if (!window.confirm(`"${restaurant.name}" restoranini butunlay o'chirmoqchimisiz?\nBu amal barcha zallar, stollar va ma'lumotlarni o'chiradi!`)) {
+    if (!window.confirm(`"${restaurant.name}" restoranini butunlay o'chirmoqchimisiz?\nBu amal barcha stollar va ma'lumotlarni o'chiradi!`)) {
       return;
     }
     setLoading(true);
@@ -624,14 +624,14 @@ export const SuperAdminView: React.FC = () => {
             <AlertTriangle className="w-4 h-4 text-slate-950 animate-pulse" />
             <span>
               <strong>SUPPORT REJIMI FAOL:</strong> "{currentSupportSession.restaurantName}" restorani • Sabab: "
-              {currentSupportSession.reason}" • Rejim: {currentSupportSession.isReadOnly ? 'O\'qish (Read-Only)' : 'To\'liq (Mutation)'} • Tugaydi: {new Date(currentSupportSession.expiresAt).toLocaleTimeString()}
+              {currentSupportSession.reason}" • Rejim: {currentSupportSession.isReadOnly ? 'O\'qish' : 'To\'liq'} • Tugaydi: {new Date(currentSupportSession.expiresAt).toLocaleTimeString()}
             </span>
           </div>
           <button
             onClick={handleRevokeSupportSession}
             className="px-2.5 py-1 rounded bg-slate-900 text-white text-[11px] font-bold hover:bg-slate-800 transition-colors"
           >
-            Sessiyani Yakunlash & Chiqish
+            Sessiyani Yakunlash va Chiqish
           </button>
         </div>
       )}
@@ -888,7 +888,7 @@ export const SuperAdminView: React.FC = () => {
                   <span className="text-2xl font-black text-emerald-700">{overview.activeRestaurants} ta</span>
                 </div>
                 <div className="p-4 bg-surface rounded-xl border border-red-200 bg-red-50/20 shadow-subtle">
-                  <span className="text-xs text-red-800 block">To'xtatilgan (Suspended)</span>
+                  <span className="text-xs text-red-800 block">To'xtatilgan</span>
                   <span className="text-2xl font-black text-red-700">{overview.suspendedRestaurants} ta</span>
                 </div>
                 <div className="p-4 bg-surface rounded-xl border border-line shadow-subtle">
@@ -1215,7 +1215,7 @@ export const SuperAdminView: React.FC = () => {
                     </span>
                     <span className="text-xs font-semibold text-ink-main mt-0.5 block">Faol Ochilgan Stollar</span>
                     <p className="text-[11px] text-ink-secondary mt-1">
-                      Hozir restoran zallarida ovqatlanayotgan mehmonlar
+                      Hozir restoranda ovqatlanayotgan mehmonlar
                     </p>
                   </div>
                 </div>
@@ -1246,7 +1246,7 @@ export const SuperAdminView: React.FC = () => {
             {/* SECTION 2: SERVER, BAZA & ZAXIRA HOLATI */}
             <div className="space-y-3">
               <div>
-                <h3 className="text-base font-bold text-ink-main">Server, Baza & Zaxira Holati</h3>
+                <h3 className="text-base font-bold text-ink-main">Server, Baza va Zaxira Holati</h3>
                 <p className="text-xs text-ink-secondary">
                   Tizimning barqaror ishlashi, zaxiralash va xotira holati
                 </p>
@@ -1260,7 +1260,7 @@ export const SuperAdminView: React.FC = () => {
                       <Server className="w-5 h-5" />
                     </div>
                     <Badge variant={overview?.systemHealth.status === 'HEALTHY' ? 'success' : 'warning'}>
-                      {overview?.systemHealth.status === 'HEALTHY' ? 'Barqaror (Yashil)' : 'Diqqat'}
+                      {overview?.systemHealth.status === 'HEALTHY' ? 'Barqaror' : 'Diqqat'}
                     </Badge>
                   </div>
                   <div>
@@ -1275,7 +1275,7 @@ export const SuperAdminView: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Kechikish (Latency):</span>
+                      <span>Kechikish:</span>
                       <span className="font-mono font-semibold text-emerald-600">
                         {overview ? `${overview.systemHealth.dbLatencyMs} ms` : '—'}
                       </span>
@@ -1298,7 +1298,7 @@ export const SuperAdminView: React.FC = () => {
                     <Badge variant="success">Himoyalangan</Badge>
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-ink-main">PostgreSQL 18 & Zaxira</h4>
+                    <h4 className="font-bold text-sm text-ink-main">PostgreSQL 18 va Zaxira</h4>
                     <p className="text-[11px] text-ink-secondary">Avtomatik xavfsizlik va zaxiralash</p>
                   </div>
                   <div className="p-3 bg-bg rounded-xl text-xs space-y-1.5 text-ink-secondary">
@@ -1308,7 +1308,7 @@ export const SuperAdminView: React.FC = () => {
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Baza holati:</span>
-                      <span className="font-semibold text-ink-main">Ulangan & Barqaror</span>
+                      <span className="font-semibold text-ink-main">Ulangan va Barqaror</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Jami taomlar soni:</span>
@@ -1326,11 +1326,11 @@ export const SuperAdminView: React.FC = () => {
                       <ShieldCheck className="w-5 h-5" />
                     </div>
                     <Badge variant={overview && overview.technicalErrors.length > 0 ? 'danger' : 'success'}>
-                      {overview && overview.technicalErrors.length > 0 ? 'Xatolik bor' : 'Toza (100%)'}
+                      {overview && overview.technicalErrors.length > 0 ? 'Xatolik bor' : 'Toza 100%'}
                     </Badge>
                   </div>
                   <div>
-                    <h4 className="font-bold text-sm text-ink-main">Xavfsizlik & Monitoring</h4>
+                    <h4 className="font-bold text-sm text-ink-main">Xavfsizlik va Monitoring</h4>
                     <p className="text-[11px] text-ink-secondary">Xatolar va nozik ma'lumotlar himoyasi</p>
                   </div>
                   <div className="p-3 bg-bg rounded-xl text-xs space-y-1.5 text-ink-secondary">
@@ -1341,7 +1341,7 @@ export const SuperAdminView: React.FC = () => {
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span>Parollar & Tokenlar:</span>
+                      <span>Parollar va Tokenlar:</span>
                       <span className="font-semibold text-ink-main">100% Shifrlangan</span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -1355,7 +1355,7 @@ export const SuperAdminView: React.FC = () => {
 
             {/* SECTION 3: TEXNIK XATOLAR JURNALI */}
             <div className="space-y-3">
-              <h3 className="text-base font-bold text-ink-main">Texnik Xatolar Jurnali (Outbox / Tizim)</h3>
+              <h3 className="text-base font-bold text-ink-main">Texnik Xatolar Jurnali</h3>
               <p className="text-xs text-ink-secondary">
                 Xavfsizlik qoidasi: Secretlar, tokenlar va to'liq so'rov yuklamalari bu yerda aslo ko'rsatilmaydi.
               </p>
@@ -1432,7 +1432,7 @@ export const SuperAdminView: React.FC = () => {
               <form onSubmit={handleSaveAdminCredentials} className="space-y-4 max-w-md">
                 <div>
                   <label className="block text-xs font-semibold text-ink-main mb-1.5">
-                    Telefon (Login)
+                    Telefon
                   </label>
                   <Input
                     type="tel"
@@ -1668,7 +1668,7 @@ export const SuperAdminView: React.FC = () => {
             <div className="space-y-2 pt-1 border-t border-line/60">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-ink-main block">Tarif Rejasi</label>
-                <span className="text-[11px] text-ink-secondary">Ixtiyoriy (tanlamasdan kiritish mumkin)</span>
+                <span className="text-[11px] text-ink-secondary">Ixtiyoriy</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {[
@@ -1724,7 +1724,7 @@ export const SuperAdminView: React.FC = () => {
             </div>
           </div>
 
-          {/* Section 2: Boshqaruvchi Hisobi (Menejer) */}
+          {/* Section 2: Boshqaruvchi Hisobi */}
           <div className="bg-surface rounded-2xl border border-line p-6 space-y-4 shadow-sm">
             <div className="flex items-center gap-2.5 border-b border-line pb-3">
               <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
@@ -1732,7 +1732,7 @@ export const SuperAdminView: React.FC = () => {
               </div>
               <div>
                 <h4 className="text-sm font-bold text-ink-main">
-                  Restoran Menejeri (Boshqaruvchi) Hisobi
+                  Restoran Boshqaruvchisi Hisobi
                 </h4>
                 <p className="text-[11px] text-ink-secondary">
                   Restoran boshqaruvchisiga to'liq boshqaruv kabineti yaratiladi.
@@ -1742,7 +1742,7 @@ export const SuperAdminView: React.FC = () => {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-ink-main">
-                Menejer Telefoni (Login) *
+                Menejer Telefoni *
               </label>
               <Input
                 value={newOwnerPhone}
@@ -1857,7 +1857,7 @@ export const SuperAdminView: React.FC = () => {
                 }`}
               >
                 <PowerOff className="w-4 h-4 text-red-600" />
-                TO'XTATILGAN (SUSPENDED)
+                TO'XTATILGAN
               </button>
             </div>
           </div>
@@ -1870,7 +1870,7 @@ export const SuperAdminView: React.FC = () => {
                 beriladi.
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-bold text-ink-main">To'xtatish Sababi (Majburiy):</label>
+                <label className="text-xs font-bold text-ink-main">To'xtatish Sababi:</label>
                 <Input
                   value={statusReason}
                   onChange={(e) => setStatusReason(e.target.value)}
@@ -1909,8 +1909,7 @@ export const SuperAdminView: React.FC = () => {
               <p className="font-bold">Diqqat: Ushbu harakat qat'iy audit qilinadi!</p>
               <p>
                 Siz <strong>"{selectedRestaurant?.name}"</strong> restoraniga vaqtinchalik yordam tokeni orqali kiryapsiz.
-                Audit jurnallarida sizning haqiqiy shaxsingiz (Super Admin) saqlanadi; Boss nomidan amal qilingandek
-                soxta tarix yozilmaydi.
+                Audit jurnallarida sizning haqiqiy shaxsingiz saqlanadi.
               </p>
             </div>
           </div>
@@ -1927,7 +1926,7 @@ export const SuperAdminView: React.FC = () => {
           )}
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-ink-main">Kirish Sababi (Majburiy):</label>
+            <label className="text-xs font-bold text-ink-main">Kirish Sababi:</label>
             <Input
               value={supportReason}
               onChange={(e) => setSupportReason(e.target.value)}
@@ -1938,14 +1937,14 @@ export const SuperAdminView: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <label className="text-xs font-bold text-ink-main">Muddati (Daqiqa):</label>
+              <label className="text-xs font-bold text-ink-main">Muddati Daqiqa:</label>
               <select
                 value={supportDuration}
                 onChange={(e) => setSupportDuration(e.target.value)}
                 className="w-full px-3 py-2 rounded-xl border border-line bg-surface text-xs font-semibold"
               >
                 <option value="15">15 daqiqa</option>
-                <option value="30">30 daqiqa (Standart)</option>
+                <option value="30">30 daqiqa</option>
                 <option value="60">1 soat</option>
                 <option value="120">2 soat</option>
               </select>
@@ -1962,7 +1961,7 @@ export const SuperAdminView: React.FC = () => {
                   className="rounded text-brand focus:ring-brand w-4 h-4"
                 />
                 <label htmlFor="readOnlyCheck" className="text-xs text-ink-main font-semibold cursor-pointer">
-                  Faqat O'qish (Read-Only)
+                  Faqat O'qish
                 </label>
               </div>
             </div>
@@ -1979,7 +1978,7 @@ export const SuperAdminView: React.FC = () => {
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
               <Lock className="w-3.5 h-3.5 mr-1" />
-              Sessiyani Ochish & Ulanish
+              Sessiyani Ochish va Ulanish
             </Button>
           </div>
         </div>
@@ -2038,7 +2037,7 @@ export const SuperAdminView: React.FC = () => {
                 <div className="flex items-center justify-between pb-1.5 border-b border-line/60">
                   <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
                     <KeyRound className="w-3.5 h-3.5 text-brand" />
-                    Boshqaruvchi & Login
+                    Boshqaruvchi va Login
                   </span>
                   <button
                     type="button"
@@ -2061,7 +2060,7 @@ export const SuperAdminView: React.FC = () => {
                   </div>
 
                   <div>
-                    <span className="text-[10px] text-ink-secondary block">Telefon (Login)</span>
+                    <span className="text-[10px] text-ink-secondary block">Telefon Login</span>
                     <div className="flex items-center justify-between font-mono font-bold text-ink-main bg-bg px-2 py-1 rounded border border-line/70">
                       <span>{selectedRestaurant.owner?.phone || '—'}</span>
                       {selectedRestaurant.owner?.phone && (
@@ -2133,7 +2132,7 @@ export const SuperAdminView: React.FC = () => {
                 <div className="flex items-center justify-between pb-1.5 border-b border-line/60">
                   <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
                     <CreditCard className="w-3.5 h-3.5 text-brand" />
-                    Tarif & Muddat
+                    Tarif va Muddat
                   </span>
                   <Badge variant="info" size="sm">
                     {selectedRestaurant.subscriptionPlan}
@@ -2289,7 +2288,7 @@ export const SuperAdminView: React.FC = () => {
                   className="text-xs h-8 text-ink-main border-line hover:bg-bg"
                 >
                   <KeyRound className="w-3.5 h-3.5 mr-1 text-brand" />
-                  Login & Parol
+                  Login va Parol
                 </Button>
                 <Button
                   variant="outline"
@@ -2344,7 +2343,7 @@ export const SuperAdminView: React.FC = () => {
       <Dialog
         isOpen={ownerCredModalOpen}
         onClose={() => setOwnerCredModalOpen(false)}
-        title={`Boshqaruvchi Login & Paroli: ${selectedRestaurant?.name || ''}`}
+        title={`Boshqaruvchi Login va Paroli: ${selectedRestaurant?.name || ''}`}
       >
         <div className="space-y-4 pt-2">
           {/* Telefoni (Login) */}
@@ -2352,7 +2351,7 @@ export const SuperAdminView: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-ink-main flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5 text-brand" />
-                Telefoni (Login)
+                Telefoni
               </span>
               {editOwnerPhone && (
                 <button
@@ -2455,7 +2454,7 @@ export const SuperAdminView: React.FC = () => {
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  <span>Barchasini nusxalash (Login va Parol)</span>
+                  <span>Barchasini nusxalash</span>
                 </>
               )}
             </button>

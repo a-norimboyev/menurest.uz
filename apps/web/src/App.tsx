@@ -83,9 +83,16 @@ export default function App() {
       }
       if (target.includes('waiter')) return 'WAITER';
       if (target.includes('cashier')) return 'CASHIER';
-      if (target.includes('manager') || target.includes('boss') || target.includes('kitchen')) return 'MANAGER';
+      if (target.includes('manager')) return 'MANAGER';
       if (target.includes('session')) return 'SESSION';
-      if (target.includes('/table/') || target.includes('qr=') || target.includes('token=') || target.includes('guest')) {
+      if (
+        target.includes('/table/') ||
+        target.includes('/m/') ||
+        target.includes('menu') ||
+        target.includes('qr=') ||
+        target.includes('token=') ||
+        target.includes('guest')
+      ) {
         return 'GUEST';
       }
     } catch {}
@@ -180,9 +187,9 @@ export default function App() {
 
   async function handleQuickDemoLogin(role: 'MANAGER' | 'WAITER' | 'CASHIER' | 'SUPER_ADMIN') {
     const creds = {
-      MANAGER: { phone: '+998903333333', password: 'Demo12345!' },
-      WAITER: { phone: '+998905555555', password: 'Demo12345!' },
-      CASHIER: { phone: '+998904444444', password: 'Demo12345!' },
+      MANAGER: { phone: '+998911000002', password: '+998911000002' },
+      WAITER: { phone: '+998911000004', password: '+998911000004' },
+      CASHIER: { phone: '+998911000003', password: '+998911000003' },
       SUPER_ADMIN: { phone: '+998901111111', password: 'Demo12345!' },
     }[role];
 
@@ -284,7 +291,7 @@ export default function App() {
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-white animate-bounce" />
             <span>
-              <strong>XIZMAT TO'XTATILGAN (SUSPENDED):</strong> Yangi tashrif ochish va yangi buyurtma kiritish cheklangan.
+              <strong>XIZMAT TO'XTATILGAN:</strong> Yangi tashrif ochish va yangi buyurtma kiritish cheklangan.
               Mavjud hisoblar va qabul qilingan taomlarni yakunlash mumkin.
               {authProfile.activeRestaurant.suspendedReason && (
                 <span className="ml-1 opacity-95">• Sabab: "{authProfile.activeRestaurant.suspendedReason}"</span>
@@ -300,32 +307,14 @@ export default function App() {
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-slate-950 animate-pulse shrink-0" />
             <span>
-              <strong>SUPPORT REJIMI FAOL:</strong> "{supportSession.restaurantName}" restorani • Sabab: "{supportSession.reason}" • Rejim: {supportSession.isReadOnly ? 'O\'qish (Read-Only)' : 'To\'liq (Mutation)'} • Tugaydi: {new Date(supportSession.expiresAt).toLocaleTimeString()}
+              <strong>SUPPORT REJIMI FAOL:</strong> "{supportSession.restaurantName}" restorani • Sabab: "{supportSession.reason}" • Rejim: {supportSession.isReadOnly ? 'O\'qish' : 'To\'liq'} • Tugaydi: {new Date(supportSession.expiresAt).toLocaleTimeString()}
             </span>
           </div>
           <button
             onClick={handleRevokeGlobalSupportSession}
             className="px-2.5 py-1 rounded bg-slate-900 text-white text-[11px] font-bold hover:bg-slate-800 transition-colors shrink-0"
           >
-            Sessiyani Yakunlash & Chiqish
-          </button>
-        </div>
-      )}
-
-      {/* Quick Demo Login Banner if unauthenticated */}
-      {!authProfile && ['MANAGER', 'WAITER', 'CASHIER'].includes(currentRoleView) && (
-        <div className="bg-emerald-600 text-white px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 shadow-md sticky top-0 z-50">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-200 animate-pulse" />
-            <span className="text-xs sm:text-sm font-semibold">
-              Hozirda tizimga kirmagansiz. 1 oylik barcha natijalarni va hisobotlarni jonli ko'rish uchun:
-            </span>
-          </div>
-          <button
-            onClick={() => handleQuickDemoLogin(currentRoleView as any)}
-            className="px-4 py-1.5 rounded-xl bg-white text-emerald-900 font-bold text-xs hover:bg-emerald-50 transition-colors shadow-sm min-h-[34px]"
-          >
-            ⚡ 1-bosishda {currentRoleView === 'MANAGER' ? 'Menejer' : currentRoleView === 'WAITER' ? 'Ofitsiant' : 'Kassir'} bo'lib kirish
+            Sessiyani Yakunlash va Chiqish
           </button>
         </div>
       )}
@@ -341,7 +330,9 @@ export default function App() {
       )}
       {currentRoleView === 'GUEST' && <GuestView />}
       {currentRoleView === 'WAITER' && <WaiterView authProfile={authProfile} />}
-      {currentRoleView === 'CASHIER' && <CashierView authProfile={authProfile} />}
+      {currentRoleView === 'CASHIER' && (
+        <CashierView authProfile={authProfile} onLogout={handleLogout} />
+      )}
       {currentRoleView === 'MANAGER' && (
         <ManagerView
           initialRole="MANAGER"
@@ -587,7 +578,7 @@ export default function App() {
           setAuthProfile(profile);
           if (profile?.user?.isSuperAdmin) {
             switchRole('SUPER_ADMIN');
-          } else if (profile?.roles?.includes('MANAGER') || profile?.roles?.includes('BOSS')) {
+          } else if (profile?.roles?.includes('MANAGER')) {
             switchRole('MANAGER');
           } else if (profile?.roles?.includes('CASHIER')) {
             switchRole('CASHIER');

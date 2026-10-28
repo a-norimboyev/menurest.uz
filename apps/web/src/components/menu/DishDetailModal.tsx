@@ -4,6 +4,7 @@ import { Dialog } from '../ui/Dialog.tsx';
 import { Button } from '../ui/Button.tsx';
 import { Money } from '../ui/Money.tsx';
 import { ImageFallback } from '../ui/ImageFallback.tsx';
+import { stripParentheses } from '@menurest/shared';
 
 export interface DishVariant {
   id: string;
@@ -72,7 +73,6 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
   const [selectedVariantId, setSelectedVariantId] = useState<string>('');
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([]);
   const [quantity, setQuantity] = useState<number>(1);
-  const [notes, setNotes] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -80,7 +80,6 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
       setSelectedVariantId(dish.variants?.[0]?.id || '');
       setSelectedAddonIds([]);
       setQuantity(1);
-      setNotes('');
       setErrorMsg(null);
     }
   }, [dish]);
@@ -125,7 +124,7 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
         setErrorMsg(
           lang === 'uz'
             ? `'${group.name}' guruhidan ko'pi bilan ${group.maxSelect} ta tanlash mumkin`
-            : `В группе '${group.name}' максимум ${group.maxSelect} выбор(ов)`
+            : `В группе '${group.name}' максимум ${group.maxSelect} вариантов`
         );
         return;
       }
@@ -159,7 +158,6 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
       variantId: activeVariant?.id,
       variantName: activeVariant?.name,
       selectedAddons: selectedAddonsList,
-      notes: notes.trim() || undefined,
       expectedVersion: dish!.version,
     });
 
@@ -167,14 +165,14 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
   }
 
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} title={dish.name} maxWidth="md">
+    <Dialog isOpen={isOpen} onClose={onClose} title={stripParentheses(dish.name)} maxWidth="md">
       <div className="space-y-5 max-h-[75vh] overflow-y-auto pr-1">
         {/* Rasm */}
         {dish.imageUrl && (
           <div className="w-full h-48 rounded-2xl overflow-hidden bg-bg relative border border-line">
             <ImageFallback
               src={dish.imageUrl}
-              alt={dish.name}
+              alt={stripParentheses(dish.name)}
               className="w-full h-full object-cover"
             />
           </div>
@@ -284,23 +282,6 @@ export const DishDetailModal: React.FC<DishDetailModalProps> = ({
               </div>
             </div>
           ))}
-
-        {/* Taomga maxsus izoh */}
-        <div className="border-t border-line pt-3 space-y-1.5">
-          <label className="text-xs font-bold text-ink-main block">
-            {lang === 'uz' ? 'Taomga maxsus izoh' : 'Примечание к блюду'}
-          </label>
-          <input
-            type="text"
-            maxLength={200}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder={
-              lang === 'uz' ? 'Masalan: Piyozi kamroq, qalampirsiz...' : 'Например: Без лука...'
-            }
-            className="w-full bg-surface border border-line rounded-xl px-3.5 py-2 text-xs text-ink-main focus:outline-none focus:ring-2 focus:ring-brand min-h-[44px]"
-          />
-        </div>
 
         {errorMsg && (
           <div className="p-3 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2 text-xs text-red-800">

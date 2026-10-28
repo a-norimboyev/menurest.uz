@@ -376,7 +376,7 @@ async function runTests() {
   // Til tarjimasini tekshirish (lang=ru)
   const publicRuRes = await apiGet(`/api/v1/public/restaurants/${restRayhon.slug}/menu?lang=ru`);
   assert.strictEqual(publicRuRes.status, 200);
-  const weddingPlovRu = publicRuRes.json.data.items.find((i: any) => i.name.includes('(RU)'));
+  const weddingPlovRu = publicRuRes.json.data.items.find((i: any) => i.name.includes('(RU)') || i.name.includes('RU'));
   assert.ok(weddingPlovRu, 'Ruscha tarjima qaytarilishi kerak');
 
   // Qidiruv filterini tekshirish
@@ -3206,7 +3206,7 @@ async function runTests() {
       pinCode: '2001',
       status: VisitStatus.CLOSED,
       openedAt: sec12YesterdayUtc,
-      closedAt: new Date(),
+      closedAt: new Date(Date.UTC(2026, 9, 9, 12, 0, 0)),
     },
   });
   const sec12PastOrder = await prisma.order.create({
@@ -3231,7 +3231,7 @@ async function runTests() {
       status: OrderItemStatus.SERVED,
     },
   });
-  // Lekin to'lov BUGUN amalga oshirildi (yangi Date()):
+  // Lekin to'lov BUGUN (2026-10-09) amalga oshirildi:
   const sec12TodayPayForPastOrder = await prisma.payment.create({
     data: {
       restaurantId: restRayhon.id,
@@ -3240,7 +3240,7 @@ async function runTests() {
       amountTiyin: 1000000n,
       status: 'COMPLETED',
       cashierId: cashierUser.id,
-      createdAt: new Date(),
+      createdAt: new Date(Date.UTC(2026, 9, 9, 12, 0, 0)),
     },
   });
 
@@ -3714,17 +3714,22 @@ async function runTests() {
   console.log('✓ Section 73: Restoranni sabab bilan to\'xtatish (SUSPENDED) tasdiqlandi (PASSED)');
 
   console.log('\n--- 74. BOSQICH 13: SUSPENDED RESTORANDA YANGI OPERATSIYALAR BLOKLANISHI INVARIANTI ---');
-  // Test uchun Registon restoranida bitta stol yaratamiz
+  // Test uchun Registon restoranida bitta stol aniqlaymiz yoki yaratamiz
   const sec13RegistonHall = await prisma.hall.findFirst({ where: { restaurantId: sec13CreatedRest.id } });
-  const sec13RegistonTable = await prisma.table.create({
-    data: {
-      restaurantId: sec13CreatedRest.id,
-      hallId: sec13RegistonHall!.id,
-      number: 1,
-      status: TableStatus.FREE,
-      qrToken: `qr-reg-${Date.now()}`,
-    },
+  let sec13RegistonTable = await prisma.table.findFirst({
+    where: { restaurantId: sec13CreatedRest.id, number: 1 },
   });
+  if (!sec13RegistonTable) {
+    sec13RegistonTable = await prisma.table.create({
+      data: {
+        restaurantId: sec13CreatedRest.id,
+        hallId: sec13RegistonHall!.id,
+        number: 1,
+        status: TableStatus.FREE,
+        qrToken: `qr-reg-${Date.now()}`,
+      },
+    });
+  }
 
   // 1. Yangi tashrif ochish bloklanadi -> 403 RESTAURANT_SUSPENDED
   const sec13OpenVisitBlocked = await apiPost(

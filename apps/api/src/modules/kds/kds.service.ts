@@ -257,7 +257,7 @@ export class KdsService {
     }
 
     if (item.status === OrderItemStatus.PENDING) {
-      throw new Error('ORDER_NOT_CONFIRMED: Ofitsiant tasdiqlamagan (PENDING) taomni tayyorlash mumkin emas');
+      throw new Error('ORDER_NOT_CONFIRMED: Ofitsiant tasdiqlamagan taomni tayyorlash mumkin emas');
     }
 
     if (item.status === OrderItemStatus.READY || item.status === OrderItemStatus.SERVED) {

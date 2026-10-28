@@ -448,7 +448,7 @@ export class BillingService {
       }
 
       if (payment.refunds.length > 0) {
-        const err: any = new Error('CANNOT_REVERSE_REFUNDED_PAYMENT: Qaytarish (refund) qilingan to\'lovni reversal qilib bo\'lmaydi');
+        const err: any = new Error('CANNOT_REVERSE_REFUNDED_PAYMENT: Qaytarilgan to\'lovni reversal qilib bo\'lmaydi');
         err.statusCode = 400;
         err.code = 'CANNOT_REVERSE_REFUNDED_PAYMENT';
         throw err;
@@ -821,7 +821,7 @@ export class BillingService {
           });
         } else {
           const err: any = new Error(
-            `ACTIVE_ITEMS_EXIST: Tashrifda hali yakunlanmagan (${activeItems.length} ta) taomlar mavjud. Avval taomlar yetkazilishi (SERVED) yoki bekor qilinishi shart.`
+            `ACTIVE_ITEMS_EXIST: Tashrifda hali yakunlanmagan ${activeItems.length} ta taom mavjud. Avval taomlar yetkazilishi yoki bekor qilinishi shart.`
           );
           err.statusCode = 400;
           err.code = 'ACTIVE_ITEMS_EXIST';
@@ -836,7 +836,7 @@ export class BillingService {
       if (openCalls.length > 0) {
         if (!forceSettlement) {
           const err: any = new Error(
-            `OPEN_CALLS_EXIST: Tashrifda hali ochiq ofitsiant yoki hisob chaqiruvlari mavjud (${openCalls.length} ta). Avval chaqiruvlar yakunlanishi (RESOLVED) shart.`
+            `OPEN_CALLS_EXIST: Tashrifda hali ochiq chaqiruvlar mavjud ${openCalls.length} ta. Avval chaqiruvlar yakunlanishi shart.`
           );
           err.statusCode = 400;
           err.code = 'OPEN_CALLS_EXIST';
@@ -996,9 +996,186 @@ export class BillingService {
         waiterName: v.waiter?.fullName || null,
         openedAt: v.openedAt.toISOString(),
         itemCount: allItems.filter((i) => i.status !== OrderItemStatus.CANCELLED).length,
+        items: allItems
+          .filter((i) => i.status !== OrderItemStatus.CANCELLED)
+          .map((i) => ({
+            name: i.snapshotName,
+            quantity: i.quantity,
+            priceTiyin: i.snapshotPriceTiyin.toString(),
+          })),
         bill,
       };
     });
+  }
+
+  /**
+   * 8. Bugungi yopilgan to'lovlar tarixi
+   */
+  async getPaymentsHistory(restaurantId: string, limit = 50) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const payments = await prisma.payment.findMany({
+      where: {
+        restaurantId,
+        createdAt: { gte: todayStart },
+      },
+      include: {
+        visit: {
+          include: {
+            table: true,
+            waiter: { select: { id: true, fullName: true } },
+            orders: {
+              include: {
+                items: true,
+              },
+            },
+          },
+        },
+        refunds: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
+
+    return payments.map((p) => {
+      const allItems = p.visit?.orders?.flatMap((o) => o.items) || [];
+      return {
+        id: p.id,
+        visitId: p.visitId,
+        tableNumber: p.visit?.table?.number ?? null,
+        waiterName: p.visit?.waiter?.fullName || null,
+        method: p.method,
+        amountTiyin: p.amountTiyin.toString(),
+        tenderedCashTiyin: p.tenderedCashTiyin ? p.tenderedCashTiyin.toString() : null,
+        changeTiyin: p.changeTiyin ? p.changeTiyin.toString() : null,
+        status: p.status,
+        createdAt: p.createdAt.toISOString(),
+        items: allItems
+          .filter((i) => i.status !== OrderItemStatus.CANCELLED)
+          .map((i) => ({
+            name: i.snapshotName,
+            quantity: i.quantity,
+            priceTiyin: i.snapshotPriceTiyin.toString(),
+          })),
+      };
+    });
+  }
+
+  /**
+   * 9. Kassa moliyasi statistikasi (Bugungi tushumlar, naqd, terminal, kassa qoldig'i)
+   */
+  async getCashierFinanceSummary(restaurantId: string, userId?: string) {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    // Bugungi barcha to'lovlar
+    const payments = await prisma.payment.findMany({
+      where: {
+        restaurantId,
+        createdAt: { gte: todayStart },
+        status: PaymentStatus.COMPLETED,
+      },
+    });
+
+    let cashReceiptsTiyin = 0n;
+    let terminalReceiptsTiyin = 0n;
+    let totalReceiptsTiyin = 0n;
+
+    for (const p of payments) {
+      if (p.method === PaymentMethod.CASH) {
+        cashReceiptsTiyin += p.amountTiyin;
+      } else {
+        terminalReceiptsTiyin += p.amountTiyin;
+      }
+      totalReceiptsTiyin += p.amountTiyin;
+    }
+
+    // Faol kassa smenasi
+    let activeShift = await prisma.shift.findFirst({
+      where: {
+        restaurantId,
+        status: ShiftStatus.OPEN,
+      },
+      include: {
+        cashMovements: {
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+      orderBy: { openedAt: 'desc' },
+    });
+
+    if (!activeShift && userId) {
+      try {
+        activeShift = await prisma.shift.create({
+          data: {
+            restaurantId,
+            userId,
+            status: ShiftStatus.OPEN,
+            startingCashTiyin: 0n,
+            notes: "Avtomatik ochilgan kassa smenasi",
+          },
+          include: {
+            cashMovements: {
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        });
+      } catch {
+        activeShift = await prisma.shift.findFirst({
+          where: { restaurantId, status: ShiftStatus.OPEN },
+          include: {
+            cashMovements: {
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        });
+      }
+    }
+
+    let cashInTiyin = 0n;
+    let cashOutTiyin = 0n;
+
+    if (activeShift?.cashMovements) {
+      for (const cm of activeShift.cashMovements) {
+        if (cm.type === 'CASH_IN') {
+          cashInTiyin += cm.amountTiyin;
+        } else {
+          cashOutTiyin += cm.amountTiyin;
+        }
+      }
+    }
+
+    const startingCashTiyin = activeShift?.startingCashTiyin ?? 0n;
+    const expectedCashInDrawerTiyin =
+      startingCashTiyin + cashReceiptsTiyin + cashInTiyin - cashOutTiyin;
+
+    return {
+      shift: activeShift
+        ? {
+            id: activeShift.id,
+            status: activeShift.status,
+            openedAt: activeShift.openedAt.toISOString(),
+            startingCashTiyin: startingCashTiyin.toString(),
+            movements: activeShift.cashMovements.map((m) => ({
+              id: m.id,
+              type: m.type,
+              amountTiyin: m.amountTiyin.toString(),
+              reason: m.reason,
+              createdAt: m.createdAt.toISOString(),
+            })),
+          }
+        : null,
+      todayStats: {
+        cashReceiptsTiyin: cashReceiptsTiyin.toString(),
+        terminalReceiptsTiyin: terminalReceiptsTiyin.toString(),
+        totalReceiptsTiyin: totalReceiptsTiyin.toString(),
+        cashInTiyin: cashInTiyin.toString(),
+        cashOutTiyin: cashOutTiyin.toString(),
+        expectedCashInDrawerTiyin: (expectedCashInDrawerTiyin >= 0n ? expectedCashInDrawerTiyin : 0n).toString(),
+        paymentsCount: payments.length,
+      },
+    };
   }
 }
 

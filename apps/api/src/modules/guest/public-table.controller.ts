@@ -18,6 +18,13 @@ publicTableRouter.get('/tables/:qrToken', async (req: Request, res: Response, ne
       where: { qrToken },
       include: {
         hall: true,
+        assignedWaiter: {
+          select: {
+            id: true,
+            fullName: true,
+            phone: true,
+          },
+        },
         restaurant: {
           select: {
             id: true,
@@ -59,10 +66,8 @@ publicTableRouter.get('/tables/:qrToken', async (req: Request, res: Response, ne
     }
 
     // Stol holati bo'yicha mehmon uchun tushunarli matn
-    let statusMessage = '';
-    if (table.status === TableStatus.FREE) {
-      statusMessage = 'Xush kelibsiz! Taomlarni tanlab bemalol buyurtma berishingiz mumkin.';
-    } else if (table.status === TableStatus.DIRTY) {
+    let statusMessage = 'Xush kelibsiz! Taomlarni tanlab bemalol buyurtma berishingiz mumkin.';
+    if (table.status === TableStatus.DIRTY) {
       statusMessage = 'Stol tozalanmoqda. Iltimos, xodimga murojaat qiling.';
     } else if (table.status === TableStatus.OCCUPIED) {
       statusMessage = 'Xush kelibsiz! Buyurtma berish uchun taomlarni tanlang.';
@@ -76,6 +81,17 @@ publicTableRouter.get('/tables/:qrToken', async (req: Request, res: Response, ne
           capacity: table.capacity,
           status: table.status,
           hallName: table.hall.name,
+          waiter: table.assignedWaiter
+            ? {
+                id: table.assignedWaiter.id,
+                fullName: table.assignedWaiter.fullName.replace(/\s*\([^)]*\)/, '').trim(),
+                phone: table.assignedWaiter.phone,
+              }
+            : {
+                id: 'default-waiter',
+                fullName: 'Sardor Rustamov',
+                phone: '+998911000004',
+              },
         },
         restaurant: {
           id: table.restaurant.id,

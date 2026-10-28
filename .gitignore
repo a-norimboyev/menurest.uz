@@ -17,3 +17,7 @@ menurest-review.zip
 .devin/
 .vite/
 apps/**/.vite/
+.chrome-*/
+cookies.txt
+test.png
+screenshots/

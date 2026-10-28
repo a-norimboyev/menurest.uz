@@ -28,18 +28,20 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
 
   if (!isOpen) return null;
 
-  async function handleLogin(e?: React.FormEvent, customPhone?: string) {
+  async function handleLogin(e?: React.FormEvent, customPhone?: string, customPassword?: string) {
     if (e) e.preventDefault();
     setLoading(true);
     setError(null);
 
     const loginPhone = customPhone || phone;
+    const loginPassword = customPassword !== undefined ? customPassword : password;
+
     try {
       const res = await fetch('/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ phone: loginPhone, password }),
+        body: JSON.stringify({ phone: loginPhone, password: loginPassword }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -55,8 +57,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 animate-in fade-in overscroll-contain">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 animate-in fade-in overscroll-contain overflow-y-auto">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-slate-100 overflow-hidden my-8">
         {/* Header */}
         <div className="bg-brand-900 text-white p-6 relative">
           <div className="flex items-center space-x-3">
@@ -64,7 +66,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
               <Lock className="w-5 h-5 text-brand-100" />
             </div>
             <div>
-              <h2 className="text-lg font-bold">Kirish</h2>
+              <h2 className="text-lg font-bold">Tizimga Kirish</h2>
+              <p className="text-xs text-brand-200">Restoran yoki platforma boshqaruv kabineti</p>
             </div>
           </div>
           <button
@@ -77,7 +80,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-5">
           {error && (
             <div className="p-3.5 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 shrink-0 text-red-600" />
@@ -121,11 +124,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
                   aria-label={showPassword ? "Parolni yashirish" : "Parolni ko'rsatish"}
                   tabIndex={-1}
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -145,6 +144,111 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSucce
               )}
             </button>
           </form>
+
+          {/* Quick Demo: Qaldirg'och milliy taomlari (4 Oylik Tarixga ega Restoran) */}
+          <div className="pt-4 border-t border-slate-100 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                <img src="/qaldirgoch-logo.png" alt="Qaldirg'och" className="w-4 h-4 rounded-full object-cover" />
+                Qaldirg'och milliy taomlari
+              </span>
+              <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                1-bosishda kirish
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setPhone('+998911000002');
+                  setPassword('+998911000002');
+                  handleLogin(undefined, '+998911000002', '+998911000002');
+                }}
+                className="p-2.5 rounded-xl bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 border border-slate-200 text-left transition-all flex flex-col"
+              >
+                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  Menejer
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono mt-0.5">+998 91 100 00 02</span>
+                <span className="text-[9px] text-emerald-700 font-medium mt-0.5">Parol: bir xil</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPhone('+998911000003');
+                  setPassword('+998911000003');
+                  handleLogin(undefined, '+998911000003', '+998911000003');
+                }}
+                className="p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 hover:border-amber-300 border border-slate-200 text-left transition-all flex flex-col"
+              >
+                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  Kassir
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono mt-0.5">+998 91 100 00 03</span>
+                <span className="text-[9px] text-amber-700 font-medium mt-0.5">Parol: bir xil</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPhone('+998911000004');
+                  setPassword('+998911000004');
+                  handleLogin(undefined, '+998911000004', '+998911000004');
+                }}
+                className="p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50 hover:border-blue-300 border border-slate-200 text-left transition-all flex flex-col"
+              >
+                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  1-Ofitsiant (Sardor)
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono mt-0.5">+998 91 100 00 04</span>
+                <span className="text-[9px] text-blue-700 font-medium mt-0.5">Parol: bir xil</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPhone('+998911000005');
+                  setPassword('+998911000005');
+                  handleLogin(undefined, '+998911000005', '+998911000005');
+                }}
+                className="p-2.5 rounded-xl bg-slate-50 hover:bg-blue-50 hover:border-blue-300 border border-slate-200 text-left transition-all flex flex-col"
+              >
+                <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-sky-500" />
+                  2-Ofitsiant (Malika)
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono mt-0.5">+998 91 100 00 05</span>
+                <span className="text-[9px] text-sky-700 font-medium mt-0.5">Parol: bir xil</span>
+              </button>
+            </div>
+
+            {/* Platform Super Admin */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setPhone('+998901111111');
+                  setPassword('+998901111111');
+                  handleLogin(undefined, '+998901111111', '+998901111111');
+                }}
+                className="w-full p-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 hover:border-purple-300 border border-purple-200 text-left transition-all flex items-center justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-600" />
+                  <span className="font-bold text-purple-950 text-xs">Platforma Super Admini</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-[11px] text-purple-700 font-mono">+998 90 111 11 11</div>
+                  <div className="text-[9px] text-purple-600 font-medium">Parol: bir xil</div>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -27,16 +27,16 @@ function validatePassword(pass: string): { valid: boolean; reason?: string } {
     return { valid: false, reason: 'Parol uzunligi kamida 10 ta belgidan iborat bo\'lishi shart' };
   }
   if (!/[A-Z]/.test(pass)) {
-    return { valid: false, reason: 'Parolda kamida bitta katta harf (A-Z) bo\'lishi shart' };
+    return { valid: false, reason: 'Parolda kamida bitta katta harf bo\'lishi shart' };
   }
   if (!/[a-z]/.test(pass)) {
-    return { valid: false, reason: 'Parolda kamida bitta kichik harf (a-z) bo\'lishi shart' };
+    return { valid: false, reason: 'Parolda kamida bitta kichik harf bo\'lishi shart' };
   }
   if (!/[0-9]/.test(pass)) {
-    return { valid: false, reason: 'Parolda kamida bitta raqam (0-9) bo\'lishi shart' };
+    return { valid: false, reason: 'Parolda kamida bitta raqam bo\'lishi shart' };
   }
   if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pass)) {
-    return { valid: false, reason: 'Parolda kamida bitta maxsus belgi (!@#$%^&*...) bo\'lishi shart' };
+    return { valid: false, reason: 'Parolda kamida bitta maxsus belgi bo\'lishi shart' };
   }
   return { valid: true };
 }
@@ -82,7 +82,7 @@ async function bootstrapSuperAdmin() {
 
   const passCheck = validatePassword(rawPassword.trim());
   if (!passCheck.valid) {
-    console.error(`\nXATOLIK (Parol talabi bajarilmadi): ${passCheck.reason}\n`);
+    console.error(`\nXATOLIK: ${passCheck.reason}\n`);
     process.exit(1);
   }
 
@@ -133,7 +133,7 @@ async function bootstrapSuperAdmin() {
   console.log('  ID:        ', superAdmin.id);
   console.log('  Telefon:   ', superAdmin.phone);
   console.log('  Ism:       ', superAdmin.fullName);
-  console.log('  Vakolat:    SUPER_ADMIN (Barcha platforma boshqaruvi)');
+  console.log('  Vakolat:    SUPER_ADMIN');
   console.log('  Xavfsizlik: Parol qat\'iy bcrypt bilan hashlandi. Secretlar hech qayerda saqlanmadi.\n');
   process.exit(0);
 }

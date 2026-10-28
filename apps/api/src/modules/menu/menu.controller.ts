@@ -268,7 +268,7 @@ menuRouter.post(
           success: false,
           error: {
             code: 'INVALID_INPUT',
-            message: 'Taom nomi va narxi (basePriceTiyin) maydonlari majburiy',
+            message: 'Taom nomi va narxi maydonlari majburiy',
           },
         });
       }

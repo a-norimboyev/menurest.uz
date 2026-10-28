@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 
 export const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  log: process.env.DEBUG_PRISMA === 'true' ? ['query', 'error', 'warn'] : ['error', 'warn'],
 });
 
 export async function checkDatabaseConnection(): Promise<boolean> {

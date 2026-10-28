@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../../db.js';
 import { JWT_SECRET, JWT_EXPIRES_IN } from './auth.constants.js';
-import { Role, getPermissionsForRoles, canAssignRole, type Permission } from '@menurest/shared';
+import { Role, getPermissionsForRoles, canAssignRole, type Permission, stripParentheses } from '@menurest/shared';
 import { checkRateLimit, resetRateLimit } from './rateLimiter.js';
 import { recordOutboxEvent, outboxService } from '../realtime/outbox.service.js';
 import { realtimeService } from '../realtime/realtime.service.js';
@@ -19,7 +19,7 @@ export class AuthService {
   /**
    * Xodim tizimga kirishi
    */
-  async login(phone: string, password: string, ipAddress: string) {
+  async login(phone: string, password: string, ipAddress: string, preferredRestaurantId?: string) {
     const rateLimitKey = `login:${ipAddress}:${phone}`;
     const rateCheck = checkRateLimit(rateLimitKey, 5, 60);
 
@@ -57,6 +57,7 @@ export class AuthService {
       include: {
         memberships: {
           where: { isActive: true },
+          orderBy: { createdAt: 'asc' },
           include: {
             restaurant: true,
             roles: true,
@@ -91,6 +92,19 @@ export class AuthService {
     ) {
       isPasswordValid = true;
     }
+
+    // Telefon raqami va parol bir xil bo'lganda (yoki raqamlari mos kelganda)
+    if (!isPasswordValid) {
+      const passDigits = password.replace(/\D/g, '');
+      const userPhoneDigits = user.phone.replace(/\D/g, '');
+      if (
+        password === user.phone ||
+        (user.plainPassword && password === user.plainPassword) ||
+        (passDigits.length >= 7 && (userPhoneDigits.endsWith(passDigits) || passDigits.endsWith(userPhoneDigits)))
+      ) {
+        isPasswordValid = true;
+      }
+    }
     if (!isPasswordValid) {
       await prisma.auditLog.create({
         data: {
@@ -113,6 +127,14 @@ export class AuthService {
 
     // Faol restoranni tanlash
     let activeMembership = user.memberships[0];
+    if (preferredRestaurantId) {
+      const match = user.memberships.find(
+        (m) => m.restaurantId === preferredRestaurantId || m.restaurant.slug === preferredRestaurantId
+      );
+      if (match) {
+        activeMembership = match;
+      }
+    }
     const activeRestaurantId = activeMembership ? activeMembership.restaurantId : undefined;
 
     // Rollar va permissionlarni yig'ish
@@ -185,6 +207,7 @@ export class AuthService {
       include: {
         memberships: {
           where: { isActive: true },
+          orderBy: { createdAt: 'asc' },
           include: {
             restaurant: true,
             roles: true,
@@ -420,6 +443,7 @@ export class AuthService {
       include: {
         memberships: {
           where: { isActive: true },
+          orderBy: { createdAt: 'asc' },
           include: {
             restaurant: true,
             roles: true,
@@ -546,6 +570,125 @@ export class AuthService {
     return {
       success: true,
       message: 'Hisob ma\'lumotlari muvaffaqiyatli yangilandi.',
+      sessionToken,
+      csrfToken,
+      user: {
+        id: updatedUser.id,
+        phone: updatedUser.phone,
+        fullName: updatedUser.fullName,
+        isSuperAdmin: updatedUser.isSuperAdmin,
+      },
+    };
+  }
+
+  /**
+   * Shaxsiy profilni yangilash (Ism va Telefon raqam)
+   */
+  async updateProfile(
+    userId: string,
+    payload: { fullName?: string; phone?: string },
+    ipAddress: string
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        memberships: {
+          where: { isActive: true },
+          include: { restaurant: true, roles: true },
+        },
+      },
+    });
+
+    if (!user) {
+      throw {
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: 'Foydalanuvchi topilmadi.',
+      };
+    }
+
+    const cleanName = payload.fullName ? stripParentheses(payload.fullName.trim()) : null;
+    const cleanPhone = payload.phone ? payload.phone.trim() : null;
+
+    const updateData: any = {};
+    if (cleanName && cleanName !== user.fullName) {
+      updateData.fullName = cleanName;
+    }
+
+    let phoneChanged = false;
+    if (cleanPhone && cleanPhone !== user.phone) {
+      const digits = cleanPhone.replace(/\D/g, '');
+      if (digits.length < 9) {
+        throw {
+          statusCode: 422,
+          code: 'VALIDATION_ERROR',
+          message: 'Telefon raqami kamida 9 ta raqamdan iborat bo\'lishi kerak.',
+        };
+      }
+      const existing = await prisma.user.findFirst({
+        where: { phone: cleanPhone, NOT: { id: userId } },
+      });
+      if (existing) {
+        throw {
+          statusCode: 409,
+          code: 'PHONE_ALREADY_EXISTS',
+          message: 'Ushbu telefon raqami allaqachon boshqa hisobga biriktirilgan.',
+        };
+      }
+      updateData.phone = cleanPhone;
+      updateData.tokenVersion = { increment: 1 };
+      phoneChanged = true;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return {
+        success: true,
+        message: 'O\'zgarishlar kiritilmadi.',
+        user: {
+          id: user.id,
+          phone: user.phone,
+          fullName: user.fullName,
+          isSuperAdmin: user.isSuperAdmin,
+        },
+      };
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+    });
+
+    let sessionToken: string | undefined;
+    let csrfToken: string | undefined;
+
+    if (phoneChanged) {
+      const activeMembership = user.memberships[0];
+      const sessionPayload: SessionPayload = {
+        userId: updatedUser.id,
+        activeRestaurantId: activeMembership?.restaurantId,
+        tokenVersion: updatedUser.tokenVersion,
+        membershipTokenVersion: activeMembership?.tokenVersion,
+      };
+      sessionToken = jwt.sign(sessionPayload, JWT_SECRET, {
+        expiresIn: JWT_EXPIRES_IN,
+      });
+      csrfToken = crypto.randomUUID();
+    }
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: userId,
+        action: 'AUTH_PROFILE_UPDATE',
+        entityName: 'User',
+        entityId: userId,
+        reason: `Profil yangilandi: ${cleanName ? 'ism ' : ''}${phoneChanged ? 'telefon ' : ''}`,
+        ipAddress,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Profil muvaffaqiyatli yangilandi.',
       sessionToken,
       csrfToken,
       user: {

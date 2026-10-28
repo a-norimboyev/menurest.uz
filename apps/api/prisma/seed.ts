@@ -20,7 +20,7 @@ async function main() {
   console.log('1. Demo foydalanuvchilar tekshirilmoqda/yaratilmoqda...');
   const superAdmin = await prisma.user.upsert({
     where: { phone: '+998901111111' },
-    update: { fullName: 'Platforma Super Admini', isSuperAdmin: true },
+    update: { fullName: 'Platforma Super Admini', isSuperAdmin: true, passwordHash: demoPasswordHash },
     create: {
       phone: '+998901111111',
       fullName: 'Platforma Super Admini',
@@ -31,60 +31,60 @@ async function main() {
 
   const boss = await prisma.user.upsert({
     where: { phone: '+998902222222' },
-    update: { fullName: 'Alisher Usmonov (Boss)' },
+    update: { fullName: 'Alisher Usmonov' },
     create: {
       phone: '+998902222222',
-      fullName: 'Alisher Usmonov (Boss)',
+      fullName: 'Alisher Usmonov',
       passwordHash: demoPasswordHash,
     },
   });
 
   const manager = await prisma.user.upsert({
     where: { phone: '+998903333333' },
-    update: { fullName: 'Bobur Rahimov (Manager)' },
+    update: { fullName: 'Bobur Rahimov' },
     create: {
       phone: '+998903333333',
-      fullName: 'Bobur Rahimov (Manager)',
+      fullName: 'Bobur Rahimov',
       passwordHash: demoPasswordHash,
     },
   });
 
   const cashier = await prisma.user.upsert({
     where: { phone: '+998904444444' },
-    update: { fullName: 'Madina Karimova (Cashier)' },
+    update: { fullName: 'Madina Karimova' },
     create: {
       phone: '+998904444444',
-      fullName: 'Madina Karimova (Cashier)',
+      fullName: 'Madina Karimova',
       passwordHash: demoPasswordHash,
     },
   });
 
   const waiter = await prisma.user.upsert({
     where: { phone: '+998905555555' },
-    update: { fullName: 'Jahongir Rustamov (Waiter)' },
+    update: { fullName: 'Jahongir Rustamov' },
     create: {
       phone: '+998905555555',
-      fullName: 'Jahongir Rustamov (Waiter)',
+      fullName: 'Jahongir Rustamov',
       passwordHash: demoPasswordHash,
     },
   });
 
   const cook = await prisma.user.upsert({
     where: { phone: '+998906666666' },
-    update: { fullName: 'Usta Shuhrat (Kitchen)' },
+    update: { fullName: 'Usta Shuhrat' },
     create: {
       phone: '+998906666666',
-      fullName: 'Usta Shuhrat (Kitchen)',
+      fullName: 'Usta Shuhrat',
       passwordHash: demoPasswordHash,
     },
   });
 
   const boss2 = await prisma.user.upsert({
     where: { phone: '+998907777777' },
-    update: { fullName: 'Farhod Nazarov (Gijduvon Boss)' },
+    update: { fullName: 'Farhod Nazarov' },
     create: {
       phone: '+998907777777',
-      fullName: 'Farhod Nazarov (Gijduvon Boss)',
+      fullName: 'Farhod Nazarov',
       passwordHash: demoPasswordHash,
     },
   });
@@ -105,8 +105,8 @@ async function main() {
     },
   });
 
-  // Restoran 1 Membership & Rollar
-  const staffAssignments: { user: typeof boss; role: Role }[] = [
+  // Restoran 1 Membership & Rollar (5 ta asosiy rol)
+  const staffAssignments: { user: any; role: Role }[] = [
     { user: boss, role: Role.BOSS },
     { user: manager, role: Role.MANAGER },
     { user: cashier, role: Role.CASHIER },
@@ -298,7 +298,7 @@ async function main() {
     { id: 'dish-2', name: 'Chayxona Oshi', cat: 'cat-milliy', station: kitchenStation.id, price: 40000n, desc: 'Lazer guruchli qovurma osh' },
     { id: 'dish-3', name: 'Uyg\'ur Lag\'mon', cat: 'cat-milliy', station: kitchenStation.id, price: 38000n, desc: 'Cho\'zma xamir va sousli yangi sabzavotlar' },
     { id: 'dish-4', name: 'Qovurma Lag\'mon', cat: 'cat-milliy', station: kitchenStation.id, price: 40000n, desc: 'Maxsus tovada qovurilgan lazzatli lag\'mon' },
-    { id: 'dish-5', name: 'Toshkent Mantisi (4 dona)', cat: 'cat-milliy', station: kitchenStation.id, price: 36000n, desc: 'Mayin go\'shtli bug\'da pishgan manti' },
+    { id: 'dish-5', name: 'Toshkent Mantisi', cat: 'cat-milliy', station: kitchenStation.id, price: 36000n, desc: 'Mayin go\'shtli bug\'da pishgan manti' },
     { id: 'dish-6', name: 'Qozon Kabob', cat: 'cat-milliy', station: kitchenStation.id, price: 65000n, desc: 'Qozonda qizargan barra qo\'y go\'shti va kartoshka' },
     
     // 2. Kabob va Gril
@@ -320,9 +320,9 @@ async function main() {
     { id: 'dish-18', name: 'Tandir Issiq Non', cat: 'cat-salat', station: kitchenStation.id, price: 6000n, desc: 'Tandirdan uzilgan sedanalik issiq non' },
 
     // 5. Ichimliklar
-    { id: 'dish-19', name: 'Ko\'k Choy 95 (Choynak)', cat: 'cat-ichimlik', station: barStation.id, price: 8000n, desc: 'Samovarda damlangan sara ko\'k choy' },
-    { id: 'dish-20', name: 'Qora Choy Limonli (Choynak)', cat: 'cat-ichimlik', station: barStation.id, price: 12000n, desc: 'Yangi kesilgan limon bilan qora choy' },
-    { id: 'dish-21', name: 'Uy Kompoti (1 litr)', cat: 'cat-ichimlik', station: barStation.id, price: 20000n, desc: 'Tabiiy mevalardan tayyorlangan muzdek kompot' },
+    { id: 'dish-19', name: 'Ko\'k Choy 95', cat: 'cat-ichimlik', station: barStation.id, price: 8000n, desc: 'Samovarda damlangan sara ko\'k choy' },
+    { id: 'dish-20', name: 'Qora Choy Limonli', cat: 'cat-ichimlik', station: barStation.id, price: 12000n, desc: 'Yangi kesilgan limon bilan qora choy' },
+    { id: 'dish-21', name: 'Uy Kompoti', cat: 'cat-ichimlik', station: barStation.id, price: 20000n, desc: 'Tabiiy mevalardan tayyorlangan muzdek kompot' },
   ];
 
   for (const d of dishes) {
@@ -355,12 +355,15 @@ async function main() {
           language: 'ru',
         },
       },
-      update: {},
+      update: {
+        name: `${d.name} RU`,
+        description: `${d.desc} на русском`,
+      },
       create: {
         menuItemId: item.id,
         language: 'ru',
-        name: `${d.name} (RU)`,
-        description: `${d.desc} (описание на русском)`,
+        name: `${d.name} RU`,
+        description: `${d.desc} на русском`,
       },
     });
   }
@@ -390,7 +393,7 @@ async function main() {
 
   await prisma.addonOption.createMany({
     data: [
-      { addonGroupId: addonGrp.id, name: 'Qazi (bo\'lak)', priceTiyin: 800000n },
+      { addonGroupId: addonGrp.id, name: 'Qazi', priceTiyin: 800000n },
       { addonGroupId: addonGrp.id, name: 'Bedana tuxumi', priceTiyin: 300000n },
       { addonGroupId: addonGrp.id, name: 'Achchiq qalampir', priceTiyin: 200000n },
     ],
@@ -474,15 +477,14 @@ async function main() {
   }
 
   console.log('==================================================');
-  console.log('SEEDED MUVAFFAQIShTLI YAKUNLANDI (IDEMPOTENT)!');
-  console.log(`Restoran 1 ID: ${rest1.id} (Rayhon)`);
-  console.log(`Restoran 2 ID: ${rest2.id} (G'ijduvon)`);
-  console.log('Super Admin telefon: +998901111111 (Parol: Demo12345!)');
-  console.log('Boss telefon:        +998902222222 (Parol: Demo12345!)');
-  console.log('Manager telefon:     +998903333333 (Parol: Demo12345!)');
-  console.log('Cashier telefon:     +998904444444 (Parol: Demo12345!)');
-  console.log('Waiter telefon:      +998905555555 (Parol: Demo12345!)');
-  console.log('Kitchen telefon:     +998906666666 (Parol: Demo12345!)');
+  console.log('SEEDED MUVAFFAQIYATLI YAKUNLANDI: FAQAT 5 TA ASOSIY ROL!');
+  console.log(`Restoran 1 ID: ${rest1.id} - Rayhon`);
+  console.log(`Restoran 2 ID: ${rest2.id} - G'ijduvon`);
+  console.log('1. Mehmon GUEST:        http://localhost:3000/?qr=qr_rayhon_1');
+  console.log('2. Waiter telefon:      +998905555555 Parol: Demo12345!');
+  console.log('4. Cashier telefon:     +998904444444 Parol: Demo12345!');
+  console.log('5. Manager telefon:     +998903333333 Parol: Demo12345!');
+  console.log('7. Super Admin telefon: +998901111111 Parol: Demo12345!');
   console.log('==================================================');
 }
 

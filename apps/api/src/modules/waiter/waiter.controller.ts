@@ -385,6 +385,37 @@ waiterRouter.post(
 );
 
 /**
+ * 8.1. Stolning barcha taomlarini yetkazilgan deb belgilash
+ * POST /api/v1/restaurants/:restaurantId/waiter/visits/:visitId/serve-all
+ */
+waiterRouter.post(
+  ['/:restaurantId/waiter/visits/:visitId/serve-all', '/waiter/visits/:visitId/serve-all'],
+  requireAuth,
+  requireTenant,
+  requirePermission('items.serve'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const restaurantId = getRestaurantId(req);
+      const user = req.user!;
+      const { visitId } = req.params;
+
+      const result = await waiterService.serveVisitItems(restaurantId, visitId, user.id);
+
+      res.status(200).json({
+        success: true,
+        data: result,
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: `req_${Date.now()}`,
+        },
+      });
+    } catch (err: any) {
+      next(err);
+    }
+  }
+);
+
+/**
  * 9. Ofitsiant tomonidan mehmon nomidan buyurtma yaratish (Staff Order)
  * POST /api/v1/restaurants/:restaurantId/waiter/orders
  */

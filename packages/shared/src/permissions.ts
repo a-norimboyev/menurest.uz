@@ -66,7 +66,6 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<Role, Permission[]> = {
     'shifts.manage',
     'reports.view',
     'audit.view',
-    'settings.manage',
   ],
   CASHIER: [
     'visits.open',

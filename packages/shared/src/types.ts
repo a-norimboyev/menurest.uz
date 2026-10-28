@@ -340,9 +340,20 @@ export interface PopularDishItem {
 export interface WaiterPerformanceItem {
   waiterId: string;
   waiterName: string;
+  phone?: string;
   servedOrdersCount: number;
   totalOrderValueTiyin: bigint;
   resolvedCallsCount: number;
+}
+
+export interface DailyBreakdownItem {
+  date: string;       // YYYY-MM-DD
+  dayLabel: string;   // DD-Oy
+  netReceiptsTiyin: bigint;
+  cashTiyin: bigint;
+  terminalTiyin: bigint;
+  ordersCount: number;
+  orderTotalTiyin: bigint;
 }
 
 export interface PlatformRestaurantItemDto {

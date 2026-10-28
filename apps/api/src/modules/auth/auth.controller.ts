@@ -16,7 +16,7 @@ export const authRouter = Router();
  */
 authRouter.post('/login', async (req: Request, res: Response) => {
   try {
-    const { phone, password } = req.body;
+    const { phone, password, restaurantId } = req.body;
     if (!phone || !password) {
       return res.status(422).json({
         success: false,
@@ -29,7 +29,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     }
 
     const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
-    const result = await authService.login(phone, password, ip);
+    const result = await authService.login(phone, password, ip, restaurantId);
 
     // Cookie larni o'rnatish
     res.cookie(SESSION_COOKIE_NAME, result.sessionToken, SESSION_COOKIE_OPTIONS);
@@ -226,6 +226,39 @@ authRouter.post('/update-credentials', requireAuth, csrfProtection, async (req: 
       error: {
         code: err.code || 'INTERNAL_ERROR',
         message: err.message || 'Ma\'lumotlarni yangilashda xatolik yuz berdi.',
+      },
+      meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+    });
+  }
+});
+
+/**
+ * 7. POST /api/v1/auth/profile
+ * Xodim profilini (ism va telefon) yangilash
+ */
+authRouter.post('/profile', requireAuth, csrfProtection, async (req: Request, res: Response) => {
+  try {
+    const { fullName, phone } = req.body;
+    const ip = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const result = await authService.updateProfile(req.user!.id, { fullName, phone }, ip);
+
+    if (result.sessionToken && result.csrfToken) {
+      res.cookie(SESSION_COOKIE_NAME, result.sessionToken, SESSION_COOKIE_OPTIONS);
+      res.cookie(CSRF_COOKIE_NAME, result.csrfToken, CSRF_COOKIE_OPTIONS);
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+    });
+  } catch (err: any) {
+    const status = err.statusCode || 500;
+    return res.status(status).json({
+      success: false,
+      error: {
+        code: err.code || 'INTERNAL_ERROR',
+        message: err.message || 'Profilni yangilashda xatolik yuz berdi.',
       },
       meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
     });

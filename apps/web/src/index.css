@@ -21,6 +21,15 @@ body {
   min-width: 44px;
 }
 
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Print styling for QR code print cards */
 @media print {
   body * {

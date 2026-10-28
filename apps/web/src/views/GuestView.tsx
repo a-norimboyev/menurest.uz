@@ -11,8 +11,6 @@ import {
   EyeOff,
   RefreshCw,
   Clock,
-  Sparkles,
-  ChevronRight,
   Info,
   X,
   Trash2,
@@ -30,6 +28,7 @@ import { EmptyState } from '../components/ui/EmptyState.tsx';
 import { DishDetailModal, SelectedDishDetail, CartSubmitItem } from '../components/menu/DishDetailModal.tsx';
 import { useRealtime } from '../hooks/useRealtime.ts';
 import { ConnectionBanner } from '../components/ui/ConnectionBanner.tsx';
+import { stripParentheses } from '@menurest/shared';
 
 interface GuestOrderItemAddon {
   name: string;
@@ -75,12 +74,24 @@ interface GuestDish {
   }[];
 }
 
+function getFoodImage(name: string, rawImg?: string | null): string {
+  if (rawImg && (rawImg.startsWith('http') || rawImg.startsWith('/'))) return rawImg;
+  const n = (name || '').toLowerCase();
+  if (n.includes('osh') || n.includes('palov')) return '/foods/osh.jpg';
+  if (n.includes('kabob') || n.includes('shashlik') || n.includes('steyk')) return '/foods/shashlik.jpg';
+  if (n.includes('salat') || n.includes('chuchuk') || n.includes('suzma')) return '/foods/salat.jpg';
+  if (n.includes('sho\'rva') || n.includes('shorva') || n.includes('mastava') || n.includes('lag\'mon')) return '/foods/shorva.jpg';
+  if (n.includes('somsa') || n.includes('non') || n.includes('patir')) return '/foods/somsa.jpg';
+  if (n.includes('medovik') || n.includes('chizkeyk') || n.includes('paxlava') || n.includes('shirinlik')) return '/foods/desert.jpg';
+  if (n.includes('choy') || n.includes('moxito') || n.includes('ayron') || n.includes('sharbat') || n.includes('suv')) return '/foods/ichimlik.jpg';
+  return '/foods/qozon-kabob.jpg';
+}
+
 export const GuestView: React.FC = () => {
   const [lang, setLang] = useState<'uz' | 'ru'>('uz');
-  const [activeCategory, setActiveCategory] = useState('milliy');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
   const [cart, setCart] = useState<CartSubmitItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
-  const [orderNotes, setOrderNotes] = useState('');
   const [activeNav, setActiveNav] = useState<'menu' | 'orders' | 'service' | 'bill'>('menu');
   const [serviceCallSent, setServiceCallSent] = useState(false);
   const [loadingMenu, setLoadingMenu] = useState(false);
@@ -97,10 +108,14 @@ export const GuestView: React.FC = () => {
   const [infoModalOpen, setInfoModalOpen] = useState(false);
 
   // Bosqich 6-7: Stol va Mehmon Sessiyasi Holati
-  const [tableStatus, setTableStatus] = useState<'FREE' | 'DIRTY' | 'OCCUPIED'>('OCCUPIED');
-  const [tableNumber, setTableNumber] = useState<number>(4);
+  const [_tableStatus, setTableStatus] = useState<'FREE' | 'OCCUPIED'>('OCCUPIED');
+  const [tableNumber, setTableNumber] = useState<number>(1);
   const [_hallName, setHallName] = useState<string>('Asosiy Zal');
-  const [isJoined, setIsJoined] = useState<boolean>(false);
+  const [waiterInfo, setWaiterInfo] = useState<{ fullName: string; phone?: string } | null>({
+    fullName: 'Sardor Rustamov',
+    phone: '+998 91 100 00 04',
+  });
+  const [isJoined, setIsJoined] = useState<boolean>(true);
   const [qrToken] = useState<string>(() => {
     // 1. URL Path: /table/:qrToken
     if (typeof window !== 'undefined') {
@@ -111,8 +126,11 @@ export const GuestView: React.FC = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const fromQuery = urlParams.get('qr') || urlParams.get('token');
       if (fromQuery) return fromQuery;
+
+      const tblParam = urlParams.get('table');
+      if (tblParam) return `qr_qaldirgoch_${tblParam}`;
     }
-    return 'qr_rayhon_tbl_4';
+    return 'qr_qaldirgoch_1';
   });
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
@@ -122,7 +140,42 @@ export const GuestView: React.FC = () => {
 
   // Buyurtma Yuborish & Idempotency Holati
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
-  const [orders, setOrders] = useState<GuestOrder[]>([]);
+  const [orders, setOrders] = useState<GuestOrder[]>([
+    {
+      id: 'ord-104',
+      orderNumber: 104,
+      status: 'PREPARING',
+      notes: "Zirasi ko'proq bo'lsin",
+      createdAt: new Date(Date.now() - 14 * 60000).toISOString(),
+      items: [
+        {
+          id: 'item-1',
+          name: 'Gijduvoncha Qiyma Shashlik',
+          priceTiyin: '2200000',
+          quantity: 2,
+          status: 'PREPARING',
+          variantName: "To'liq porsiya",
+          addons: [{ name: 'Qazi', priceTiyin: '800000' }],
+        },
+        {
+          id: 'item-2',
+          name: 'Klassik Achchiq-Chuchuk',
+          priceTiyin: '1600000',
+          quantity: 1,
+          status: 'READY',
+          addons: [],
+        },
+        {
+          id: 'item-3',
+          name: 'Shosh Maxsus Choyi',
+          priceTiyin: '1800000',
+          quantity: 1,
+          status: 'SERVED',
+          addons: [],
+        },
+      ],
+    },
+  ]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
   // Default Categories
@@ -142,7 +195,7 @@ export const GuestView: React.FC = () => {
       desc: lang === 'uz' ? 'Devzira guruch, barra go\'sht, noxat va kishmish' : 'Рис девзира, нежное мясо, горох и изюм',
       priceTiyin: 4200000n,
       cat: 'milliy',
-      img: 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?auto=format&fit=crop&w=600&q=80',
+      img: '/foods/osh.jpg',
       isAvailable: true,
       allergens: ['Zira', 'Noxat'],
       version: 1,
@@ -169,7 +222,7 @@ export const GuestView: React.FC = () => {
       desc: lang === 'uz' ? 'Qizartirib qovurilgan go\'sht va tillarang kartoshka' : 'Обжаренная баранина с золотистым картофелем',
       priceTiyin: 6500000n,
       cat: 'milliy',
-      img: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=600&q=80',
+      img: '/foods/qozon-kabob.jpg',
       isAvailable: true,
       version: 1,
     },
@@ -196,7 +249,7 @@ export const GuestView: React.FC = () => {
     },
     {
       id: 'd19',
-      name: lang === 'uz' ? 'Ko\'k Choy 95 (Choynak)' : 'Зеленый чай 95',
+      name: lang === 'uz' ? 'Ko\'k Choy 95' : 'Зеленый чай 95',
       desc: lang === 'uz' ? 'Samovarda damlangan sara ko\'k choy' : 'Отборный зеленый чай из самовара',
       priceTiyin: 800000n,
       cat: 'ichimlik',
@@ -211,13 +264,15 @@ export const GuestView: React.FC = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const fromParam = urlParams.get('restaurant') || urlParams.get('slug');
       if (fromParam) return fromParam;
+      const pathMatch = window.location.pathname.match(/\/m\/([^\/?#]+)/);
+      if (pathMatch && pathMatch[1]) return pathMatch[1];
     }
-    return '';
+    return 'qaldirgoch-bodomzor';
   }, []);
 
   // Public Menu Load
   const loadPublicMenu = useCallback(async (slugOrId?: string) => {
-    const effectiveSlug = slugOrId || targetRestaurantSlug || 'rayhon-chilonzor';
+    const effectiveSlug = slugOrId || targetRestaurantSlug || 'qaldirgoch-bodomzor';
     try {
       setLoadingMenu(true);
       const res = await fetch(`/api/v1/public/restaurants/${effectiveSlug}/menu?lang=${lang}`);
@@ -227,42 +282,42 @@ export const GuestView: React.FC = () => {
           setRestaurantInfo(json.data.restaurant);
         }
         if (json.data.categories?.length > 0) {
-          setCategories(json.data.categories);
-          if (!json.data.categories.some((c: any) => c.id === activeCategory)) {
-            setActiveCategory(json.data.categories[0].id);
-          }
+          setCategories(json.data.categories.map((c: any) => ({ ...c, name: stripParentheses(c.name) })));
         }
         if (json.data.items?.length > 0) {
           setDishes(
-            json.data.items.map((item: any) => ({
-              id: item.id,
-              name: item.name,
-              desc: item.description,
-              priceTiyin: BigInt(item.basePriceTiyin),
-              cat: item.categoryId,
-              img: item.imageUrl || 'https://images.unsplash.com/photo-1541518763669-27fef04b14ea?auto=format&fit=crop&w=600&q=80',
-              isAvailable: item.isAvailable,
-              allergens: item.allergens,
-              version: item.version || 1,
-              variants: item.variants?.map((v: any) => ({
-                id: v.id,
-                name: v.name,
-                priceDiffTiyin: BigInt(v.priceDifferenceTiyin || 0),
-                isAvailable: v.isAvailable !== false,
-              })),
-              addonGroups: item.addonGroups?.map((g: any) => ({
-                id: g.id,
-                name: g.name,
-                minSelect: g.minSelect || 0,
-                maxSelect: g.maxSelect || 10,
-                options: g.options?.map((opt: any) => ({
-                  id: opt.id,
-                  name: opt.name,
-                  priceTiyin: BigInt(opt.priceTiyin || 0),
-                  isAvailable: opt.isAvailable !== false,
+            json.data.items.map((item: any) => {
+              const cleanName = stripParentheses(item.name);
+              return {
+                id: item.id,
+                name: cleanName,
+                desc: item.description ? stripParentheses(item.description) : item.description,
+                priceTiyin: BigInt(item.basePriceTiyin),
+                cat: item.categoryId,
+                img: getFoodImage(cleanName, item.imageUrl),
+                isAvailable: item.isAvailable,
+                allergens: item.allergens,
+                version: item.version || 1,
+                variants: item.variants?.map((v: any) => ({
+                  id: v.id,
+                  name: stripParentheses(v.name),
+                  priceDiffTiyin: BigInt(v.priceDifferenceTiyin || 0),
+                  isAvailable: v.isAvailable !== false,
                 })),
-              })),
-            }))
+                addonGroups: item.addonGroups?.map((g: any) => ({
+                  id: g.id,
+                  name: stripParentheses(g.name),
+                  minSelect: g.minSelect || 0,
+                  maxSelect: g.maxSelect || 10,
+                  options: g.options?.map((opt: any) => ({
+                    id: opt.id,
+                    name: stripParentheses(opt.name),
+                    priceTiyin: BigInt(opt.priceTiyin || 0),
+                    isAvailable: opt.isAvailable !== false,
+                  })),
+                })),
+              };
+            })
           );
         }
       }
@@ -271,7 +326,7 @@ export const GuestView: React.FC = () => {
     } finally {
       setLoadingMenu(false);
     }
-  }, [lang, activeCategory, targetRestaurantSlug]);
+  }, [lang, targetRestaurantSlug]);
 
   // Tashrif Buyurtmalarini yuklash (GET /api/v1/guest/orders)
   const fetchOrders = useCallback(async () => {
@@ -280,13 +335,13 @@ export const GuestView: React.FC = () => {
       const res = await fetch('/api/v1/guest/orders', { credentials: 'include' });
       if (res.ok) {
         const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           setOrders(json.data);
           setIsJoined(true);
         }
       } else if (res.status === 401) {
-        // Sessiya yo'q
-        setIsJoined(false);
+        // Agar sessiya bo'lmasa, demo buyurtmalar saqlanib turadi
+        setIsJoined(true);
       }
     } catch {
       // Offline yoki tarmoq xatoligi
@@ -303,8 +358,9 @@ export const GuestView: React.FC = () => {
       if (res.ok && json.success && json.data) {
         if (json.data.table) {
           if (json.data.table.number) setTableNumber(json.data.table.number);
-          if (json.data.table.hall?.name) setHallName(json.data.table.hall.name);
+          if (json.data.table.hall?.name || json.data.table.hallName) setHallName(json.data.table.hall?.name || json.data.table.hallName);
           if (json.data.table.status) setTableStatus(json.data.table.status);
+          if (json.data.table.waiter) setWaiterInfo(json.data.table.waiter);
         }
         if (json.data.restaurant) {
           setRestaurantInfo((prev) => ({ ...prev, ...json.data.restaurant }));
@@ -457,7 +513,6 @@ export const GuestView: React.FC = () => {
 
     try {
       const payload = {
-        orderNotes: orderNotes.trim() || undefined,
         items: cart.map((item) => ({
           menuItemId: item.menuItemId,
           variantId: item.variantId || undefined,
@@ -483,14 +538,13 @@ export const GuestView: React.FC = () => {
       if (res.status === 201 || res.status === 200) {
         // Muvaffaqiyatli buyurtma yaratildi
         setCart([]);
-        setOrderNotes('');
         setCartOpen(false);
         setActiveNav('orders');
         await fetchOrders();
         setFeedbackMsg(
           lang === 'uz'
-            ? 'Buyurtmangiz qabul qilindi! Ofitsiant tasdig\'i kutilmoqda.'
-            : 'Ваш заказ принят! Ожидает подтверждения официанта.'
+            ? 'Buyurtmangiz tasdiqlandi! Taomingiz tayyorlanmoqda.'
+            : 'Ваш заказ подтвержден! Блюда готовятся.'
         );
         setTimeout(() => setFeedbackMsg(null), 4000);
       } else if (res.status === 409) {
@@ -530,41 +584,27 @@ export const GuestView: React.FC = () => {
   }
 
   // Xizmat chaqirish
-  async function handleServiceCall(type: 'WAITER' | 'BILL' | 'CLEAN') {
-    if (tableStatus === 'DIRTY') {
-      alert(
-        lang === 'uz'
-          ? 'Stol tozalanmoqda. Iltimos, xodimga murojaat qiling.'
-          : 'Стол убирается.'
-      );
-      return;
-    }
+  async function handleServiceCall(type: 'WAITER' | 'BILL') {
     if (!isJoined) {
       await joinTableDirectly();
     }
+    const currentWaiter = waiterInfo?.fullName ? waiterInfo.fullName.split(' ')[0] : 'Sardor';
     setServiceCallSent(true);
     setFeedbackMsg(
       type === 'BILL'
-        ? (lang === 'uz' ? 'Hisob so\'rovi ofitsiantga yuborildi!' : 'Запрос счета отправлен!')
-        : type === 'CLEAN'
-        ? (lang === 'uz' ? 'Stolni tozalash so\'rovi yuborildi!' : 'Запрос на уборку отправлен!')
-        : (lang === 'uz' ? 'Ofitsiant chaqirildi! Tez orada keladi.' : 'Официант вызван!')
+        ? (lang === 'uz' ? `Hisob so'rovi ofitsiant (${currentWaiter})ga yuborildi!` : `Запрос счета отправлен официанту (${currentWaiter})!`)
+        : (lang === 'uz' ? `Ofitsiant ${currentWaiter} chaqirildi! Tez orada stolingizga keladi.` : `Официант ${currentWaiter} вызван! Скоро подойдет к столику.`)
     );
     setTimeout(() => {
       setServiceCallSent(false);
       setFeedbackMsg(null);
-    }, 3500);
+    }, 4000);
   }
 
   // Status badge yordamchisi
   function getOrderStatusBadge(status: string) {
     switch (status) {
       case 'NEW':
-        return {
-          label: lang === 'uz' ? 'Kutilmoqda (Ofitsiant tasdig\'i)' : 'Ожидает подтверждения',
-          color: 'bg-amber-100 text-amber-900 border-amber-300',
-          dot: 'bg-amber-500 animate-pulse',
-        };
       case 'CONFIRMED':
         return {
           label: lang === 'uz' ? 'Tasdiqlandi' : 'Подтвержден',
@@ -644,7 +684,15 @@ export const GuestView: React.FC = () => {
     }
   }
 
-  const filteredDishes = dishes.filter((d) => d.cat === activeCategory);
+  const allCategories = useMemo(() => {
+    const list = [{ id: 'all', name: lang === 'uz' ? '🔥 Barchasi' : '🔥 Все' }];
+    return [...list, ...categories];
+  }, [categories, lang]);
+
+  const filteredDishes = useMemo(() => {
+    if (activeCategory === 'all') return dishes;
+    return dishes.filter((d) => d.cat === activeCategory);
+  }, [dishes, activeCategory]);
 
   return (
     <div className="w-full min-h-screen bg-slate-100 flex justify-center">
@@ -655,19 +703,19 @@ export const GuestView: React.FC = () => {
           onManualRefresh={fetchOrders}
         />
 
-        {/* 1. Ixcham Yuqori Header (Stol raqami & Til almashtirish) */}
-        <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-md border-b border-line px-4 py-2.5 flex items-center justify-between shadow-subtle">
-          <div className="flex items-center space-x-2 min-w-0">
-            <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-brand/10 border border-brand/20 text-brand font-black text-sm tracking-wide shadow-subtle">
-              <span>{lang === 'uz' ? 'Stol' : 'Стол'}</span>
-              <span>#{tableNumber}</span>
-            </div>
+        {/* 1. Ixcham Yuqori Header (Stol raqami & Til) */}
+        <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-md border-b border-line px-4 py-2 flex items-center justify-between shadow-subtle min-h-[46px]">
+          {/* Stol raqami nishoni */}
+          <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-brand/10 border border-brand/20 text-brand font-extrabold text-xs tracking-wide shadow-subtle">
+            <span className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse" />
+            <span>{lang === 'uz' ? 'Stol' : 'Стол'} #{tableNumber}</span>
           </div>
 
           {/* Til almashtirish tugmasi */}
           <button
             onClick={() => setLang(lang === 'uz' ? 'ru' : 'uz')}
-            className="flex items-center space-x-1 px-2.5 py-1 rounded-xl bg-bg hover:bg-surface text-ink-main text-xs font-bold border border-line shadow-subtle transition-all active:scale-95 min-h-[32px]"
+            className="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl bg-bg hover:bg-surface text-ink-main text-xs font-bold border border-line shadow-subtle transition-all active:scale-95 min-h-[32px]"
+            title={lang === 'uz' ? "Tilni almashtirish" : "Сменить язык"}
           >
             <Globe className="w-3.5 h-3.5 text-brand" />
             <span className="uppercase">{lang}</span>
@@ -676,7 +724,7 @@ export const GuestView: React.FC = () => {
 
         {/* FEEDBACK TOAST / BANNER */}
         {feedbackMsg && (
-          <div className="sticky top-12 z-50 px-4 py-2 mx-4 mt-2 bg-brand-900 text-white text-xs font-bold rounded-2xl shadow-xl flex items-center justify-between border border-brand-700 animate-fade-in">
+          <div className="sticky top-14 z-50 px-4 py-2 mx-4 mt-2 bg-brand-900 text-white text-xs font-bold rounded-2xl shadow-xl flex items-center justify-between border border-brand-700 animate-fade-in">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
               <span>{feedbackMsg}</span>
@@ -690,16 +738,18 @@ export const GuestView: React.FC = () => {
         {/* ASOSIY KONTENT: TABLAR BO'YICHA */}
         {activeNav === 'menu' && (
           <>
-            {/* 2. Sticky Kategoriyalar */}
-            <div className="sticky top-[49px] z-20 bg-bg/95 backdrop-blur-md py-2.5 px-4 border-b border-line shadow-subtle">
+            {/* Sticky Kategoriyalar */}
+            <div className="sticky top-[46px] z-20 bg-bg/95 backdrop-blur-md py-2 px-4 border-b border-line shadow-subtle">
               <div className="flex space-x-2 overflow-x-auto no-scrollbar">
-                {categories.map((c) => {
+                {allCategories.map((c) => {
                   const isActive = activeCategory === c.id;
                   return (
                     <button
                       key={c.id}
-                      onClick={() => setActiveCategory(c.id)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all min-h-[40px] ${
+                      onClick={() => {
+                        setActiveCategory(c.id);
+                      }}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all shrink-0 min-h-[36px] ${
                         isActive
                           ? 'bg-brand text-white shadow-subtle font-extrabold'
                           : 'bg-surface text-ink-muted border border-line hover:bg-bg hover:text-ink-main'
@@ -764,7 +814,7 @@ export const GuestView: React.FC = () => {
                     <div className="flex-1 flex flex-col justify-between min-w-0">
                       <div className="space-y-1">
                         <div className="flex items-start justify-between gap-1">
-                          <h3 className="font-bold text-sm text-ink-main leading-snug truncate">{dish.name}</h3>
+                          <h3 className="font-bold text-sm text-ink-main leading-snug truncate">{stripParentheses(dish.name)}</h3>
                           {dish.allergens && dish.allergens.length > 0 && (
                             <span className="text-[9px] px-1 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
                               {dish.allergens[0]}
@@ -872,15 +922,10 @@ export const GuestView: React.FC = () => {
                     className="bg-surface rounded-2xl p-4 border border-line shadow-subtle space-y-3"
                   >
                     <div className="flex items-center justify-between border-b border-line pb-2.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-sm text-ink-main">
-                          Buyurtma #{order.orderNumber}
-                        </span>
-                        <span className="text-[11px] text-ink-muted flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
+                      <span className="text-[11px] text-ink-muted flex items-center gap-1.5 font-medium">
+                        <Clock className="w-3.5 h-3.5 text-ink-muted" />
+                        {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                       <span
                         className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold border flex items-center gap-1.5 ${statusMeta.color}`}
                       >
@@ -888,12 +933,6 @@ export const GuestView: React.FC = () => {
                         {statusMeta.label}
                       </span>
                     </div>
-
-                    {order.notes && (
-                      <div className="text-xs text-ink-secondary bg-bg p-2 rounded-xl border border-line italic">
-                        Izoh: "{order.notes}"
-                      </div>
-                    )}
 
                     <div className="divide-y divide-line/60">
                       {order.items.map((item) => {
@@ -905,7 +944,7 @@ export const GuestView: React.FC = () => {
                             <div className="space-y-0.5">
                               <div className="text-xs font-bold text-ink-main flex items-center gap-1.5">
                                 <span>{item.quantity}x</span>
-                                <span>{item.name}</span>
+                                <span>{stripParentheses(item.name)}</span>
                                 {item.variantName && (
                                   <span className="text-[10px] text-brand bg-brand-50 px-1.5 py-0.2 rounded font-medium">
                                     {item.variantName}
@@ -946,78 +985,45 @@ export const GuestView: React.FC = () => {
         </div>
       )}
 
-      {/* XIZMAT TABI (Ofitsiant chaqirish) */}
+      {/* OFITSIANT TABI */}
       {activeNav === 'service' && (
         <div className="p-4 space-y-4 flex-1">
           <div>
             <h2 className="text-base font-bold text-ink-main">
-              {lang === 'uz' ? 'Xizmat Ko\'rsatish' : 'Сервис и Официант'}
+              {lang === 'uz' ? 'Ofitsiant' : 'Официант'}
             </h2>
             <p className="text-xs text-ink-muted">
-              {lang === 'uz' ? 'Ofitsiantni stolingizga chaqirish' : 'Вызов персонала к столику'}
+              {lang === 'uz' ? 'Stolingizga xizmat ko\'rsatish' : 'Обслуживание вашего столика'}
             </p>
           </div>
 
-          <div className="space-y-3">
-            <div
+          <div className="bg-surface rounded-2xl p-6 border border-line shadow-subtle text-center space-y-5">
+            <div className="space-y-1">
+              <span className="text-xs text-ink-muted font-medium">
+                {lang === 'uz' ? 'Sizning ofitsiantingiz:' : 'Ваш официант:'}
+              </span>
+              <h3 className="text-2xl font-black text-brand tracking-wide">
+                {waiterInfo?.fullName ? waiterInfo.fullName.split(' ')[0] : 'Sardor'}
+              </h3>
+            </div>
+
+            <Button
+              variant="primary"
+              size="lg"
+              className="w-full font-bold shadow-md active:scale-95 transition-all py-3.5 text-sm"
               onClick={() => handleServiceCall('WAITER')}
-              className="bg-surface hover:bg-brand-50/50 cursor-pointer rounded-2xl p-4 border border-line shadow-subtle flex items-center justify-between transition-all active:scale-[0.99]"
             >
-              <div className="flex items-center space-x-3.5">
-                <div className="w-12 h-12 rounded-xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand">
-                  <Bell className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-ink-main">
-                    {lang === 'uz' ? 'Ofitsiantni Chaqirish' : 'Вызов официанта'}
-                  </h3>
-                  <p className="text-xs text-ink-muted">
-                    {lang === 'uz' ? 'Savollar yoki qo\'shimcha xizmat uchun' : 'По любым вопросам к столику'}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-ink-muted" />
-            </div>
+              <Bell className={`w-4 h-4 mr-2 ${serviceCallSent ? 'animate-bounce text-amber-300' : ''}`} />
+              {serviceCallSent
+                ? (lang === 'uz' ? `Chaqirildi: ${waiterInfo?.fullName ? waiterInfo.fullName.split(' ')[0] : 'Sardor'} yo'lda` : `Вызван: ${waiterInfo?.fullName ? waiterInfo.fullName.split(' ')[0] : 'Сардор'} в пути`)
+                : (lang === 'uz' ? 'Ofitsiantni Chaqirish' : 'Позвать официанта')}
+            </Button>
 
-            <div
-              onClick={() => handleServiceCall('BILL')}
-              className="bg-surface hover:bg-brand-50/50 cursor-pointer rounded-2xl p-4 border border-line shadow-subtle flex items-center justify-between transition-all active:scale-[0.99]"
-            >
-              <div className="flex items-center space-x-3.5">
-                <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700">
-                  <Receipt className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-ink-main">
-                    {lang === 'uz' ? 'Hisobni So\'rash' : 'Попросить счет'}
-                  </h3>
-                  <p className="text-xs text-ink-muted">
-                    {lang === 'uz' ? 'To\'lov qilish uchun chekni keltirish' : 'Принести расчетный чек'}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-ink-muted" />
-            </div>
-
-            <div
-              onClick={() => handleServiceCall('CLEAN')}
-              className="bg-surface hover:bg-brand-50/50 cursor-pointer rounded-2xl p-4 border border-line shadow-subtle flex items-center justify-between transition-all active:scale-[0.99]"
-            >
-              <div className="flex items-center space-x-3.5">
-                <div className="w-12 h-12 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700">
-                  <Sparkles className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-ink-main">
-                    {lang === 'uz' ? 'Stolni Tozalash' : 'Уборка стола'}
-                  </h3>
-                  <p className="text-xs text-ink-muted">
-                    {lang === 'uz' ? 'Bo\'shagan idishlarni olib ketish' : 'Убрать пустую посуду'}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight className="w-5 h-5 text-ink-muted" />
-            </div>
+            <p className="text-[11px] text-ink-muted">
+              {lang === 'uz'
+                ? 'Savollar yoki qo\'shimcha xizmat uchun tugmani bosing'
+                : 'Нажмите кнопку для любых вопросов или обслуживания'}
+            </p>
           </div>
         </div>
       )}
@@ -1059,7 +1065,7 @@ export const GuestView: React.FC = () => {
                     return (
                       <div key={idx} className="flex justify-between text-xs text-ink-main">
                         <span>
-                          {item.quantity}x {item.name} {item.variantName ? `(${item.variantName})` : ''}
+                          {item.quantity}x {stripParentheses(item.name)} {item.variantName ? stripParentheses(item.variantName) : ''}
                         </span>
                         <Money amountTiyin={lineTotal} className="font-semibold" />
                       </div>
@@ -1083,7 +1089,7 @@ export const GuestView: React.FC = () => {
                       <Money amountTiyin={activeItemsSum} />
                     </div>
                     <div className="flex justify-between text-ink-muted">
-                      <span>{lang === 'uz' ? 'Xizmat haqi (10%):' : 'Обслуживание (10%):'}</span>
+                      <span>{lang === 'uz' ? 'Xizmat haqi 10%:' : 'Обслуживание 10%:'}</span>
                       <Money amountTiyin={svc} />
                     </div>
                     <div className="flex justify-between text-base font-extrabold text-ink-main pt-2 border-t border-line">
@@ -1094,22 +1100,47 @@ export const GuestView: React.FC = () => {
                 );
               })()}
 
-              <div className="bg-bg rounded-xl p-3 text-[11px] text-ink-muted space-y-1 border border-line">
-                <div className="flex items-center gap-1.5 font-bold text-ink-main">
-                  <Info className="w-3.5 h-3.5 text-brand" />
-                  <span>{lang === 'uz' ? 'To\'lov usullari:' : 'Способы оплаты:'}</span>
+              <div className="bg-bg rounded-xl p-3.5 text-xs text-ink-muted space-y-2 border border-line">
+                <div className="flex items-center gap-1.5 font-bold text-ink-main text-xs">
+                  <Info className="w-4 h-4 text-brand" />
+                  <span>{lang === 'uz' ? 'To\'lov tartibi:' : 'Порядок оплаты:'}</span>
                 </div>
-                <div>Naqd pul, Uzcard/Humo bank kartalari, Payme yoki Click orqali ofitsiantga to'lanadi.</div>
+                <p className="text-ink-secondary leading-relaxed font-medium">
+                  {lang === 'uz' ? (
+                    <>
+                      Iltimos, to'lov uchun kassaga boring va{' '}
+                      <span className="font-extrabold text-brand bg-brand/10 px-1.5 py-0.5 rounded-md">
+                        «Stol #{tableNumber}»
+                      </span>{' '}
+                      deb ayting.
+                    </>
+                  ) : (
+                    <>
+                      Пожалуйста, подойдите к кассе для оплаты и назовите{' '}
+                      <span className="font-extrabold text-brand bg-brand/10 px-1.5 py-0.5 rounded-md">
+                        «Стол #{tableNumber}»
+                      </span>
+                      .
+                    </>
+                  )}
+                </p>
+                <div className="pt-2 border-t border-line/60 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-ink-muted">
+                  <span>💵 {lang === 'uz' ? 'Naqd pul' : 'Наличные'}</span>
+                  <span>•</span>
+                  <span>💳 Uzcard / Humo</span>
+                  <span>•</span>
+                  <span>📱 Click / Payme</span>
+                </div>
               </div>
 
               <Button
                 variant="primary"
                 size="lg"
-                className="w-full font-bold"
+                className="w-full font-bold shadow-md active:scale-95 transition-all"
                 onClick={() => handleServiceCall('BILL')}
               >
                 <Receipt className="w-4 h-4 mr-2" />
-                {lang === 'uz' ? 'Ofitsiantdan Hisobni So\'rash' : 'Попросить счет у официанта'}
+                {lang === 'uz' ? 'Ofitsiantdan Chekni So\'rash' : 'Попросить чек у официанта'}
               </Button>
             </div>
           )}
@@ -1179,7 +1210,7 @@ export const GuestView: React.FC = () => {
           }`}
         >
           <Bell className={`w-5 h-5 ${serviceCallSent ? 'text-amber-500 animate-bounce' : ''}`} />
-          <span className="text-[10px]">{lang === 'uz' ? 'Xizmat' : 'Официант'}</span>
+          <span className="text-[10px]">{lang === 'uz' ? 'Ofitsiant' : 'Официант'}</span>
         </button>
 
         <button
@@ -1209,7 +1240,7 @@ export const GuestView: React.FC = () => {
               {cart.map((item) => (
                 <div key={item.id} className="py-3 flex items-start justify-between gap-3">
                   <div className="space-y-1 flex-1 min-w-0">
-                    <h4 className="font-bold text-sm text-ink-main truncate">{item.name}</h4>
+                    <h4 className="font-bold text-sm text-ink-main truncate">{stripParentheses(item.name)}</h4>
                     {item.variantName && (
                       <span className="inline-block text-[10px] font-semibold text-brand bg-brand-50 px-2 py-0.5 rounded-md">
                         {item.variantName}
@@ -1218,11 +1249,6 @@ export const GuestView: React.FC = () => {
                     {item.selectedAddons.length > 0 && (
                       <div className="text-[10px] text-ink-secondary">
                         + {item.selectedAddons.map((a) => a.name).join(', ')}
-                      </div>
-                    )}
-                    {item.notes && (
-                      <div className="text-[10px] text-ink-muted italic">
-                        Izoh: "{item.notes}"
                       </div>
                     )}
                     <Money
@@ -1257,27 +1283,6 @@ export const GuestView: React.FC = () => {
             </div>
           )}
 
-          {/* Buyurtmaga umumiy izoh */}
-          {cart.length > 0 && (
-            <div className="space-y-1.5 pt-2 border-t border-line">
-              <label className="text-xs font-bold text-ink-secondary flex items-center justify-between">
-                <span>{lang === 'uz' ? 'Buyurtmaga umumiy izoh:' : 'Примечание к заказу:'}</span>
-                <span className="text-[10px] text-ink-muted">{orderNotes.length}/500</span>
-              </label>
-              <textarea
-                value={orderNotes}
-                onChange={(e) => setOrderNotes(e.target.value.slice(0, 500))}
-                rows={2}
-                placeholder={
-                  lang === 'uz'
-                    ? 'Masalan: Barcha taomlar bir vaqtda keltirilsin...'
-                    : 'Например: Подать все блюда одновременно...'
-                }
-                className="w-full bg-surface border border-line rounded-xl p-2.5 text-xs text-ink-main focus:outline-none focus:ring-2 focus:ring-brand"
-              />
-            </div>
-          )}
-
           {/* Narxlar va Xizmat haqi */}
           {cart.length > 0 && (
             <div className="pt-3 border-t border-line space-y-2">
@@ -1286,7 +1291,7 @@ export const GuestView: React.FC = () => {
                 <Money amountTiyin={totalCartTiyin} />
               </div>
               <div className="flex justify-between text-xs text-ink-muted">
-                <span>{lang === 'uz' ? 'Xizmat haqi (10%):' : 'Обслуживание (10%):'}</span>
+                <span>{lang === 'uz' ? 'Xizmat haqi 10%:' : 'Обслуживание 10%:'}</span>
                 <Money amountTiyin={serviceChargeTiyin} />
               </div>
               <div className="flex justify-between text-base font-extrabold text-ink-main">
@@ -1306,7 +1311,7 @@ export const GuestView: React.FC = () => {
             {isSubmittingOrder ? (
               <span className="flex items-center gap-2">
                 <RefreshCw className="w-4 h-4 animate-spin" />
-                {lang === 'uz' ? 'Yuborilmoqda (Natija tekshirilmoqda)...' : 'Отправка заказа...'}
+                {lang === 'uz' ? 'Yuborilmoqda, natija tekshirilmoqda...' : 'Отправка заказа...'}
               </span>
             ) : (
               <span>

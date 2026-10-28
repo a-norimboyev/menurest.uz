@@ -1,5 +1,5 @@
 import { prisma } from '../../db.js';
-import { OrderStatus, OrderItemStatus, VisitStatus } from '@menurest/shared';
+import { OrderStatus, OrderItemStatus, VisitStatus, stripParentheses } from '@menurest/shared';
 import { recordOutboxEvent, outboxService } from '../realtime/outbox.service.js';
 import {
   RawOrderPayload,
@@ -24,7 +24,7 @@ export class OrdersService {
       select: { isActive: true, subscriptionExpiresAt: true },
     });
     if (!rest || !rest.isActive || (rest.subscriptionExpiresAt && new Date() > rest.subscriptionExpiresAt)) {
-      throw new Error('RESTAURANT_SUSPENDED: Restoran xizmati to\'xtatilgan (SUSPENDED). Yangi buyurtma berish taqiqlanadi.');
+      throw new Error('RESTAURANT_SUSPENDED: Restoran xizmati to\'xtatilgan. Yangi buyurtma berish taqiqlanadi.');
     }
 
     const visit = await prisma.visit.findFirst({
@@ -172,9 +172,9 @@ export class OrdersService {
         stationId: menuItem.stationId,
         quantity: qty,
         notes: item.notes?.trim() || null,
-        snapshotName: menuItem.name,
+        snapshotName: stripParentheses(menuItem.name),
         snapshotPriceTiyin: unitPriceTiyin,
-        snapshotVariantName,
+        snapshotVariantName: snapshotVariantName ? stripParentheses(snapshotVariantName) : null,
         addons: selectedAddonSnapshots,
       });
     }

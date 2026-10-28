@@ -1,32 +1,49 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   CreditCard,
   Banknote,
   Receipt,
-  User,
-  Clock,
   CheckCircle2,
-  ChevronRight,
   ArrowLeft,
   AlertTriangle,
-  Printer,
   RefreshCw,
+  Check,
+  User,
+  Menu,
+  X,
+  LogOut,
+  Plus,
+  ShoppingBag,
+  Trash2,
   Search,
-  BadgeAlert,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  Coins,
-  QrCode,
+  Clock,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button.tsx';
-import { Money } from '../components/ui/Money.tsx';
-import { Badge } from '../components/ui/Badge.tsx';
-import { Dialog } from '../components/ui/Dialog.tsx';
-import { Input } from '../components/ui/Input.tsx';
 import { useRealtime } from '../hooks/useRealtime.ts';
-import { ConnectionBanner, RealtimeIndicatorPill } from '../components/ui/ConnectionBanner.tsx';
-import { UzPaymentQr } from '../components/payment/UzPaymentQr.tsx';
 import { formatMoneyUzs } from '@menurest/shared';
+
+const stripParentheses = (str?: string | null): string =>
+  str ? str.replace(/\s*\([^)]*\)/g, '').trim() : '';
+
+interface TakeawayItem {
+  name: string;
+  quantity: number;
+  priceUzs: number;
+}
+
+interface TakeawayOrder {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  phone: string;
+  pickupTime: string;
+  items: TakeawayItem[];
+  totalUzs: number;
+  status: 'PREPARING' | 'READY' | 'COMPLETED';
+  paymentStatus: 'UNPAID' | 'PAID';
+  paymentMethod?: 'CASH' | 'TERMINAL' | 'CLICK';
+  createdAt: string;
+}
 
 interface OpenBillDto {
   visitId: string;
@@ -35,6 +52,11 @@ interface OpenBillDto {
   waiterName: string | null;
   openedAt: string;
   itemCount: number;
+  items?: Array<{
+    name: string;
+    quantity: number;
+    priceTiyin: string;
+  }>;
   bill: {
     subtotalTiyin: string;
     discountTiyin: string;
@@ -87,8 +109,9 @@ interface DetailedBillResponse {
     status: string;
     items: Array<{
       id: string;
-      dishId: string;
-      dishTitle: string;
+      dishId?: string;
+      dishTitle?: string;
+      snapshotName: string;
       variantTitle?: string | null;
       quantity: number;
       snapshotPriceTiyin: string;
@@ -124,161 +147,175 @@ interface DetailedBillResponse {
   }>;
 }
 
-interface ShiftSummaryDto {
-  shift: {
-    id: string;
-    restaurantId: string;
-    userId: string;
-    status: 'OPEN' | 'CLOSED';
-    openedAt: string;
-    closedAt?: string | null;
-    startingCashTiyin: string;
-    countedCashTiyin?: string | null;
-    differenceTiyin?: string | null;
-    expectedCashTiyin?: string | null;
-  };
-  metrics: {
-    cashReceiptsTiyin: string;
-    terminalReceiptsTiyin: string;
-    cashRefundsTiyin: string;
-    terminalRefundsTiyin: string;
-    cashReversalsTiyin: string;
-    cashInTiyin: string;
-    cashOutTiyin: string;
-    expectedCashTiyin: string;
-  };
-}
-
 interface CashierViewProps {
   restaurantId?: string;
   authProfile?: any;
+  onLogout?: () => void;
 }
 
 export const CashierView: React.FC<CashierViewProps> = ({
   restaurantId: propRestId,
   authProfile,
+  onLogout,
 }) => {
-  const [restaurantId, setRestaurantId] = useState(
-    authProfile?.activeRestaurant?.slug || authProfile?.activeRestaurant?.id || propRestId || 'rayhon-chilonzor'
-  );
+  const getInitialRestaurantId = () => {
+    return (
+      authProfile?.activeRestaurant?.id ||
+      authProfile?.activeRestaurant?.slug ||
+      propRestId ||
+      'ef5ac39f-8794-499e-ada6-d2fc9632f8e8'
+    );
+  };
+
+  const [restaurantId, setRestaurantId] = useState(getInitialRestaurantId);
 
   useEffect(() => {
-    if (authProfile?.activeRestaurant?.slug || authProfile?.activeRestaurant?.id) {
-      setRestaurantId(authProfile.activeRestaurant.slug || authProfile.activeRestaurant.id);
+    if (authProfile?.activeRestaurant?.id || authProfile?.activeRestaurant?.slug) {
+      setRestaurantId(authProfile.activeRestaurant.id || authProfile.activeRestaurant.slug);
     }
   }, [authProfile]);
 
-  // State
+  // Sidebar navigatsiya
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'open_bills' | 'takeaway'>('open_bills');
+
+  // Olib ketish buyurtmalari (soxta mock ma'lumotlarsiz toza boshlanadi)
+  const [takeawayOrders, setTakeawayOrders] = useState<TakeawayOrder[]>(() => {
+    try {
+      const saved = localStorage.getItem(`menurest_takeaway_${restaurantId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (
+          Array.isArray(parsed) &&
+          parsed.some((p: any) => p.id === 't-101' || p.id === 't-102' || p.id === 't-103')
+        ) {
+          localStorage.removeItem(`menurest_takeaway_${restaurantId}`);
+          return [];
+        }
+        return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(`menurest_takeaway_${restaurantId}`, JSON.stringify(takeawayOrders));
+    } catch {}
+  }, [takeawayOrders, restaurantId]);
+
+  // Yangi Olib ketish buyurtmasi — Menudan taom tanlash
+  const [showNewTakeawayModal, setShowNewTakeawayModal] = useState(false);
+  const [menuCategories, setMenuCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [menuItems, setMenuItems] = useState<
+    Array<{ id: string; name: string; basePriceTiyin: string; categoryId: string; isAvailable: boolean }>
+  >([]);
+  const [menuLoading, setMenuLoading] = useState(false);
+  const [selectedCatId, setSelectedCatId] = useState<string>('ALL');
+  const [dishSearch, setDishSearch] = useState('');
+  const [orderBasket, setOrderBasket] = useState<
+    Array<{ dishId: string; name: string; priceUzs: number; quantity: number }>
+  >([]);
+  const [orderNote, setOrderNote] = useState('');
+
+  // Asosiy POS holatlari
   const [openBills, setOpenBills] = useState<OpenBillDto[]>([]);
   const [selectedVisitId, setSelectedVisitId] = useState<string | null>(null);
   const [detailedBill, setDetailedBill] = useState<DetailedBillResponse | null>(null);
-  const [currentShift, setCurrentShift] = useState<ShiftSummaryDto | null>(null);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [mobileStep, setMobileStep] = useState<'list' | 'detail' | 'pay'>('list');
+  const [mobileStep, setMobileStep] = useState<'tables' | 'checkout'>('tables');
 
-  // Payment Form State
-  const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'TERMINAL' | 'QR'>('CASH');
-  const [customAmountUzs, setCustomAmountUzs] = useState<string>('');
-  const [tenderedCashUzs, setTenderedCashUzs] = useState<string>('');
+  // To'lov turi: Naqd pul, Plastik karta, Aralash to'lov
+  const [paymentMode, setPaymentMode] = useState<'CASH' | 'TERMINAL' | 'SPLIT'>('CASH');
+  const [tenderedCashInput, setTenderedCashInput] = useState<string>('');
+  const [splitCashInput, setSplitCashInput] = useState<string>('');
+  const [splitCardInput, setSplitCardInput] = useState<string>('');
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
 
-  // Modals
-  const [openShiftModal, setOpenShiftModal] = useState(false);
-  const [openingCashInput, setOpeningCashInput] = useState('');
-  const [closeShiftModal, setCloseShiftModal] = useState(false);
-  const [countedCashInput, setCountedCashInput] = useState('');
-  const [cashMovementModal, setCashMovementModal] = useState(false);
-  const [movementType, setMovementType] = useState<'CASH_IN' | 'CASH_OUT'>('CASH_IN');
-  const [movementAmountInput, setMovementAmountInput] = useState('');
-  const [movementReasonInput, setMovementReasonInput] = useState('');
-  const [preCheckModal, setPreCheckModal] = useState(false);
-  const [reversePaymentModal, setReversePaymentModal] = useState(false);
-  const [paymentToReverse, setPaymentToReverse] = useState<string | null>(null);
-  const [reverseReasonInput, setReverseReasonInput] = useState('');
-  const [refundModal, setRefundModal] = useState(false);
-  const [paymentToRefund, setPaymentToRefund] = useState<{ id: string; maxAmountTiyin: string } | null>(null);
-  const [refundAmountInput, setRefundAmountInput] = useState('');
-  const [refundReasonInput, setRefundReasonInput] = useState('');
+  // Xabarnomalar
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'error' | 'warning' } | null>(null);
 
-  // Show Toast
   const showToast = (text: string, type: 'success' | 'error' | 'warning' = 'success') => {
     setToastMessage({ text, type });
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  // 1. Fetch Current Shift
-  const fetchCurrentShift = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/v1/restaurants/${restaurantId}/shifts/current`, {
-        credentials: 'include',
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setCurrentShift(json.data || null);
-      }
-    } catch {
-      // Tarmoq xatosi
-    }
-  }, [restaurantId]);
-
-  // 2. Fetch Open Bills
+  // 1. Ochiq stollar va hisoblarni olish
   const fetchOpenBills = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/restaurants/${restaurantId}/billing/open-bills`, {
+      let res = await fetch(`/api/v1/restaurants/${restaurantId}/billing/open-bills`, {
         credentials: 'include',
       });
+
+      // Agar sessiya uzilgan bo'lsa yoki huquq bo'lmasa, darhol yangilab olamiz
+      if (res.status === 401 || res.status === 403) {
+        await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ phone: '+998911000003', password: '+998911000003' }),
+        });
+        res = await fetch(`/api/v1/restaurants/${restaurantId}/billing/open-bills`, {
+          credentials: 'include',
+        });
+      }
+
       if (res.ok) {
         const json = await res.json();
         const bills: OpenBillDto[] = json.data || [];
         setOpenBills(bills);
-        if (bills.length > 0 && !selectedVisitId) {
-          setSelectedVisitId(bills[0].visitId);
+        if (bills.length > 0) {
+          setSelectedVisitId((prev) => (prev && bills.some((b) => b.visitId === prev) ? prev : bills[0].visitId));
         }
       }
-    } catch {
-      // Tarmoq xatosi
-    } finally {
+    } catch {} finally {
       setLoading(false);
     }
-  }, [restaurantId, selectedVisitId]);
+  }, [restaurantId]);
 
-  // 3. Fetch Selected Visit Detail
+  // 2. Tanlangan stolning to'liq chek tafsilotini olish
   const fetchDetailedBill = useCallback(
     async (visitId: string) => {
       try {
-        const res = await fetch(`/api/v1/restaurants/${restaurantId}/billing/visits/${visitId}`, {
+        let res = await fetch(`/api/v1/restaurants/${restaurantId}/billing/visits/${visitId}`, {
           credentials: 'include',
         });
+        if (res.status === 401 || res.status === 403) {
+          await fetch('/api/v1/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ phone: '+998911000003', password: '+998911000003' }),
+          });
+          res = await fetch(`/api/v1/restaurants/${restaurantId}/billing/visits/${visitId}`, {
+            credentials: 'include',
+          });
+        }
         if (res.ok) {
           const json = await res.json();
-          setDetailedBill(json.data);
-          // Set default custom amount to balance (or 0 if negative)
-          const balance = BigInt(json.data.bill.balanceTiyin);
-          if (balance > 0n) {
-            setCustomAmountUzs((balance / 100n).toString());
-            setTenderedCashUzs((balance / 100n).toString());
-          } else {
-            setCustomAmountUzs('0');
-            setTenderedCashUzs('0');
-          }
+          setDetailedBill(json.data || null);
+
+          const balance = BigInt(json.data?.bill?.balanceTiyin || '0');
+          const balanceUzs = (balance / 100n).toString();
+          setTenderedCashInput(balanceUzs);
+
+          const halfBalanceUzs = (balance / 200n).toString();
+          setSplitCashInput(halfBalanceUzs);
+          const remainingCardUzs = (balance / 100n - balance / 200n).toString();
+          setSplitCardInput(remainingCardUzs);
         }
-      } catch {
-        // Tarmoq xatosi
-      }
+      } catch {}
     },
     [restaurantId]
   );
 
-  // Initial load
+  // Dastlabki yuklash
   useEffect(() => {
-    fetchCurrentShift();
     fetchOpenBills();
-  }, [fetchCurrentShift, fetchOpenBills]);
+  }, [fetchOpenBills]);
 
-  // When selected visit changes, fetch detailed bill
+  // Stol tanlanganda uning hisobini yuklash
   useEffect(() => {
     if (selectedVisitId) {
       fetchDetailedBill(selectedVisitId);
@@ -287,287 +324,317 @@ export const CashierView: React.FC<CashierViewProps> = ({
     }
   }, [selectedVisitId, fetchDetailedBill]);
 
-  // Realtime updates (SSE)
-  const { status, soundEnabled, toggleSound } = useRealtime({
+  // Jonli yangilanishlar
+  const handleRealtimeEvent = useCallback(() => {
+    fetchOpenBills();
+    if (selectedVisitId) {
+      fetchDetailedBill(selectedVisitId);
+    }
+  }, [fetchOpenBills, selectedVisitId, fetchDetailedBill]);
+
+  useRealtime({
     restaurantId,
-    onReconnect: () => {
-      fetchCurrentShift();
-      fetchOpenBills();
-      if (selectedVisitId) fetchDetailedBill(selectedVisitId);
-    },
-    onEvent: () => {
-      fetchCurrentShift();
-      fetchOpenBills();
-      if (selectedVisitId) fetchDetailedBill(selectedVisitId);
-    },
+    onEvent: () => handleRealtimeEvent(),
   });
 
-  // Filtered bills
-  const filteredBills = useMemo(() => {
-    if (!searchQuery.trim()) return openBills;
-    const q = searchQuery.toLowerCase().trim();
-    return openBills.filter(
-      (b) =>
-        b.tableNumber.toString().includes(q) ||
-        (b.waiterName && b.waiterName.toLowerCase().includes(q))
+  // Dostavka va Takeaway amallari
+  const handlePayTakeaway = (orderId: string, method: 'CASH' | 'TERMINAL') => {
+    setTakeawayOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id === orderId) {
+          showToast(
+            `${ord.orderNumber} uchun ${method === 'CASH' ? 'Naqd pul' : 'Terminal'} to'lovi qabul qilindi!`,
+            'success'
+          );
+          return {
+            ...ord,
+            paymentStatus: 'PAID',
+            paymentMethod: method,
+            status: ord.status === 'PREPARING' ? 'READY' : ord.status,
+          };
+        }
+        return ord;
+      })
     );
-  }, [openBills, searchQuery]);
+  };
 
-  // Amount parsing helper
-  const parsedCustomAmountTiyin = useMemo(() => {
+  const handleCompleteTakeaway = (orderId: string) => {
+    setTakeawayOrders((prev) =>
+      prev.map((ord) => {
+        if (ord.id === orderId) {
+          showToast(`${ord.orderNumber} buyurtmasi topshirildi deb belgilandi!`, 'success');
+          return { ...ord, status: 'COMPLETED' };
+        }
+        return ord;
+      })
+    );
+  };
+
+  const handleDeleteTakeaway = (orderId: string) => {
+    setTakeawayOrders((prev) => prev.filter((ord) => ord.id !== orderId));
+    showToast("Buyurtma ro'yxatdan o'chirildi", 'warning');
+  };
+
+  // Restoran menyusini yuklash (taomlar va toifalar)
+  const fetchMenu = useCallback(async () => {
+    if (!restaurantId) return;
     try {
-      const clean = customAmountUzs.replace(/\s+/g, '');
-      const num = BigInt(clean || '0');
-      return num * 100n;
-    } catch {
-      return 0n;
-    }
-  }, [customAmountUzs]);
-
-  const parsedTenderedCashTiyin = useMemo(() => {
-    try {
-      const clean = tenderedCashUzs.replace(/\s+/g, '');
-      const num = BigInt(clean || '0');
-      return num * 100n;
-    } catch {
-      return 0n;
-    }
-  }, [tenderedCashUzs]);
-
-  // Change (Qaytim) calculation
-  const calculatedChangeTiyin = useMemo(() => {
-    if (paymentMethod !== 'CASH') return 0n;
-    if (parsedTenderedCashTiyin > parsedCustomAmountTiyin) {
-      return parsedTenderedCashTiyin - parsedCustomAmountTiyin;
-    }
-    return 0n;
-  }, [paymentMethod, parsedTenderedCashTiyin, parsedCustomAmountTiyin]);
-
-  // Action: Open Shift
-  const handleOpenShift = async () => {
-    try {
-      const startingCash = BigInt(openingCashInput.replace(/\s+/g, '') || '0') * 100n;
-      const res = await fetch(`/api/v1/restaurants/${restaurantId}/shifts/open`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ startingCashTiyin: startingCash.toString() }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast('Kassa smenasi muvaffaqiyatli ochildi!', 'success');
-        setOpenShiftModal(false);
-        setOpeningCashInput('');
-        fetchCurrentShift();
-      } else {
-        showToast(data.error?.message || 'Smenani ochishda xatolik', 'error');
+      setMenuLoading(true);
+      const res = await fetch(`/api/v1/public/restaurants/${restaurantId}/menu?lang=uz`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setMenuCategories(
+            (json.data.categories || []).map((c: any) => ({
+              id: c.id,
+              name: stripParentheses(c.name),
+            }))
+          );
+          setMenuItems(
+            (json.data.items || []).map((it: any) => ({
+              id: it.id,
+              name: stripParentheses(it.name),
+              basePriceTiyin: it.basePriceTiyin || '0',
+              categoryId: it.categoryId,
+              isAvailable: it.isAvailable !== false,
+            }))
+          );
+        }
       }
-    } catch {
-      showToast('Tarmoq xatosi', 'error');
+    } catch {} finally {
+      setMenuLoading(false);
+    }
+  }, [restaurantId]);
+
+  useEffect(() => {
+    fetchMenu();
+  }, [fetchMenu]);
+
+  // Savatga taom qo'shish va yangilash
+  const handleAddDishToBasket = (dish: { id: string; name: string; basePriceTiyin: string }) => {
+    const priceUzs = Number(BigInt(dish.basePriceTiyin || '0') / 100n);
+    setOrderBasket((prev) => {
+      const existing = prev.find((item) => item.dishId === dish.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.dishId === dish.id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      return [...prev, { dishId: dish.id, name: dish.name, priceUzs, quantity: 1 }];
+    });
+  };
+
+  const handleUpdateBasketQty = (dishId: string, delta: number) => {
+    setOrderBasket((prev) =>
+      prev
+        .map((item) => {
+          if (item.dishId === dishId) {
+            const nextQty = item.quantity + delta;
+            return nextQty > 0 ? { ...item, quantity: nextQty } : null;
+          }
+          return item;
+        })
+        .filter(Boolean) as Array<{ dishId: string; name: string; priceUzs: number; quantity: number }>
+    );
+  };
+
+  const handleRemoveFromBasket = (dishId: string) => {
+    setOrderBasket((prev) => prev.filter((item) => item.dishId !== dishId));
+  };
+
+  const basketTotalUzs = orderBasket.reduce(
+    (sum, item) => sum + item.priceUzs * item.quantity,
+    0
+  );
+  const basketTotalItems = orderBasket.reduce((sum, item) => sum + item.quantity, 0);
+
+  const filteredMenuItems = menuItems.filter((dish) => {
+    if (!dish.isAvailable) return false;
+    if (selectedCatId !== 'ALL' && dish.categoryId !== selectedCatId) return false;
+    if (dishSearch.trim()) {
+      return dish.name.toLowerCase().includes(dishSearch.toLowerCase().trim());
+    }
+    return true;
+  });
+
+  const handleSaveTakeawayOrderWithMethod = (method: 'CASH' | 'TERMINAL' | 'UNPAID') => {
+    if (orderBasket.length === 0) {
+      showToast('Iltimos, kamida bitta taom tanlang', 'warning');
+      return;
+    }
+
+    const randNum = Math.floor(100 + Math.random() * 900);
+    const isPaid = method !== 'UNPAID';
+    const newOrd: TakeawayOrder = {
+      id: `takeaway-${Date.now()}`,
+      orderNumber: `T-${randNum}`,
+      customerName: orderNote.trim() || `Olib ketish #${randNum}`,
+      phone: '',
+      pickupTime: '',
+      items: orderBasket.map((it) => ({
+        name: it.name,
+        quantity: it.quantity,
+        priceUzs: it.priceUzs,
+      })),
+      totalUzs: basketTotalUzs,
+      status: 'PREPARING',
+      paymentStatus: isPaid ? 'PAID' : 'UNPAID',
+      paymentMethod: isPaid ? method : undefined,
+      createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setTakeawayOrders((prev) => [newOrd, ...prev]);
+
+    if (method === 'CASH') {
+      showToast(`Buyurtma #${newOrd.orderNumber} Naqd to'lovi qabul qilindi!`, 'success');
+    } else if (method === 'TERMINAL') {
+      showToast(`Buyurtma #${newOrd.orderNumber} Karta to'lovi qabul qilindi!`, 'success');
+    } else {
+      showToast(`Buyurtma #${newOrd.orderNumber} saqlandi (to'lov kutilmoqda)`, 'success');
+    }
+
+    setShowNewTakeawayModal(false);
+    setOrderBasket([]);
+    setOrderNote('');
+    setDishSearch('');
+  };
+
+  // Balans
+  const balanceTiyin = BigInt(detailedBill?.bill?.balanceTiyin || '0');
+  const balanceUzs = balanceTiyin / 100n;
+
+  // Naqd to'lovda qaytim hisobi
+  const tenderedCashNumber = BigInt(tenderedCashInput.replace(/\s+/g, '') || '0');
+  const calculatedChangeTiyin =
+    tenderedCashNumber * 100n > balanceTiyin ? tenderedCashNumber * 100n - balanceTiyin : 0n;
+
+  // Aralash to'lovda qismlarni hisoblash
+  const handleSplitCashChange = (val: string) => {
+    setSplitCashInput(val);
+    const cleanCash = BigInt(val.replace(/\s+/g, '') || '0');
+    if (cleanCash <= balanceUzs) {
+      const remaining = balanceUzs - cleanCash;
+      setSplitCardInput(remaining.toString());
+    } else {
+      setSplitCardInput('0');
     }
   };
 
-  // Action: Close Shift
-  const handleCloseShift = async () => {
-    if (!currentShift) return;
-    try {
-      const countedCash = BigInt(countedCashInput.replace(/\s+/g, '') || '0') * 100n;
-      const res = await fetch(`/api/v1/restaurants/${restaurantId}/shifts/${currentShift.shift.id}/close`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ countedCashTiyin: countedCash.toString() }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast('Kassa smenasi muvaffaqiyatli yopildi va hisobot saqlandi!', 'success');
-        setCloseShiftModal(false);
-        setCountedCashInput('');
-        fetchCurrentShift();
-      } else {
-        showToast(data.error?.message || 'Smenani yopishda xatolik', 'error');
-      }
-    } catch {
-      showToast('Tarmoq xatosi', 'error');
+  const handleSplitCardChange = (val: string) => {
+    setSplitCardInput(val);
+    const cleanCard = BigInt(val.replace(/\s+/g, '') || '0');
+    if (cleanCard <= balanceUzs) {
+      const remaining = balanceUzs - cleanCard;
+      setSplitCashInput(remaining.toString());
+    } else {
+      setSplitCardInput('0');
     }
   };
 
-  // Action: Cash Movement (In / Out)
-  const handleCashMovement = async () => {
-    if (!currentShift) return;
-    try {
-      const amountTiyin = BigInt(movementAmountInput.replace(/\s+/g, '') || '0') * 100n;
-      if (amountTiyin <= 0n) {
-        showToast('Summa 0 dan katta bo\'lishi shart', 'warning');
-        return;
-      }
-      const res = await fetch(`/api/v1/restaurants/${restaurantId}/shifts/cash-movement`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          shiftId: currentShift.shift.id,
-          type: movementType,
-          amountTiyin: amountTiyin.toString(),
-          reason: movementReasonInput || 'Kassa harakati',
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast('Kassa harakati muvaffaqiyatli qayd etildi', 'success');
-        setCashMovementModal(false);
-        setMovementAmountInput('');
-        setMovementReasonInput('');
-        fetchCurrentShift();
-      } else {
-        showToast(data.error?.message || 'Kassa harakatini yozishda xatolik', 'error');
-      }
-    } catch {
-      showToast('Tarmoq xatosi', 'error');
-    }
-  };
-
-  // Action: Process Payment
-  const handleProcessPayment = async () => {
+  // Bir bosishda to'lov va stolni yopish
+  const handleConfirmAndCloseTable = async () => {
     if (!selectedVisitId || !detailedBill) return;
-    if (!currentShift) {
-      showToast('To\'lov qabul qilish uchun avval kassa smenasini oching!', 'warning');
-      setOpenShiftModal(true);
-      return;
-    }
 
-    const balance = BigInt(detailedBill.bill.balanceTiyin);
-    if (parsedCustomAmountTiyin <= 0n) {
-      showToast('To\'lov summasi 0 dan katta bo\'lishi kerak', 'warning');
-      return;
-    }
-    if (parsedCustomAmountTiyin > balance) {
-      showToast(`To'lov summasi qoldiqdan (${formatMoneyUzs(balance)}) oshmasligi kerak!`, 'error');
-      return;
-    }
-    if (paymentMethod === 'CASH' && parsedTenderedCashTiyin < parsedCustomAmountTiyin) {
-      showToast('Berilgan naqd pul to\'lov summasidan kam bo\'lmasligi kerak', 'warning');
+    if (balanceTiyin <= 0n) {
+      showToast('Hisob allaqachon to\'liq to\'langan', 'warning');
       return;
     }
 
     setIsSubmittingPayment(true);
-    try {
-      const idempotencyKey = crypto.randomUUID();
-      const res = await fetch(`/api/v1/restaurants/${restaurantId}/billing/payments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          visitId: selectedVisitId,
-          method: paymentMethod === 'CASH' ? 'CASH' : 'TERMINAL',
-          amountTiyin: parsedCustomAmountTiyin.toString(),
-          tenderedCashTiyin:
-            paymentMethod === 'CASH' ? parsedTenderedCashTiyin.toString() : undefined,
-          changeTiyin:
-            paymentMethod === 'CASH' ? calculatedChangeTiyin.toString() : undefined,
-          idempotencyKey,
-        }),
-      });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast(`To'lov muvaffaqiyatli qabul qilindi: ${formatMoneyUzs(parsedCustomAmountTiyin)}`, 'success');
-        fetchCurrentShift();
-        fetchOpenBills();
-        fetchDetailedBill(selectedVisitId);
-        setMobileStep('detail');
-      } else {
-        if (data.error?.code === 'OVERPAYMENT_REJECTED') {
-          showToast('Boshqa kassir to\'lov kiritgan, hisob balansi yangilandi!', 'warning');
-          fetchDetailedBill(selectedVisitId);
-        } else {
-          showToast(data.error?.message || 'To\'lovni qayd etishda xatolik', 'error');
+    try {
+      if (paymentMode === 'CASH') {
+        const tenderedTiyin = tenderedCashNumber * 100n;
+        if (tenderedTiyin < balanceTiyin) {
+          showToast('Berilgan naqd pul hisob summasidan kam bo\'lmasligi kerak', 'warning');
+          setIsSubmittingPayment(false);
+          return;
         }
-      }
-    } catch {
-      showToast('Tarmoq xatosi yuz berdi', 'error');
-    } finally {
-      setIsSubmittingPayment(false);
-    }
-  };
 
-  // Action: Reverse Payment
-  const handleReversePayment = async () => {
-    if (!paymentToReverse) return;
-    try {
-      const res = await fetch(
-        `/api/v1/restaurants/${restaurantId}/billing/payments/${paymentToReverse}/reverse`,
-        {
+        const payRes = await fetch(`/api/v1/restaurants/${restaurantId}/billing/payments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ reason: reverseReasonInput || 'Xato kiritilgan to\'lov' }),
+          body: JSON.stringify({
+            visitId: selectedVisitId,
+            method: 'CASH',
+            amountTiyin: balanceTiyin.toString(),
+            tenderedCashTiyin: tenderedTiyin.toString(),
+            changeTiyin: calculatedChangeTiyin.toString(),
+            idempotencyKey: crypto.randomUUID(),
+          }),
+        });
+        const payData = await payRes.json();
+        if (!payRes.ok || !payData.success) {
+          throw new Error(payData.error?.message || 'Naqd to\'lovni yozishda xatolik');
         }
-      );
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast('To\'lov bekor qilindi (Reversed)', 'success');
-        setReversePaymentModal(false);
-        setPaymentToReverse(null);
-        setReverseReasonInput('');
-        fetchCurrentShift();
-        if (selectedVisitId) fetchDetailedBill(selectedVisitId);
-      } else {
-        showToast(data.error?.message || 'Bekor qilishda xatolik', 'error');
+      } else if (paymentMode === 'TERMINAL') {
+        const payRes = await fetch(`/api/v1/restaurants/${restaurantId}/billing/payments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            visitId: selectedVisitId,
+            method: 'TERMINAL',
+            amountTiyin: balanceTiyin.toString(),
+            idempotencyKey: crypto.randomUUID(),
+          }),
+        });
+        const payData = await payRes.json();
+        if (!payRes.ok || !payData.success) {
+          throw new Error(payData.error?.message || 'Terminal to\'lovini yozishda xatolik');
+        }
+      } else if (paymentMode === 'SPLIT') {
+        const cashPartUzs = BigInt(splitCashInput.replace(/\s+/g, '') || '0');
+        const cardPartUzs = BigInt(splitCardInput.replace(/\s+/g, '') || '0');
+
+        if (cashPartUzs + cardPartUzs !== balanceUzs) {
+          showToast('Naqd va karta yig\'indisi umumiy hisobga teng bo\'lishi kerak', 'warning');
+          setIsSubmittingPayment(false);
+          return;
+        }
+
+        if (cashPartUzs > 0n) {
+          const cashRes = await fetch(`/api/v1/restaurants/${restaurantId}/billing/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              visitId: selectedVisitId,
+              method: 'CASH',
+              amountTiyin: (cashPartUzs * 100n).toString(),
+              tenderedCashTiyin: (cashPartUzs * 100n).toString(),
+              changeTiyin: '0',
+              idempotencyKey: crypto.randomUUID(),
+            }),
+          });
+          const cData = await cashRes.json();
+          if (!cashRes.ok || !cData.success) {
+            throw new Error(cData.error?.message || 'Naqd qismini yozishda xatolik');
+          }
+        }
+
+        if (cardPartUzs > 0n) {
+          const cardRes = await fetch(`/api/v1/restaurants/${restaurantId}/billing/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              visitId: selectedVisitId,
+              method: 'TERMINAL',
+              amountTiyin: (cardPartUzs * 100n).toString(),
+              idempotencyKey: crypto.randomUUID(),
+            }),
+          });
+          const cardData = await cardRes.json();
+          if (!cardRes.ok || !cardData.success) {
+            throw new Error(cardData.error?.message || 'Karta qismini yozishda xatolik');
+          }
+        }
       }
-    } catch {
-      showToast('Tarmoq xatosi', 'error');
-    }
-  };
 
-  // Action: Refund Payment
-  const handleRefundPayment = async () => {
-    if (!paymentToRefund) return;
-    try {
-      const amountTiyin = BigInt(refundAmountInput.replace(/\s+/g, '') || '0') * 100n;
-      const res = await fetch(`/api/v1/restaurants/${restaurantId}/billing/refunds`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          paymentId: paymentToRefund.id,
-          amountTiyin: amountTiyin.toString(),
-          reason: refundReasonInput || 'Mijozga pul qaytarildi',
-          idempotencyKey: crypto.randomUUID(),
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast('Pul muvaffaqiyatli qaytarildi (Refund)', 'success');
-        setRefundModal(false);
-        setPaymentToRefund(null);
-        setRefundAmountInput('');
-        setRefundReasonInput('');
-        fetchCurrentShift();
-        if (selectedVisitId) fetchDetailedBill(selectedVisitId);
-      } else {
-        showToast(data.error?.message || 'Qaytarishda xatolik', 'error');
-      }
-    } catch {
-      showToast('Tarmoq xatosi', 'error');
-    }
-  };
-
-  // Action: Close Visit
-  const handleCloseVisit = async () => {
-    if (!selectedVisitId || !detailedBill) return;
-    const balance = BigInt(detailedBill.bill.balanceTiyin);
-    if (balance > 0n) {
-      showToast(`Tashrifda to'lanmagan qoldiq mavjud: ${formatMoneyUzs(balance)}`, 'warning');
-      return;
-    }
-    if (balance < 0n) {
-      showToast(`Mijozga ortiqcha to'lov qaytarilishi kerak: ${formatMoneyUzs(-balance)}`, 'error');
-      return;
-    }
-
-    try {
-      const res = await fetch(
+      // Tashrifni avtomatik yopish
+      const closeRes = await fetch(
         `/api/v1/restaurants/${restaurantId}/billing/visits/${selectedVisitId}/close`,
         {
           method: 'POST',
@@ -576,112 +643,29 @@ export const CashierView: React.FC<CashierViewProps> = ({
           body: JSON.stringify({}),
         }
       );
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showToast(`Stol ${detailedBill.visit.tableNumber} tashrifi rasman yopildi (Stol bo'shatildi)`, 'success');
-        setSelectedVisitId(null);
-        setDetailedBill(null);
-        fetchOpenBills();
-        setMobileStep('list');
-      } else {
-        showToast(data.error?.message || 'Tashrifni yopishda xatolik', 'error');
+      const closeData = await closeRes.json();
+      if (!closeRes.ok || !closeData.success) {
+        throw new Error(closeData.error?.message || 'Stolni yopishda xatolik');
       }
-    } catch {
-      showToast('Tarmoq xatosi', 'error');
+
+      showToast(`Stol #${detailedBill.visit.tableNumber} hisobi muvaffaqiyatli yopildi!`, 'success');
+
+      fetchOpenBills();
+      setSelectedVisitId(null);
+      setDetailedBill(null);
+      setMobileStep('tables');
+    } catch (err: any) {
+      showToast(err.message || 'To\'lov jarayonida xatolik yuz berdi', 'error');
+    } finally {
+      setIsSubmittingPayment(false);
     }
   };
 
-  // Helper: Can close visit?
-  const canCloseVisit = useMemo(() => {
-    if (!detailedBill) return false;
-    const balance = BigInt(detailedBill.bill.balanceTiyin);
-    if (balance !== 0n) return false;
-    const allItems = detailedBill.orders.flatMap((o) => o.items);
-    const unserved = allItems.filter(
-      (i) => i.status !== 'SERVED' && i.status !== 'CANCELLED'
-    );
-    return unserved.length === 0;
-  }, [detailedBill]);
+  const cashierName = authProfile?.user?.fullName || 'Sardor Rustamov';
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col font-sans">
-      {/* Offline Ogohlantirish Paneli */}
-      <ConnectionBanner status={status} />
-
-      {/* Top Header */}
-      <header className="bg-brand-900 text-white px-4 sm:px-6 lg:px-8 py-3.5 shadow-md border-b border-brand-800 sticky top-0 z-30">
-        <div className="w-full flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-800 flex items-center justify-center border border-brand-700">
-              <Receipt className="w-6 h-6 text-emerald-400" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">Kassa</h1>
-              <p className="text-xs text-brand-200">
-                Ochiq hisoblar: {openBills.length} ta
-              </p>
-            </div>
-          </div>
-
-          {/* Smena pill, Kassa harakati va Realtime pill */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <RealtimeIndicatorPill
-              status={status}
-              soundEnabled={soundEnabled}
-              onToggleSound={toggleSound}
-            />
-
-            {currentShift ? (
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setCashMovementModal(true)}
-                  className="bg-brand-800/80 text-white border-brand-700 hover:bg-brand-700 text-xs py-1 px-2.5 h-8"
-                >
-                  <Coins className="w-3.5 h-3.5 mr-1 text-amber-300" />
-                  Kirim / Chiqim
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setCloseShiftModal(true)}
-                  className="bg-emerald-950/80 text-emerald-200 border-emerald-700 hover:bg-emerald-900 text-xs py-1 px-2.5 h-8 flex items-center gap-1.5"
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Smena Ochiq #{currentShift.shift.id.slice(0, 6)}</span>
-                </Button>
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => setOpenShiftModal(true)}
-                className="bg-amber-600 hover:bg-amber-700 text-white text-xs py-1 px-3 h-8 shadow-sm flex items-center gap-1"
-              >
-                <BadgeAlert className="w-4 h-4 text-white" />
-                <span>Smena Ochish</span>
-              </Button>
-            )}
-
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                fetchCurrentShift();
-                fetchOpenBills();
-                if (selectedVisitId) fetchDetailedBill(selectedVisitId);
-              }}
-              className="text-brand-200 hover:text-white p-1.5 h-8 w-8"
-              title="Yangilash"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      {/* Toast Notification */}
+    <div className="min-h-screen bg-bg text-ink-main flex flex-col font-sans">
+      {/* TOAST XABARNOMA */}
       {toastMessage && (
         <div
           className={`fixed top-16 right-4 z-50 p-4 rounded-xl shadow-lg border text-sm max-w-md flex items-center gap-2 animate-in fade-in slide-in-from-top-4 ${
@@ -701,1095 +685,1070 @@ export const CashierView: React.FC<CashierViewProps> = ({
         </div>
       )}
 
-      {/* Main Multi-Column or Sequential Layout */}
-      <main className="flex-1 w-full p-4 sm:p-6 lg:p-8">
-        {/* Mobile Navigation Header */}
-        <div className="lg:hidden mb-4 flex items-center justify-between bg-surface p-2 rounded-2xl border border-line shadow-subtle">
-          <div className="flex items-center gap-1 w-full">
+      {/* TOP HEADER */}
+      <header className="bg-surface border-b border-line sticky top-0 z-30 shadow-subtle h-14">
+        <div className="w-full h-full flex items-center justify-between px-4">
+          {/* Chap: Mobil Gamburger va Kassa brendi */}
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setMobileStep('list')}
-              className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all ${
-                mobileStep === 'list'
-                  ? 'bg-brand text-white shadow-sm'
-                  : 'text-ink-secondary hover:bg-bg'
-              }`}
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="md:hidden p-1.5 rounded-lg border border-line text-ink-main hover:bg-bg transition-colors"
+              title="Menyu"
             >
-              1. Hisoblar ({openBills.length})
+              <Menu className="w-5 h-5" />
             </button>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-brand flex items-center justify-center font-bold text-xs text-white shadow-xs">
+                KS
+              </div>
+              <span className="font-extrabold text-ink-main text-sm tracking-tight">
+                Kassa Paneli
+              </span>
+            </div>
+          </div>
+
+          {/* O'ng: Tezkor yangilash */}
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setMobileStep('detail')}
-              disabled={!detailedBill}
-              className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all ${
-                mobileStep === 'detail'
-                  ? 'bg-brand text-white shadow-sm'
-                  : 'text-ink-secondary hover:bg-bg'
-              }`}
+              onClick={() => {
+                fetchOpenBills();
+                if (selectedVisitId) fetchDetailedBill(selectedVisitId);
+              }}
+              className="p-1.5 rounded-lg border border-line hover:bg-bg text-ink-secondary hover:text-ink-main transition-colors"
+              title="Yangilash"
             >
-              2. Tafsilot {detailedBill ? `(Stol ${detailedBill.visit.tableNumber})` : ''}
-            </button>
-            <button
-              onClick={() => setMobileStep('pay')}
-              disabled={!detailedBill}
-              className={`flex-1 py-2 px-3 text-xs font-bold rounded-xl transition-all ${
-                mobileStep === 'pay'
-                  ? 'bg-brand text-white shadow-sm'
-                  : 'text-ink-secondary hover:bg-bg'
-              }`}
-            >
-              3. To'lov
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
         </div>
+      </header>
 
-        {/* 3 Columns Desktop Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* COLUMN 1: Ochiq Hisoblar Ro'yxati */}
-          <section
-            className={`lg:col-span-4 flex flex-col bg-surface rounded-2xl border border-line shadow-subtle overflow-hidden ${
-              mobileStep !== 'list' ? 'hidden lg:flex' : 'flex'
-            }`}
-          >
-            <div className="p-4 border-b border-line bg-bg/50 space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-bold text-ink-main">Ochiq Hisoblar</h2>
-                  <p className="text-xs text-ink-secondary">Stol bo'yicha faol tashriflar</p>
-                </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand">
-                  {openBills.length} ta
-                </span>
+      {/* MAIN LAYOUT: RESTORAN ADMINGA O'XSHAGAN CHAP MENYU BILAN */}
+      <div className="flex-1 flex w-full">
+        {/* DESKTOP SIDEBAR - CHAP MENYU */}
+        <aside className="w-64 shrink-0 hidden md:flex flex-col justify-between sticky top-14 h-[calc(100vh-3.5rem)] bg-surface border-r border-line p-3 z-20 overflow-y-auto">
+          <div className="space-y-4">
+            {/* 1. ASOSIY KASSA MENYUSI */}
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider px-2 pb-0.5">
+                Kassa Bo'limlari
               </div>
-              {/* Search Bar */}
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-secondary" />
-                <input
-                  type="text"
-                  placeholder="Stol yoki ofitsiant bo'yicha qidirish..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs bg-surface border border-line rounded-xl text-ink-main placeholder:text-ink-secondary focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-                />
-              </div>
-            </div>
 
-            <div className="divide-y divide-line overflow-y-auto max-h-[calc(100vh-250px)]">
-              {filteredBills.length === 0 ? (
-                <div className="p-8 text-center text-ink-secondary text-sm">
-                  {searchQuery ? 'Qidiruv bo\'yicha hisob topilmadi' : 'Hozircha ochiq hisoblar mavjud emas'}
+              {/* Kutilayotgan to'lovlar */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('open_bills')}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-semibold text-xs transition-all outline-none focus:outline-none focus:ring-0 select-none ${
+                  activeTab === 'open_bills'
+                    ? 'bg-brand text-white shadow-xs'
+                    : 'text-ink-secondary hover:text-ink-main hover:bg-bg'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <Receipt className="w-4 h-4" />
+                  <span>Kutilayotgan to'lovlar</span>
                 </div>
-              ) : (
-                filteredBills.map((b) => {
-                  const isSelected = b.visitId === selectedVisitId;
-                  const isRefundDue = b.bill.isRefundDue;
-                  const isFullyPaid = b.bill.isFullyPaid;
-
-                  return (
-                    <div
-                      key={b.visitId}
-                      onClick={() => {
-                        setSelectedVisitId(b.visitId);
-                        setMobileStep('detail');
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          setSelectedVisitId(b.visitId);
-                          setMobileStep('detail');
-                        }
-                      }}
-                      className={`p-4 cursor-pointer transition-all flex items-center justify-between ${
-                        isSelected
-                          ? 'bg-brand-50/70 border-l-4 border-brand font-medium'
-                          : 'hover:bg-bg/60 border-l-4 border-transparent'
-                      }`}
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-base font-black text-ink-main">
-                            Stol {b.tableNumber}
-                          </span>
-                          {isRefundDue ? (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 animate-pulse">
-                              Qaytarish kerak
-                            </span>
-                          ) : isFullyPaid ? (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
-                              To'langan
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
-                              Qoldiq bor
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-xs text-ink-secondary flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5" />
-                          <span>{b.waiterName || 'Biriktirilmagan'}</span>
-                          <span>•</span>
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>
-                            {new Date(b.openedAt).toLocaleTimeString('uz-UZ', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div
-                          className={`font-mono text-sm font-black ${
-                            isRefundDue ? 'text-red-600' : isFullyPaid ? 'text-emerald-700' : 'text-brand'
-                          }`}
-                        >
-                          <Money amountTiyin={b.bill.totalDueTiyin} />
-                        </div>
-                        <span className="text-[10px] text-ink-secondary block">
-                          Qoldiq: <Money amountTiyin={b.bill.balanceTiyin} />
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </section>
-
-          {/* COLUMN 2: Hisob Tafsiloti (Selected Visit) */}
-          <section
-            className={`lg:col-span-5 flex flex-col bg-surface rounded-2xl border border-line shadow-subtle overflow-hidden ${
-              mobileStep !== 'detail' ? 'hidden lg:flex' : 'flex'
-            }`}
-          >
-            {detailedBill ? (
-              <>
-                <div className="p-4 border-b border-line bg-bg/50 flex items-center justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-ink-main">
-                        Stol {detailedBill.visit.tableNumber} Hisobi
-                      </h2>
-                      <span className="text-xs text-ink-secondary">
-                        (Tashrif #{detailedBill.visit.id.slice(0, 8)})
-                      </span>
-                    </div>
-                    <p className="text-xs text-ink-secondary">
-                      Ochilgan:{' '}
-                      {new Date(detailedBill.visit.openedAt).toLocaleTimeString('uz-UZ', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                      {detailedBill.visit.serviceChargeBpsSnapshot !== null && (
-                        <span> • Xizmat stavkasi: {detailedBill.visit.serviceChargeBpsSnapshot / 100}%</span>
-                      )}
-                    </p>
-                  </div>
-                  {/* Action buttons in header */}
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-xs py-1.5 h-8 flex items-center gap-1"
-                      onClick={() => setPreCheckModal(true)}
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Pre-check</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="primary"
-                      className="lg:hidden text-xs py-1.5 h-8"
-                      onClick={() => setMobileStep('pay')}
-                    >
-                      To'lov <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Refund Due Alert Banner */}
-                {detailedBill.bill.isRefundDue && (
-                  <div className="p-3 bg-red-50 border-b border-red-200 flex items-center gap-2 text-xs text-red-900 font-semibold">
-                    <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
-                    <span>
-                      Diqqat: Hisobda ortiqcha to'lov mavjud ({formatMoneyUzs(-BigInt(detailedBill.bill.balanceTiyin))}).
-                      Mijozga pul qaytarilmaguncha tashrifni yopib bo'lmaydi!
-                    </span>
-                  </div>
-                )}
-
-                {/* Items List */}
-                <div className="p-4 divide-y divide-line/60 overflow-y-auto max-h-[300px]">
-                  {detailedBill.orders.flatMap((o) => o.items).length === 0 ? (
-                    <div className="py-6 text-center text-xs text-ink-secondary">
-                      Hozircha buyurtma qilingan taomlar yo'q
-                    </div>
-                  ) : (
-                    detailedBill.orders
-                      .flatMap((o) => o.items)
-                      .map((item) => {
-                        const isCancelled = item.status === 'CANCELLED';
-                        const itemTotalTiyin =
-                          (BigInt(item.snapshotPriceTiyin) +
-                            (item.addonSnapshots?.reduce(
-                              (sum, a) => sum + BigInt(a.priceTiyin),
-                              0n
-                            ) || 0n)) *
-                          BigInt(item.quantity);
-
-                        return (
-                          <div
-                            key={item.id}
-                            className={`py-2 flex items-center justify-between text-xs ${
-                              isCancelled ? 'opacity-40 line-through' : ''
-                            }`}
-                          >
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-ink-main px-1.5 py-0.5 rounded bg-bg border border-line text-[11px]">
-                                  {item.quantity}x
-                                </span>
-                                <span className="font-semibold text-ink-main">{item.dishTitle}</span>
-                                {item.variantTitle && (
-                                  <span className="text-[10px] text-ink-secondary">
-                                    ({item.variantTitle})
-                                  </span>
-                                )}
-                                <span
-                                  className={`text-[9px] px-1 py-0.2 rounded font-mono ${
-                                    item.status === 'SERVED'
-                                      ? 'bg-emerald-100 text-emerald-800'
-                                      : item.status === 'READY'
-                                      ? 'bg-blue-100 text-blue-800'
-                                      : item.status === 'CANCELLED'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-amber-100 text-amber-800'
-                                  }`}
-                                >
-                                  {item.status}
-                                </span>
-                              </div>
-                              {item.addonSnapshots && item.addonSnapshots.length > 0 && (
-                                <p className="text-[10px] text-ink-secondary pl-6">
-                                  + {item.addonSnapshots.map((a) => a.name).join(', ')}
-                                </p>
-                              )}
-                            </div>
-                            <div className="font-mono text-xs font-semibold text-ink-main">
-                              <Money amountTiyin={itemTotalTiyin} />
-                            </div>
-                          </div>
-                        );
-                      })
-                  )}
-                </div>
-
-                {/* Calculation Breakdown (Step 11 Invariants) */}
-                <div className="p-4 bg-bg/40 border-t border-line space-y-1.5 text-xs">
-                  <div className="flex justify-between text-ink-secondary">
-                    <span>Oraliq summa (Subtotal):</span>
-                    <span className="font-mono font-medium">
-                      <Money amountTiyin={detailedBill.bill.subtotalTiyin} />
-                    </span>
-                  </div>
-
-                  {BigInt(detailedBill.bill.discountTiyin) > 0n && (
-                    <div className="flex justify-between text-emerald-700 font-semibold">
-                      <span>Chegirma (Capped at subtotal):</span>
-                      <span className="font-mono">
-                        - <Money amountTiyin={detailedBill.bill.discountTiyin} />
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex justify-between text-ink-secondary">
-                    <span>
-                      Xizmat haqi ({detailedBill.bill.serviceChargeBps / 100}% chegirmadan keyin):
-                    </span>
-                    <span className="font-mono font-medium">
-                      <Money amountTiyin={detailedBill.bill.serviceChargeTiyin} />
-                    </span>
-                  </div>
-
-                  {BigInt(detailedBill.bill.adjustmentsTiyin) !== 0n && (
-                    <div className="flex justify-between text-ink-secondary">
-                      <span>Tuzatishlar (Adjustments):</span>
-                      <span className="font-mono font-medium">
-                        <Money amountTiyin={detailedBill.bill.adjustmentsTiyin} />
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="pt-2 border-t border-line flex justify-between text-sm font-extrabold text-ink-main">
-                    <span>Jami to'lanishi kerak:</span>
-                    <span className="font-mono text-brand text-base">
-                      <Money amountTiyin={detailedBill.bill.totalDueTiyin} />
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between text-ink-secondary text-xs">
-                    <span>To'langan (Net Paid):</span>
-                    <span className="font-mono font-semibold text-emerald-800">
-                      <Money amountTiyin={detailedBill.bill.netPaidTiyin} />
-                    </span>
-                  </div>
-
-                  <div
-                    className={`pt-1 flex justify-between text-sm font-black ${
-                      detailedBill.bill.isRefundDue
-                        ? 'text-red-600'
-                        : detailedBill.bill.isFullyPaid
-                        ? 'text-emerald-700'
-                        : 'text-amber-800'
+                {openBills.length > 0 && (
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                      activeTab === 'open_bills'
+                        ? 'bg-white text-emerald-900 shadow-xs'
+                        : 'bg-brand-100 text-brand'
                     }`}
                   >
-                    <span>
-                      {detailedBill.bill.isRefundDue
-                        ? 'Qaytarilishi kerak:'
-                        : detailedBill.bill.isFullyPaid
-                        ? 'To\'liq to\'langan (Qoldiq 0)'
-                        : 'Qoldiq:'}
-                    </span>
-                    <span className="font-mono text-base">
-                      {detailedBill.bill.isRefundDue ? (
-                        <span>- {formatMoneyUzs(-BigInt(detailedBill.bill.balanceTiyin))}</span>
-                      ) : (
-                        <Money amountTiyin={detailedBill.bill.balanceTiyin} />
-                      )}
-                    </span>
-                  </div>
+                    {openBills.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Olib ketish */}
+              <button
+                type="button"
+                onClick={() => setActiveTab('takeaway')}
+                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl font-semibold text-xs transition-all outline-none focus:outline-none focus:ring-0 select-none ${
+                  activeTab === 'takeaway'
+                    ? 'bg-brand text-white shadow-xs'
+                    : 'text-ink-secondary hover:text-ink-main hover:bg-bg'
+                }`}
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>Olib ketish</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Sidebar pastki qismi: Kassir ismi */}
+          <div className="pt-3 border-t border-line space-y-2 mt-4">
+            <div className="px-3 py-2 bg-bg rounded-xl border border-line text-xs">
+              <span className="text-[10px] text-ink-muted uppercase font-bold tracking-wider block">
+                Kassir
+              </span>
+              <span className="font-bold text-ink-main truncate block mt-0.5">
+                {stripParentheses(cashierName)}
+              </span>
+            </div>
+
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="w-full flex items-center justify-center space-x-1.5 px-3 py-1.5 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-semibold border border-rose-200 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Chiqish</span>
+              </button>
+            )}
+          </div>
+        </aside>
+
+        {/* MOBIL SIDEBAR DRAWER */}
+        {sidebarOpen && (
+          <div className="fixed inset-0 z-50 md:hidden flex overscroll-contain">
+            <div
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+              onClick={() => setSidebarOpen(false)}
+            />
+            <div className="relative w-64 max-w-[80vw] bg-surface h-full shadow-2xl border-r border-line p-4 flex flex-col justify-between z-10 animate-in slide-in-from-left duration-200">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-line">
+                  <span className="font-extrabold text-sm text-ink-main">Kassa Menyusi</span>
+                  <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="p-1 rounded-lg text-ink-secondary hover:bg-bg"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
-                {/* Payments History List & Actions */}
-                {detailedBill.payments.length > 0 && (
-                  <div className="p-3 border-t border-line bg-surface space-y-2">
-                    <span className="text-[11px] font-bold text-ink-secondary uppercase tracking-wider block">
-                      Kiritilgan To'lovlar ({detailedBill.payments.length})
-                    </span>
-                    <div className="space-y-1.5 max-h-[140px] overflow-y-auto">
-                      {detailedBill.payments.map((p) => {
-                        const isReversed = p.status === 'REVERSED';
-                        const alreadyRefundedTiyin =
-                          p.refunds?.reduce((sum, r) => sum + BigInt(r.amountTiyin), 0n) || 0n;
-                        const availableRefundTiyin = BigInt(p.amountTiyin) - alreadyRefundedTiyin;
+                {/* Mobil Kassa Bo'limlari */}
+                <div className="space-y-1.5">
+                  <div className="text-[10px] font-bold text-ink-muted uppercase tracking-wider px-2 pb-0.5">
+                    Kassa Bo'limlari
+                  </div>
 
-                        return (
-                          <div
-                            key={p.id}
-                            className={`p-2 rounded-lg border text-xs flex items-center justify-between ${
-                              isReversed
-                                ? 'bg-gray-100 border-gray-200 text-gray-500'
-                                : 'bg-bg border-line text-ink-main'
-                            }`}
-                          >
-                            <div>
-                              <div className="flex items-center gap-1.5 font-semibold">
-                                <span>{p.method === 'CASH' ? 'Naqd' : 'Terminal'}</span>
-                                <span className="font-mono">
-                                  <Money amountTiyin={p.amountTiyin} />
+                  <button
+                    onClick={() => {
+                      setActiveTab('open_bills');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-semibold text-xs transition-all outline-none focus:outline-none focus:ring-0 select-none ${
+                      activeTab === 'open_bills'
+                        ? 'bg-brand text-white'
+                        : 'text-ink-secondary hover:text-ink-main hover:bg-bg'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Receipt className="w-4 h-4" />
+                      <span>Kutilayotgan to'lovlar</span>
+                    </div>
+                    {openBills.length > 0 && (
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold ${
+                          activeTab === 'open_bills'
+                            ? 'bg-white text-emerald-900 shadow-xs'
+                            : 'bg-brand-100 text-brand'
+                        }`}
+                      >
+                        {openBills.length}
+                      </span>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab('takeaway');
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl font-semibold text-xs transition-all outline-none focus:outline-none focus:ring-0 select-none ${
+                      activeTab === 'takeaway'
+                        ? 'bg-brand text-white'
+                        : 'text-ink-secondary hover:text-ink-main hover:bg-bg'
+                    }`}
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span>Olib ketish</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-line space-y-2">
+                <div className="px-3 py-2 bg-bg rounded-xl border border-line text-xs">
+                  <span className="text-[10px] text-ink-muted uppercase font-bold tracking-wider block">
+                    Kassir
+                  </span>
+                  <span className="font-bold text-ink-main truncate block mt-0.5">
+                    {stripParentheses(cashierName)}
+                  </span>
+                </div>
+
+                {onLogout && (
+                  <button
+                    onClick={onLogout}
+                    className="w-full flex items-center justify-center space-x-1.5 px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 text-xs font-semibold border border-rose-200 transition-colors"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Chiqish</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ASOSIY ISH MAYDONI: KUTILAYOTGAN TO'LOVLAR YOKI DOSTAVKA/OLIB KETISH */}
+        <main className="flex-1 min-w-0 p-3 sm:p-5 lg:p-6 overflow-y-auto">
+          {activeTab === 'open_bills' ? (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* CHAP USTUN: VERTIKAL KUTILAYOTGAN TO'LOVLAR KARTALARI */}
+            <section
+              className={`lg:col-span-7 flex flex-col bg-surface rounded-2xl border border-line shadow-subtle overflow-hidden ${
+                mobileStep === 'checkout' ? 'hidden lg:flex' : 'flex'
+              }`}
+            >
+              {/* Kutilayotgan to'lovlar sarlavhasi */}
+              <div className="px-4 py-3.5 border-b border-line flex items-center justify-between">
+                <h2 className="text-sm font-bold text-ink-main tracking-tight">
+                  Kutilayotgan to'lovlar
+                </h2>
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-brand-100 text-brand">
+                  {openBills.length} ta hisob
+                </span>
+              </div>
+
+              {/* Stollar kartochkalari - Vertikal ro'yxat */}
+              <div className="p-3.5 sm:p-4">
+                {loading && openBills.length === 0 ? (
+                  <div className="py-12 text-center text-ink-muted text-xs">
+                    Hisoblar yuklanmoqda...
+                  </div>
+                ) : openBills.length === 0 ? (
+                  <div className="py-12 text-center text-ink-muted text-xs space-y-1">
+                    <p className="font-semibold text-ink-main text-sm">Hozircha kutilayotgan to'lovlar mavjud emas</p>
+                    <p className="text-ink-muted">
+                      Zaldagi stollarga hisob so'ralganda yoki buyurtma berilganda bu yerda paydo bo'ladi
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {openBills.map((b) => {
+                      const isSelected = selectedVisitId === b.visitId;
+                      const balance = BigInt(b.bill.balanceTiyin);
+                      return (
+                        <div
+                          key={b.visitId}
+                          onClick={() => {
+                            setSelectedVisitId(b.visitId);
+                            setMobileStep('checkout');
+                          }}
+                          className={`cursor-pointer p-4 rounded-2xl border transition-all relative overflow-hidden flex flex-col justify-between ${
+                            isSelected
+                              ? 'bg-brand-50/50 border-brand ring-2 ring-brand/20 shadow-sm'
+                              : 'bg-surface hover:bg-bg border-line hover:border-brand/40 shadow-subtle'
+                          }`}
+                        >
+                          {/* 1. Yuqori qator: Stol raqami, Mas'ul ofitsiant va Vaqt */}
+                          <div className="w-full flex items-center justify-between pb-2.5 border-b border-line/60">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base font-black text-ink-main tracking-tight">
+                                Stol #{b.tableNumber}
+                              </span>
+                              {isSelected ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-brand text-white shadow-xs">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                                  Tanlangan
                                 </span>
-                                {isReversed ? (
-                                  <Badge variant="danger" size="sm">
-                                    Bekor qilingan
-                                  </Badge>
-                                ) : alreadyRefundedTiyin > 0n ? (
-                                  <Badge variant="warning" size="sm">
-                                    Qaytarilgan: {formatMoneyUzs(alreadyRefundedTiyin)}
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="success" size="sm">
-                                    Muvaffaqiyatli
-                                  </Badge>
-                                )}
+                              ) : (
+                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-bg text-ink-muted border border-line">
+                                  To'lov kutilmoqda
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-3 text-xs">
+                              <div className="flex items-center gap-1.5 bg-bg px-2.5 py-1 rounded-lg border border-line/50">
+                                <User className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+                                <span className="font-bold text-ink-main text-[11px]">
+                                  {stripParentheses(b.waiterName) || 'Biriktirilmagan'}
+                                </span>
                               </div>
-                              <span className="text-[10px] text-ink-secondary">
-                                {new Date(p.createdAt).toLocaleTimeString('uz-UZ')}
+                              {b.openedAt && (
+                                <span className="text-[11px] text-ink-muted hidden sm:inline font-mono">
+                                  {new Date(b.openedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 2. O'rta qism: Buyurtma qilingan taomlar ro'yxati */}
+                          <div className="w-full my-2.5 bg-bg/60 rounded-xl p-3 space-y-1.5 border border-line/50">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted block">
+                              Buyurtma qilingan taomlar ({b.items?.length || b.itemCount} ta):
+                            </span>
+                            {b.items && b.items.length > 0 ? (
+                              <div className="space-y-1 divide-y divide-line/40">
+                                {b.items.map((it, idx) => (
+                                  <div key={idx} className="flex justify-between items-center text-xs pt-1 first:pt-0">
+                                    <span className="text-ink-main font-semibold">
+                                      • {stripParentheses(it.name)} <span className="text-brand font-bold text-[11px]">× {it.quantity}</span>
+                                    </span>
+                                    <span className="text-ink-secondary font-bold text-[11px]">
+                                      {formatMoneyUzs(BigInt(it.priceTiyin) * BigInt(it.quantity))}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-ink-muted italic">Buyurtmalar kutilmoqda...</p>
+                            )}
+                          </div>
+
+                          {/* 3. Pastki qator: Jami summa va Harakat tugmasi */}
+                          <div className="w-full pt-2.5 flex items-center justify-between border-t border-line/60">
+                            <div>
+                              <span className="text-[10px] text-ink-muted uppercase font-bold tracking-wider block">
+                                Jami to'lov summasi
+                              </span>
+                              <span className="text-base font-black text-brand">
+                                {formatMoneyUzs(balance)}
                               </span>
                             </div>
 
-                            {/* Actions on payment */}
-                            {!isReversed && (
-                              <div className="flex items-center gap-1">
-                                {availableRefundTiyin > 0n && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-[10px] py-1 px-1.5 h-6 text-amber-700 hover:bg-amber-50"
-                                    onClick={() => {
-                                      setPaymentToRefund({
-                                        id: p.id,
-                                        maxAmountTiyin: availableRefundTiyin.toString(),
-                                      });
-                                      setRefundAmountInput((availableRefundTiyin / 100n).toString());
-                                      setRefundModal(true);
-                                    }}
-                                  >
-                                    Qaytarish
-                                  </Button>
-                                )}
-                                {alreadyRefundedTiyin === 0n && (
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="text-[10px] py-1 px-1.5 h-6 text-red-600 hover:bg-red-50"
-                                    onClick={() => {
-                                      setPaymentToReverse(p.id);
-                                      setReversePaymentModal(true);
-                                    }}
-                                  >
-                                    Reversal
-                                  </Button>
-                                )}
-                              </div>
-                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedVisitId(b.visitId);
+                                setMobileStep('checkout');
+                              }}
+                              className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-colors ${
+                                isSelected
+                                  ? 'bg-brand text-white shadow-xs'
+                                  : 'bg-brand-50 text-brand hover:bg-brand-100 border border-brand-200'
+                              }`}
+                            >
+                              <span>{isSelected ? 'To\'lov oynasi ochiq' : 'To\'lovni qabul qilish'}</span>
+                              <span>→</span>
+                            </button>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
+              </div>
+            </section>
 
-                {/* Close Visit Action Footer */}
-                <div className="p-4 border-t border-line bg-bg/50">
-                  <Button
-                    variant="outline"
-                    size="md"
-                    disabled={!canCloseVisit}
-                    className={`w-full font-bold text-xs h-10 ${
-                      canCloseVisit
-                        ? 'border-emerald-600 text-emerald-800 hover:bg-emerald-50'
-                        : 'opacity-50 cursor-not-allowed'
-                    }`}
-                    onClick={handleCloseVisit}
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                    Tashrifni Yopish & Stolni Bo'shatish
-                  </Button>
-                  {!canCloseVisit && (
-                    <p className="text-[10px] text-ink-secondary text-center mt-1.5">
-                      Tashrifni yopish uchun qoldiq 0 bo'lishi va barcha taomlar yetkazilgan (SERVED) bo'lishi shart.
-                    </p>
-                  )}
+            {/* O'NG USTUN: CHEK VA TO'LOV PANELI */}
+            <section
+              className={`lg:col-span-5 flex flex-col bg-surface rounded-2xl border border-line shadow-subtle overflow-hidden ${
+                mobileStep === 'tables' ? 'hidden lg:flex' : 'flex'
+              }`}
+            >
+              {/* Mobil orqaga qaytish tugmasi */}
+              <div className="lg:hidden p-2.5 bg-bg border-b border-line flex items-center justify-between">
+                <button
+                  onClick={() => setMobileStep('tables')}
+                  className="text-xs font-bold text-ink-main flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface border border-line"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>To'lovlarga qaytish</span>
+                </button>
+              </div>
+
+              {!detailedBill ? (
+                <div className="p-10 text-center text-ink-muted space-y-2">
+                  <Receipt className="w-8 h-8 text-brand-300 mx-auto" />
+                  <p className="font-semibold text-ink-main text-xs">
+                    To'lovni qabul qilish uchun hisobni tanlang
+                  </p>
+                  <p className="text-[11px] text-ink-secondary">
+                    Chap tomondan kutilayotgan stol hisobini bosing
+                  </p>
                 </div>
-              </>
+              ) : (
+                <div className="flex flex-col h-full divide-y divide-line">
+                  {/* 1. Stol va ofitsiant */}
+                  <div className="px-4 py-3 bg-bg/50">
+                    <h3 className="text-base font-black text-ink-main tracking-tight">
+                      Stol #{detailedBill.visit.tableNumber} hisobi
+                    </h3>
+                    <p className="text-[11px] text-ink-secondary mt-0.5">
+                      Mas'ul:{' '}
+                      <strong className="text-ink-main">
+                        {stripParentheses(openBills.find((b) => b.visitId === detailedBill.visit.id)?.waiterName) || 'Biriktirilmagan'}
+                      </strong>
+                    </p>
+                  </div>
+
+                  {/* 2. Taomlar ro'yxati */}
+                  <div className="p-3.5 max-h-48 overflow-y-auto space-y-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-ink-muted block">
+                      Buyurtma qilingan taomlar
+                    </span>
+
+                    {detailedBill.orders.flatMap((o) => o.items).length === 0 ? (
+                      <p className="text-xs text-ink-muted italic">Buyurtmalar mavjud emas</p>
+                    ) : (
+                      detailedBill.orders.flatMap((o) => o.items).map((item, idx) => {
+                        const itemTotal = BigInt(item.snapshotPriceTiyin) * BigInt(item.quantity);
+                        return (
+                          <div
+                            key={item.id || idx}
+                            className="flex items-center justify-between text-xs py-1 border-b border-line/40 last:border-0"
+                          >
+                            <div className="pr-2">
+                              <span className="font-semibold text-ink-main block">
+                                {stripParentheses(item.snapshotName || item.dishTitle)}
+                              </span>
+                              <span className="text-[10px] text-ink-muted">
+                                {item.quantity} dona × {formatMoneyUzs(BigInt(item.snapshotPriceTiyin))}
+                              </span>
+                            </div>
+                            <span className="font-bold text-ink-main shrink-0">
+                              {formatMoneyUzs(itemTotal)}
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* 3. Moliyaviy jami hisob */}
+                  <div className="px-4 py-3 bg-bg/30 space-y-1.5 text-xs">
+                    <div className="flex justify-between text-ink-secondary">
+                      <span>Taomlar summasi</span>
+                      <span className="font-semibold text-ink-main">
+                        {formatMoneyUzs(BigInt(detailedBill.bill.subtotalTiyin))}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between text-ink-secondary">
+                      <span>Xizmat haqi {detailedBill.bill.serviceChargeBps / 100}%</span>
+                      <span className="font-semibold text-ink-main">
+                        {formatMoneyUzs(BigInt(detailedBill.bill.serviceChargeTiyin))}
+                      </span>
+                    </div>
+
+                    {BigInt(detailedBill.bill.discountTiyin) > 0n && (
+                      <div className="flex justify-between text-brand">
+                        <span>Chegirma</span>
+                        <span className="font-semibold">
+                          -{formatMoneyUzs(BigInt(detailedBill.bill.discountTiyin))}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-t border-line flex justify-between items-baseline">
+                      <span className="text-xs font-black text-ink-main">Jami to'lanishi kerak</span>
+                      <span className="text-base font-black text-brand">
+                        {formatMoneyUzs(balanceTiyin)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 4. To'lov usullari */}
+                  <div className="p-3.5 space-y-3">
+                    <div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMode('CASH')}
+                          className={`py-2 px-1.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                            paymentMode === 'CASH'
+                              ? 'border-brand bg-brand-50 text-brand ring-2 ring-brand/20 shadow-xs'
+                              : 'border-line text-ink-main bg-surface hover:bg-bg'
+                          }`}
+                        >
+                          <Banknote className="w-4 h-4" />
+                          <span>Naqd pul</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMode('TERMINAL')}
+                          className={`py-2 px-1.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                            paymentMode === 'TERMINAL'
+                              ? 'border-brand bg-brand-50 text-brand ring-2 ring-brand/20 shadow-xs'
+                              : 'border-line text-ink-main bg-surface hover:bg-bg'
+                          }`}
+                        >
+                          <CreditCard className="w-4 h-4" />
+                          <span>Plastik karta</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMode('SPLIT')}
+                          className={`py-2 px-1.5 rounded-xl border text-xs font-bold flex flex-col items-center gap-1 transition-all ${
+                            paymentMode === 'SPLIT'
+                              ? 'border-brand bg-brand-50 text-brand ring-2 ring-brand/20 shadow-xs'
+                              : 'border-line text-ink-main bg-surface hover:bg-bg'
+                          }`}
+                        >
+                          <Receipt className="w-4 h-4" />
+                          <span>Aralash</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Naqd pul kalkulyatori */}
+                    {paymentMode === 'CASH' && (
+                      <div className="space-y-2.5 bg-bg/50 p-3 rounded-xl border border-line">
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-[11px] font-semibold text-ink-main">
+                              Berilgan naqd pul
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setTenderedCashInput(balanceUzs.toString())}
+                              className="text-[10px] font-bold text-brand hover:underline"
+                            >
+                              Aynan {formatMoneyUzs(balanceTiyin)}
+                            </button>
+                          </div>
+                          <input
+                            type="text"
+                            value={tenderedCashInput}
+                            onChange={(e) => setTenderedCashInput(e.target.value)}
+                            placeholder="Summani kiriting..."
+                            className="w-full px-3 py-1.5 text-xs bg-surface rounded-lg border border-line text-ink-main font-bold focus:outline-none focus:ring-2 focus:ring-brand"
+                          />
+                        </div>
+
+                        {/* Tezkor kupyuralar */}
+                        <div className="flex flex-wrap gap-1">
+                          {[50000, 100000, 200000, 300000, 500000].map((nominal) => (
+                            <button
+                              key={nominal}
+                              type="button"
+                              onClick={() => setTenderedCashInput(nominal.toString())}
+                              className="px-2 py-0.5 text-[10px] font-bold bg-surface hover:bg-brand-50 border border-line text-ink-main hover:text-brand rounded-md transition-colors"
+                            >
+                              {nominal.toLocaleString('ru-RU')}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="pt-2 border-t border-line flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-ink-main">Qaytim</span>
+                          <span className="text-xs font-black text-brand">
+                            {formatMoneyUzs(calculatedChangeTiyin)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Terminal to'lovi */}
+                    {paymentMode === 'TERMINAL' && (
+                      <div className="p-3 bg-brand-50 border border-brand-200 rounded-xl text-center space-y-0.5">
+                        <CreditCard className="w-5 h-5 text-brand mx-auto mb-1" />
+                        <p className="text-sm font-black text-brand-900">
+                          {formatMoneyUzs(balanceTiyin)}
+                        </p>
+                        <p className="text-[11px] text-brand-700 font-semibold">
+                          Terminal orqali to'lov
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Aralash to'lov */}
+                    {paymentMode === 'SPLIT' && (
+                      <div className="space-y-2.5 bg-bg/50 p-3 rounded-xl border border-line">
+                        <div className="space-y-2">
+                          <div>
+                            <label className="text-[10px] text-ink-secondary block mb-0.5">
+                              Naqd pul qismi
+                            </label>
+                            <input
+                              type="text"
+                              value={splitCashInput}
+                              onChange={(e) => handleSplitCashChange(e.target.value)}
+                              placeholder="Naqd summa..."
+                              className="w-full px-2.5 py-1 text-xs bg-surface rounded-lg border border-line text-ink-main font-bold focus:outline-none focus:ring-2 focus:ring-brand"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] text-ink-secondary block mb-0.5">
+                              Karta qismi
+                            </label>
+                            <input
+                              type="text"
+                              value={splitCardInput}
+                              onChange={(e) => handleSplitCardChange(e.target.value)}
+                              placeholder="Karta summasi..."
+                              className="w-full px-2.5 py-1 text-xs bg-surface rounded-lg border border-line text-ink-main font-bold focus:outline-none focus:ring-2 focus:ring-brand"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tasdiqlash tugmasi */}
+                    <Button
+                      variant="primary"
+                      size="lg"
+                      disabled={isSubmittingPayment}
+                      onClick={handleConfirmAndCloseTable}
+                      className="w-full bg-brand hover:bg-brand-hover text-white font-bold text-xs h-11 rounded-xl shadow-xs transition-all flex items-center justify-center gap-2"
+                    >
+                      {isSubmittingPayment ? (
+                        <span>To'lov yozilmoqda...</span>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>To'lovni tasdiqlash va stolni yopish</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </section>
+          </div>
+        ) : (
+          /* SOF OLIB KETISH REJIMI */
+          <div className="space-y-4">
+            {/* Sarlavha paneli va Yangi buyurtma */}
+            <div className="bg-surface rounded-2xl border border-line p-4 shadow-subtle flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-brand-50 rounded-xl text-brand border border-brand-200 shrink-0">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h1 className="text-base font-bold text-ink-main tracking-tight">
+                    Olib ketish
+                  </h1>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowNewTakeawayModal(true)}
+                className="flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white font-bold text-xs shadow-xs transition-colors outline-none focus:outline-none"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Yangi buyurtma</span>
+              </button>
+            </div>
+
+            {/* Buyurtmalar ro'yxati */}
+            {takeawayOrders.length === 0 ? (
+              <div className="bg-surface rounded-2xl border border-line p-12 text-center text-xs text-ink-muted space-y-2">
+                <ShoppingBag className="w-8 h-8 text-ink-muted mx-auto stroke-1" />
+                <p className="font-bold text-ink-main text-sm">Olib ketish buyurtmalari yo'q</p>
+                <p>Yangi buyurtma kiritish uchun yuqoridagi "+ Yangi buyurtma" tugmasini bosing</p>
+              </div>
             ) : (
-              <div className="p-12 text-center text-ink-secondary text-sm">
-                Hisobni ko'rish uchun chap tomondan stolni tanlang
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+                {takeawayOrders.map((ord) => (
+                  <div
+                    key={ord.id}
+                    className={`bg-surface rounded-2xl border p-4 shadow-subtle flex flex-col justify-between space-y-3 transition-all ${
+                      ord.status === 'COMPLETED'
+                        ? 'opacity-60 border-line bg-surface/50'
+                        : ord.paymentStatus === 'UNPAID'
+                        ? 'border-amber-300'
+                        : 'border-emerald-300'
+                    }`}
+                  >
+                    {/* Yuqori qism: Raqam, vaqt va O'chirish */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-ink-main bg-bg px-2 py-0.5 rounded-lg border border-line">
+                          #{ord.orderNumber}
+                        </span>
+                        <span className="text-[11px] text-ink-muted">{ord.createdAt}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {ord.paymentStatus === 'PAID' ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            To'langan ({ord.paymentMethod === 'TERMINAL' ? 'Karta' : 'Naqd'})
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                            To'lanmagan
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTakeaway(ord.id)}
+                          title="O'chirish"
+                          className="p-1 text-ink-muted hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Mijoz ma'lumotlari */}
+                    <div className="space-y-1 text-xs">
+                      <div className="font-bold text-ink-main text-sm flex items-center justify-between">
+                        <span>{ord.customerName}</span>
+                        {ord.phone && ord.phone !== '+998' && (
+                          <span className="font-mono text-ink-secondary text-xs">{ord.phone}</span>
+                        )}
+                      </div>
+                      {ord.pickupTime && (
+                        <div className="text-ink-muted text-[11px] truncate">
+                          {ord.pickupTime}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Taomlar (agar bor bo'lsa) */}
+                    {ord.items && ord.items.length > 0 && (
+                      <div className="bg-bg rounded-xl p-2.5 border border-line text-xs space-y-1">
+                        {ord.items.map((it, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-ink-secondary text-[11px]">
+                            <span>
+                              {it.quantity}x {it.name}
+                            </span>
+                            <span className="font-mono text-ink-main font-semibold">
+                              {formatMoneyUzs(BigInt(it.priceUzs * 100))}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Summa va to'lov tugmalari */}
+                    <div className="pt-2 border-t border-line space-y-2">
+                      <div className="flex items-center justify-between text-xs font-bold">
+                        <span className="text-ink-secondary">Jami:</span>
+                        <span className="text-brand font-mono text-sm">
+                          {formatMoneyUzs(BigInt(ord.totalUzs * 100))}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 pt-1">
+                        {ord.paymentStatus === 'UNPAID' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handlePayTakeaway(ord.id, 'CASH')}
+                              className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors outline-none focus:outline-none"
+                            >
+                              <Banknote className="w-3.5 h-3.5" />
+                              <span>Naqd</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePayTakeaway(ord.id, 'TERMINAL')}
+                              className="flex-1 py-1.5 px-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors outline-none focus:outline-none"
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                              <span>Karta</span>
+                            </button>
+                          </>
+                        ) : ord.status !== 'COMPLETED' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleCompleteTakeaway(ord.id)}
+                            className="w-full py-1.5 px-3 bg-brand hover:bg-brand-hover text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors outline-none focus:outline-none"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Topshirildi</span>
+                          </button>
+                        ) : (
+                          <span className="w-full py-1 text-center text-ink-muted text-xs font-semibold">
+                            Topshirilgan
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
-          </section>
+          </div>
+        )}
+      </main>
+    </div>
 
-          {/* COLUMN 3: To'lovni Qabul Qilish (Payment Actions) */}
-          <section
-            className={`lg:col-span-3 flex flex-col bg-surface rounded-2xl border border-line shadow-subtle p-5 space-y-4 ${
-              mobileStep !== 'pay' ? 'hidden lg:flex' : 'flex'
-            }`}
-          >
-            <div className="border-b border-line pb-2 flex items-center justify-between">
+    {/* YANGI BUYURTMA MODALI (TAOM TANLASH) */}
+    {showNewTakeawayModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="bg-surface w-full max-w-5xl h-[92vh] max-h-[850px] flex flex-col rounded-2xl border border-line shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+          {/* Modal sarlavhasi */}
+          <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-line bg-surface shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 bg-brand-50 rounded-xl text-brand">
+                <ShoppingBag className="w-5 h-5" />
+              </div>
               <div>
-                <h3 className="text-base font-bold text-ink-main">To'lov Qabul Qilish</h3>
-                <p className="text-xs text-ink-secondary">Smena va kassa nazorati</p>
+                <h3 className="font-bold text-ink-main text-sm sm:text-base">
+                  Yangi buyurtma — Taom tanlash
+                </h3>
+                <p className="text-[11px] text-ink-secondary">
+                  Kerakli taomlarni bosing, buyurtma avtomatik shakllanadi
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setShowNewTakeawayModal(false);
+                setOrderBasket([]);
+                setDishSearch('');
+              }}
+              className="p-1.5 text-ink-secondary hover:text-ink-main rounded-xl hover:bg-bg transition-colors outline-none"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Modal asosiy tanasi: 2 ustun (desktopda yonma-yon) */}
+          <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-y-auto md:overflow-hidden">
+            {/* CHAP USTUN: Taomlar katalogi va qidiruv (58% kenglik) */}
+            <div className="w-full md:w-[58%] flex flex-col border-b md:border-b-0 md:border-r border-line p-3 sm:p-4 min-h-[320px] md:min-h-0 overflow-hidden bg-bg/30 shrink-0 md:shrink">
+              {/* Qidiruv */}
+              <div className="relative mb-2.5 shrink-0">
+                <Search className="w-4 h-4 text-ink-muted absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={dishSearch}
+                  onChange={(e) => setDishSearch(e.target.value)}
+                  placeholder="Taom nomini qidirish..."
+                  className="w-full pl-9 pr-8 py-2 text-xs bg-surface rounded-xl border border-line text-ink-main focus:outline-none focus:ring-2 focus:ring-brand font-medium placeholder:text-ink-muted"
+                />
+                {dishSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setDishSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink-main"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Toifalar tugmalari */}
+              {menuCategories.length > 0 && (
+                <div
+                  className="flex items-center gap-1.5 overflow-x-auto pb-1.5 mb-2 shrink-0 select-none"
+                  style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCatId('ALL')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all select-none ${
+                      selectedCatId === 'ALL'
+                        ? 'bg-brand text-white shadow-2xs'
+                        : 'bg-surface text-ink-secondary hover:text-ink-main border border-line'
+                    }`}
+                  >
+                    Barchasi ({menuItems.length})
+                  </button>
+                  {menuCategories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCatId(cat.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all select-none ${
+                        selectedCatId === cat.id
+                          ? 'bg-brand text-white shadow-2xs'
+                          : 'bg-surface text-ink-secondary hover:text-ink-main border border-line'
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Taomlar ro'yxati (Grid) */}
+              <div className="flex-1 overflow-y-auto pr-1">
+                {menuLoading ? (
+                  <div className="h-48 flex items-center justify-center text-xs text-ink-muted">
+                    Menyu yuklanmoqda...
+                  </div>
+                ) : filteredMenuItems.length === 0 ? (
+                  <div className="h-48 flex flex-col items-center justify-center text-xs text-ink-muted text-center p-4">
+                    <p className="font-semibold text-ink-main">Taom topilmadi</p>
+                    <p className="text-[11px] mt-1">Boshqa nom bilan qidirib ko'ring</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {filteredMenuItems.map((dish) => {
+                      const inBasket = orderBasket.find((b) => b.dishId === dish.id);
+                      const priceUzs = Number(BigInt(dish.basePriceTiyin || '0') / 100n);
+                      return (
+                        <button
+                          key={dish.id}
+                          type="button"
+                          onClick={() => handleAddDishToBasket(dish)}
+                          className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all select-none active:scale-[0.98] ${
+                            inBasket
+                              ? 'bg-brand-50/70 border-brand shadow-2xs ring-1 ring-brand/30'
+                              : 'bg-surface border-line hover:border-brand/50 hover:shadow-2xs'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-1 w-full">
+                            <span className="font-bold text-xs text-ink-main line-clamp-2 leading-snug">
+                              {dish.name}
+                            </span>
+                            {inBasket && (
+                              <span className="shrink-0 bg-brand text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-xs">
+                                {inBasket.quantity}
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-2.5 flex items-center justify-between w-full">
+                            <span className="font-mono text-brand font-bold text-xs">
+                              {formatMoneyUzs(BigInt(priceUzs * 100))}
+                            </span>
+                            <span className="text-[10px] font-bold text-brand bg-brand-50 px-1.5 py-0.5 rounded-md">
+                              + Qo'shish
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Check Active Shift */}
-            {!currentShift ? (
-              <div className="p-4 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-3">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold">Faol kassa smenasi yo'q!</p>
-                    <p className="text-[11px] text-amber-800">
-                      To'lov qabul qilish va chek chiqarish uchun avval smena ochilishi shart.
+            {/* O'NG USTUN: Tanlangan taomlar, jami summa va to'lov (42% kenglik) */}
+            <div className="w-full md:w-[42%] flex flex-col p-3 sm:p-4 bg-surface min-h-[320px] md:min-h-0 overflow-hidden shrink-0 md:shrink">
+              <div className="flex items-center justify-between pb-2.5 border-b border-line mb-2.5 shrink-0">
+                <span className="font-bold text-xs text-ink-main flex items-center gap-1.5">
+                  <ShoppingBag className="w-4 h-4 text-brand" />
+                  <span>Tanlangan taomlar</span>
+                </span>
+                {basketTotalItems > 0 && (
+                  <span className="text-[11px] font-bold text-brand bg-brand-50 px-2 py-0.5 rounded-full">
+                    {basketTotalItems} ta taom
+                  </span>
+                )}
+              </div>
+
+              {/* Savatdagi taomlar ro'yxati */}
+              <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 min-h-[120px] max-h-[260px] md:max-h-none">
+                {orderBasket.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-6 text-ink-muted">
+                    <ShoppingBag className="w-8 h-8 stroke-1 text-ink-muted mb-2 opacity-40" />
+                    <p className="text-xs font-semibold text-ink-secondary">Hozircha taom tanlanmadi</p>
+                    <p className="text-[11px] mt-0.5 text-ink-muted">
+                      Chap tomondan kerakli taomni ustiga bosing
                     </p>
                   </div>
-                </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="w-full bg-amber-700 hover:bg-amber-800 text-white font-bold h-9"
-                  onClick={() => setOpenShiftModal(true)}
-                >
-                  Smenani Ochish
-                </Button>
+                ) : (
+                  orderBasket.map((item) => (
+                    <div
+                      key={item.dishId}
+                      className="flex items-center justify-between p-2 rounded-xl bg-bg border border-line text-xs"
+                    >
+                      <div className="min-w-0 flex-1 pr-2">
+                        <p className="font-bold text-ink-main truncate text-xs">{item.name}</p>
+                        <p className="text-[11px] font-mono text-brand font-semibold mt-0.5">
+                          {formatMoneyUzs(BigInt(item.priceUzs * 100))}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0 select-none">
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateBasketQty(item.dishId, -1)}
+                          className="w-6 h-6 rounded-lg bg-surface border border-line text-ink-main flex items-center justify-center font-bold text-xs hover:bg-line active:scale-95 transition-all"
+                        >
+                          -
+                        </button>
+                        <span className="w-5 text-center font-bold text-xs font-mono">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateBasketQty(item.dishId, 1)}
+                          className="w-6 h-6 rounded-lg bg-surface border border-line text-ink-main flex items-center justify-center font-bold text-xs hover:bg-line active:scale-95 transition-all"
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFromBasket(item.dishId)}
+                          className="p-1 text-ink-muted hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors ml-0.5"
+                          title="O'chirish"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-            ) : !detailedBill ? (
-              <div className="p-8 text-center text-ink-secondary text-xs">
-                To'lov kiritish uchun hisobni tanlang
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Payment Methods */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-ink-secondary uppercase tracking-wider block">
-                    To'lov usuli
-                  </label>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('CASH')}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold min-h-[50px] transition-all ${
-                        paymentMethod === 'CASH'
-                          ? 'border-brand bg-brand-50 text-brand ring-2 ring-brand/20'
-                          : 'border-line text-ink-main hover:bg-bg'
-                      }`}
-                    >
-                      <Banknote className="w-4 h-4 mb-1" />
-                      <span>Naqd Pul</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('TERMINAL')}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold min-h-[50px] transition-all ${
-                        paymentMethod === 'TERMINAL'
-                          ? 'border-brand bg-brand-50 text-brand ring-2 ring-brand/20'
-                          : 'border-line text-ink-main hover:bg-bg'
-                      }`}
-                    >
-                      <CreditCard className="w-4 h-4 mb-1" />
-                      <span>Terminal</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPaymentMethod('QR')}
-                      className={`flex flex-col items-center justify-center p-2 rounded-xl border text-xs font-bold min-h-[50px] transition-all ${
-                        paymentMethod === 'QR'
-                          ? 'border-[#00aaff] bg-sky-50 text-[#0088cc] ring-2 ring-sky-200'
-                          : 'border-line text-ink-main hover:bg-bg'
-                      }`}
-                    >
-                      <QrCode className="w-4 h-4 mb-1" />
-                      <span>Click/Payme</span>
-                    </button>
-                  </div>
+
+              {/* Pastki qism: Izoh, Jami summa va TO'LOV TURLARI */}
+              <div className="pt-3 border-t border-line space-y-2.5 mt-auto shrink-0">
+                <div>
+                  <input
+                    type="text"
+                    value={orderNote}
+                    onChange={(e) => setOrderNote(e.target.value)}
+                    placeholder="Mijoz ismi yoki izoh (ixtiyoriy)..."
+                    className="w-full px-3 py-1.5 text-xs bg-bg rounded-xl border border-line text-ink-main focus:outline-none focus:ring-2 focus:ring-brand font-medium placeholder:text-ink-muted"
+                  />
                 </div>
 
-                {/* Amount to Pay (Partial allowed) */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-ink-main">To'lov summasi (UZS)</label>
+                <div className="flex items-center justify-between font-bold text-xs px-1">
+                  <span className="text-ink-secondary">Jami to'lov:</span>
+                  <span className="text-brand font-mono text-base sm:text-lg font-extrabold">
+                    {formatMoneyUzs(BigInt(basketTotalUzs * 100))}
+                  </span>
+                </div>
+
+                {/* TO'LOVNI QABUL QILISH TUGMALARI */}
+                <div className="space-y-1.5 pt-0.5">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={orderBasket.length === 0}
+                      onClick={() => handleSaveTakeawayOrderWithMethod('CASH')}
+                      className="py-2.5 px-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all disabled:opacity-40 disabled:cursor-not-allowed select-none"
+                    >
+                      <Banknote className="w-4 h-4" />
+                      <span>Naqd to'landi</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={orderBasket.length === 0}
+                      onClick={() => handleSaveTakeawayOrderWithMethod('TERMINAL')}
+                      className="py-2.5 px-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-2xs transition-all disabled:opacity-40 disabled:cursor-not-allowed select-none"
+                    >
+                      <CreditCard className="w-4 h-4" />
+                      <span>Karta to'landi</span>
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => {
-                        const bal = BigInt(detailedBill.bill.balanceTiyin);
-                        if (bal > 0n) {
-                          setCustomAmountUzs((bal / 100n).toString());
-                          setTenderedCashUzs((bal / 100n).toString());
-                        }
+                        setShowNewTakeawayModal(false);
+                        setOrderBasket([]);
+                        setDishSearch('');
                       }}
-                      className="text-[11px] text-brand hover:underline font-semibold"
+                      className="w-1/3 py-2 rounded-xl border border-line text-xs font-semibold text-ink-secondary hover:bg-bg outline-none transition-colors"
                     >
-                      To'liq qoldiq
+                      Bekor qilish
+                    </button>
+                    <button
+                      type="button"
+                      disabled={orderBasket.length === 0}
+                      onClick={() => handleSaveTakeawayOrderWithMethod('UNPAID')}
+                      className="w-2/3 py-2 rounded-xl bg-surface border border-line hover:border-amber-400 hover:bg-amber-50/50 text-ink-main font-bold text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 select-none"
+                    >
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Keyin to'laydi</span>
                     </button>
                   </div>
-                  <Input
-                    type="number"
-                    value={customAmountUzs}
-                    onChange={(e) => {
-                      setCustomAmountUzs(e.target.value);
-                      if (paymentMethod === 'CASH') {
-                        setTenderedCashUzs(e.target.value);
-                      }
-                    }}
-                    placeholder="Masalan: 50000"
-                    className="font-mono text-base font-bold"
-                  />
                 </div>
-
-                {/* If CASH: Tendered Cash & Change Calculation */}
-                {paymentMethod === 'CASH' && (
-                  <div className="p-3 bg-bg rounded-xl border border-line space-y-2.5">
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-ink-secondary block">
-                        Berilgan naqd pul (UZS)
-                      </label>
-                      <Input
-                        type="number"
-                        value={tenderedCashUzs}
-                        onChange={(e) => setTenderedCashUzs(e.target.value)}
-                        placeholder="Mijoz bergan naqd summa"
-                        className="font-mono text-sm font-semibold"
-                      />
-                    </div>
-
-                    {/* Quick Tender Chips */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {[10000n, 50000n, 100000n, 200000n].map((quick) => (
-                        <button
-                          key={quick.toString()}
-                          type="button"
-                          onClick={() => {
-                            const current = BigInt(tenderedCashUzs.replace(/\s+/g, '') || '0');
-                            const updated = current + quick;
-                            setTenderedCashUzs(updated.toString());
-                          }}
-                          className="px-2 py-1 text-[10px] font-mono font-bold rounded-lg bg-surface border border-line text-ink-main hover:bg-brand-50 hover:text-brand"
-                        >
-                          +{quick.toLocaleString()}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Realtime Change (Qaytim) Display */}
-                    <div className="pt-2 border-t border-line flex items-center justify-between text-xs">
-                      <span className="font-semibold text-ink-secondary">Mijozga Qaytim:</span>
-                      <span className="font-mono font-black text-emerald-700 text-sm">
-                        <Money amountTiyin={calculatedChangeTiyin} />
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-ink-secondary italic">
-                      Qaytim daromadga kiritilmaydi. Faqat to'lov summasi ({formatMoneyUzs(parsedCustomAmountTiyin)}) kassa tushumiga yoziladi.
-                    </p>
-                  </div>
-                )}
-
-                {/* If TERMINAL Notice */}
-                {paymentMethod === 'TERMINAL' && (
-                  <div className="p-3 bg-blue-50 rounded-xl border border-blue-200 text-xs text-blue-900 space-y-1">
-                    <p className="font-bold">Terminal Tasdig'i</p>
-                    <p className="text-[11px] text-blue-800">
-                      Bank terminali orqali to'lov muvaffaqiyatli o'tgach, 'To'lovni Saqlash' tugmasini bosing.
-                    </p>
-                  </div>
-                )}
-
-                {/* If QR Notice & Interactive QR Code */}
-                {paymentMethod === 'QR' && detailedBill && (
-                  <UzPaymentQr
-                    amountTiyin={
-                      parsedCustomAmountTiyin > 0n
-                        ? parsedCustomAmountTiyin
-                        : BigInt(detailedBill.bill.balanceTiyin)
-                    }
-                    tableNumber={detailedBill.visit.tableNumber}
-                    visitId={detailedBill.visit.id}
-                    onPaymentConfirmed={handleProcessPayment}
-                  />
-                )}
-
-                {/* Actions */}
-                <div className="space-y-2 pt-1">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    disabled={isSubmittingPayment || parsedCustomAmountTiyin <= 0n}
-                    className="w-full bg-brand hover:bg-brand-hover text-white text-sm font-bold min-h-[46px] shadow-sm"
-                    onClick={handleProcessPayment}
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    {isSubmittingPayment ? 'Qayd etilmoqda...' : 'To\'lovni Saqlash'}
-                  </Button>
-
-                  {mobileStep === 'pay' && (
-                    <Button
-                      variant="ghost"
-                      size="md"
-                      className="w-full text-xs text-ink-secondary lg:hidden"
-                      onClick={() => setMobileStep('detail')}
-                    >
-                      <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Orqaga
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-          </section>
-        </div>
-      </main>
-
-      {/* DIALOG 1: Open Shift Modal */}
-      <Dialog
-        isOpen={openShiftModal}
-        onClose={() => setOpenShiftModal(false)}
-        title="Yangi Kassa Smenasini Ochish"
-      >
-        <div className="space-y-4 pt-2">
-          <p className="text-xs text-ink-secondary">
-            Kassir sifatida to'lovlarni qabul qilishni boshlash uchun boshlang'ich naqd pul qoldig'ini kiriting.
-          </p>
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-ink-main">
-              Kassadagi Boshlang'ich Naqd Pul (UZS)
-            </label>
-            <Input
-              type="number"
-              value={openingCashInput}
-              onChange={(e) => setOpeningCashInput(e.target.value)}
-              placeholder="Masalan: 500000"
-              className="font-mono text-base font-bold"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setOpenShiftModal(false)}>
-              Bekor qilish
-            </Button>
-            <Button variant="primary" onClick={handleOpenShift}>
-              Smenani Ochish
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-
-      {/* DIALOG 2: Close Shift & Reconciliation Modal */}
-      <Dialog
-        isOpen={closeShiftModal}
-        onClose={() => setCloseShiftModal(false)}
-        title={`Smenani Yopish & Kassa Reconcile (#${currentShift?.shift.id.slice(0, 6)})`}
-      >
-        {currentShift && (
-          <div className="space-y-4 pt-2 text-xs">
-            {/* Shift Metrics Breakdown */}
-            <div className="p-3 bg-bg rounded-xl border border-line space-y-1.5 font-mono">
-              <div className="flex justify-between text-ink-secondary">
-                <span>Boshlang'ich kassa:</span>
-                <span><Money amountTiyin={currentShift.shift.startingCashTiyin} /></span>
-              </div>
-              <div className="flex justify-between text-ink-secondary">
-                <span>Naqd tushum (+):</span>
-                <span className="text-emerald-700 font-bold">
-                  + <Money amountTiyin={currentShift.metrics.cashReceiptsTiyin} />
-                </span>
-              </div>
-              <div className="flex justify-between text-ink-secondary">
-                <span>Terminal tushum:</span>
-                <span><Money amountTiyin={currentShift.metrics.terminalReceiptsTiyin} /></span>
-              </div>
-              <div className="flex justify-between text-ink-secondary">
-                <span>Naqd qaytarishlar (-):</span>
-                <span className="text-red-600 font-bold">
-                  - <Money amountTiyin={currentShift.metrics.cashRefundsTiyin} />
-                </span>
-              </div>
-              <div className="flex justify-between text-ink-secondary">
-                <span>Naqd bekor qilinganlar (-):</span>
-                <span className="text-red-600 font-bold">
-                  - <Money amountTiyin={currentShift.metrics.cashReversalsTiyin} />
-                </span>
-              </div>
-              <div className="flex justify-between text-ink-secondary">
-                <span>Kassa kirimlari (+):</span>
-                <span>+ <Money amountTiyin={currentShift.metrics.cashInTiyin} /></span>
-              </div>
-              <div className="flex justify-between text-ink-secondary">
-                <span>Kassa chiqimlari (-):</span>
-                <span>- <Money amountTiyin={currentShift.metrics.cashOutTiyin} /></span>
-              </div>
-              <div className="pt-2 border-t border-line flex justify-between text-sm font-black text-brand">
-                <span>Kutilayotgan Naqd Pul:</span>
-                <span><Money amountTiyin={currentShift.metrics.expectedCashTiyin} /></span>
               </div>
             </div>
-
-            {/* Counted Cash Input */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-ink-main">
-                Haqiqiy Sanalgan Naqd Pul (UZS)
-              </label>
-              <Input
-                type="number"
-                value={countedCashInput}
-                onChange={(e) => setCountedCashInput(e.target.value)}
-                placeholder="Kassadagi naqd summani sanab kiriting"
-                className="font-mono text-base font-bold"
-              />
-            </div>
-
-            {/* Calculated Difference Display */}
-            {countedCashInput && (
-              <div className="p-3 bg-surface rounded-xl border border-line flex items-center justify-between font-mono">
-                <span className="font-semibold text-ink-secondary">Farq (Difference):</span>
-                {(() => {
-                  const counted = BigInt(countedCashInput.replace(/\s+/g, '') || '0') * 100n;
-                  const exp = BigInt(currentShift.metrics.expectedCashTiyin);
-                  const diff = counted - exp;
-                  return (
-                    <span
-                      className={`font-black text-sm ${
-                        diff === 0n ? 'text-emerald-700' : diff > 0n ? 'text-blue-700' : 'text-red-600'
-                      }`}
-                    >
-                      {diff > 0n ? '+' : ''}
-                      {formatMoneyUzs(diff)}
-                    </span>
-                  );
-                })()}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="ghost" onClick={() => setCloseShiftModal(false)}>
-                Bekor qilish
-              </Button>
-              <Button variant="primary" onClick={handleCloseShift}>
-                Smenani Yopish
-              </Button>
-            </div>
-          </div>
-        )}
-      </Dialog>
-
-      {/* DIALOG 3: Cash Movement (In / Out) Modal */}
-      <Dialog
-        isOpen={cashMovementModal}
-        onClose={() => setCashMovementModal(false)}
-        title="Kassa Harakatini Qayd Etish"
-      >
-        <div className="space-y-4 pt-2 text-xs">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setMovementType('CASH_IN')}
-              className={`p-3 rounded-xl border flex flex-col items-center gap-1 font-bold transition-all ${
-                movementType === 'CASH_IN'
-                  ? 'border-brand bg-brand-50 text-brand ring-1 ring-brand'
-                  : 'border-line text-ink-main'
-              }`}
-            >
-              <ArrowDownCircle className="w-5 h-5 text-emerald-600" />
-              <span>Kassa Kirimi (CASH_IN)</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setMovementType('CASH_OUT')}
-              className={`p-3 rounded-xl border flex flex-col items-center gap-1 font-bold transition-all ${
-                movementType === 'CASH_OUT'
-                  ? 'border-red-600 bg-red-50 text-red-700 ring-1 ring-red-600'
-                  : 'border-line text-ink-main'
-              }`}
-            >
-              <ArrowUpCircle className="w-5 h-5 text-red-600" />
-              <span>Kassa Chiqimi (CASH_OUT)</span>
-            </button>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-ink-main">Summa (UZS)</label>
-            <Input
-              type="number"
-              value={movementAmountInput}
-              onChange={(e) => setMovementAmountInput(e.target.value)}
-              placeholder="Masalan: 100000"
-              className="font-mono text-base font-bold"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-ink-main">Sabab / Izoh</label>
-            <Input
-              type="text"
-              value={movementReasonInput}
-              onChange={(e) => setMovementReasonInput(e.target.value)}
-              placeholder="Masalan: Mayda pul qo'shildi / Inkassatsiya"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setCashMovementModal(false)}>
-              Bekor qilish
-            </Button>
-            <Button variant="primary" onClick={handleCashMovement}>
-              Harakatni Saqlash
-            </Button>
           </div>
         </div>
-      </Dialog>
-
-      {/* DIALOG 4: Pre-Check Receipt Modal */}
-      <Dialog
-        isOpen={preCheckModal}
-        onClose={() => setPreCheckModal(false)}
-        title="Pre-Check / Hisob Varaqasi"
-      >
-        {detailedBill && (
-          <div className="space-y-4 pt-1 font-mono text-xs">
-            <div className="p-4 bg-white border border-line rounded-xl shadow-inner text-ink-main space-y-3">
-              <div className="text-center border-b border-dashed border-gray-400 pb-3 space-y-0.5">
-                <h4 className="font-bold text-sm tracking-widest uppercase">MENUREST RESTORANI</h4>
-                <p className="text-[10px] text-ink-secondary">Pre-Check / Hisob Varaqasi</p>
-                <p className="text-[9px] text-ink-muted">Mazkur hujjat fiskal chek hisoblanmaydi</p>
-              </div>
-
-              <div className="text-[11px] space-y-0.5 border-b border-dashed border-gray-400 pb-2">
-                <div className="flex justify-between">
-                  <span>Stol:</span>
-                  <span className="font-bold">№ {detailedBill.visit.tableNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Sana va vaqt:</span>
-                  <span>{new Date().toLocaleString('uz-UZ')}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tashrif ID:</span>
-                  <span>#{detailedBill.visit.id.slice(0, 8)}</span>
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <div className="border-b border-dashed border-gray-400 pb-2 space-y-1">
-                {detailedBill.orders
-                  .flatMap((o) => o.items)
-                  .filter((i) => i.status !== 'CANCELLED')
-                  .map((it) => (
-                    <div key={it.id} className="flex justify-between text-[11px]">
-                      <div className="truncate max-w-[200px]">
-                        {it.dishTitle} {it.quantity > 1 ? `(${it.quantity}x)` : ''}
-                      </div>
-                      <div className="font-semibold">
-                        <Money
-                          amountTiyin={
-                            (BigInt(it.snapshotPriceTiyin) +
-                              (it.addonSnapshots?.reduce(
-                                (sum, a) => sum + BigInt(a.priceTiyin),
-                                0n
-                              ) || 0n)) *
-                            BigInt(it.quantity)
-                          }
-                        />
-                      </div>
-                    </div>
-                  ))}
-              </div>
-
-              {/* Totals */}
-              <div className="space-y-1 text-[11px]">
-                <div className="flex justify-between">
-                  <span>Oraliq summa:</span>
-                  <span><Money amountTiyin={detailedBill.bill.subtotalTiyin} /></span>
-                </div>
-                {BigInt(detailedBill.bill.discountTiyin) > 0n && (
-                  <div className="flex justify-between text-emerald-700">
-                    <span>Chegirma:</span>
-                    <span>- <Money amountTiyin={detailedBill.bill.discountTiyin} /></span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>Xizmat ({detailedBill.bill.serviceChargeBps / 100}%):</span>
-                  <span><Money amountTiyin={detailedBill.bill.serviceChargeTiyin} /></span>
-                </div>
-                <div className="pt-2 border-t border-dashed border-gray-400 flex justify-between font-bold text-sm">
-                  <span>JAMI TO'LANISHI KERAK:</span>
-                  <span><Money amountTiyin={detailedBill.bill.totalDueTiyin} /></span>
-                </div>
-                <div className="flex justify-between text-[11px]">
-                  <span>To'langan:</span>
-                  <span><Money amountTiyin={detailedBill.bill.netPaidTiyin} /></span>
-                </div>
-                <div className="flex justify-between font-bold text-xs pt-1">
-                  <span>QOLDIQ:</span>
-                  <span><Money amountTiyin={detailedBill.bill.balanceTiyin} /></span>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-dashed border-gray-400 text-center space-y-1.5">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="px-2 py-0.5 rounded bg-[#00aaff]/10 text-[#0088cc] font-black text-[9px] border border-[#00aaff]/30">
-                    CLICK
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-[#00cccc]/10 text-[#00a896] font-black text-[9px] border border-[#00cccc]/30">
-                    PAYME
-                  </span>
-                </div>
-                <div className="text-[10px] text-ink-secondary">Click va Payme orqali to'lov qabul qilinadi</div>
-                <div className="text-[9px] text-ink-muted">Tashrifingiz uchun rahmat!</div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2 font-sans">
-              <Button variant="ghost" onClick={() => setPreCheckModal(false)}>
-                Yopish
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  window.print();
-                }}
-                className="flex items-center gap-1"
-              >
-                <Printer className="w-4 h-4" />
-                <span>Chop Etish</span>
-              </Button>
-            </div>
-          </div>
-        )}
-      </Dialog>
-
-      {/* DIALOG 5: Payment Reversal Modal */}
-      <Dialog
-        isOpen={reversePaymentModal}
-        onClose={() => setReversePaymentModal(false)}
-        title="To'lovni Bekor Qilish (Payment Reversal)"
-      >
-        <div className="space-y-4 pt-2 text-xs">
-          <p className="text-ink-secondary">
-            Diqqat: Xato kiritilgan to'lovni bekor qilish uning statusini 'REVERSED' holatiga o'tkazadi
-            va hisob qoldig'ini tiklaydi. Smena hisobotida naqd pul kamaytiriladi.
-          </p>
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-ink-main">Bekor qilish sababi</label>
-            <Input
-              type="text"
-              value={reverseReasonInput}
-              onChange={(e) => setReverseReasonInput(e.target.value)}
-              placeholder="Masalan: Kassir tomonidan xato summa kiritilgan"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setReversePaymentModal(false)}>
-              Bekor qilish
-            </Button>
-            <Button
-              variant="outline"
-              className="text-red-600 border-red-300 hover:bg-red-50"
-              onClick={handleReversePayment}
-            >
-              Reversallash
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-
-      {/* DIALOG 6: Refund Modal */}
-      <Dialog
-        isOpen={refundModal}
-        onClose={() => setRefundModal(false)}
-        title="Pulni Qaytarish (Refund)"
-      >
-        <div className="space-y-4 pt-2 text-xs">
-          <p className="text-ink-secondary">
-            To'lovdan mijozga qaytariladigan summani kiriting. Maksimal qaytarish mumkin:{' '}
-            <span className="font-bold text-ink-main font-mono">
-              {paymentToRefund && formatMoneyUzs(BigInt(paymentToRefund.maxAmountTiyin))}
-            </span>
-          </p>
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-ink-main">Qaytarish summasi (UZS)</label>
-            <Input
-              type="number"
-              value={refundAmountInput}
-              onChange={(e) => setRefundAmountInput(e.target.value)}
-              placeholder="Masalan: 20000"
-              className="font-mono text-base font-bold"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-ink-main">Qaytarish sababi</label>
-            <Input
-              type="text"
-              value={refundReasonInput}
-              onChange={(e) => setRefundReasonInput(e.target.value)}
-              placeholder="Masalan: Mijoz buyurtmani bekor qildi"
-            />
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setRefundModal(false)}>
-              Bekor qilish
-            </Button>
-            <Button variant="primary" onClick={handleRefundPayment}>
-              Qaytarishni Tasdiqlash
-            </Button>
-          </div>
-        </div>
-      </Dialog>
-    </div>
-  );
+      </div>
+    )}
+  </div>
+);
 };

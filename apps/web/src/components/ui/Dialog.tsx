@@ -76,7 +76,7 @@ export const Dialog: React.FC<DialogProps> = ({
                 type="button"
                 onClick={onClose}
                 aria-label="Yopish"
-                title="Yopish (Esc)"
+                title="Yopish"
                 className="text-ink-muted hover:text-ink-main w-9 h-9 rounded-xl flex items-center justify-center hover:bg-bg border border-transparent hover:border-line transition-all"
               >
                 <X className="w-5 h-5" />
@@ -119,7 +119,7 @@ export const Dialog: React.FC<DialogProps> = ({
               type="button"
               onClick={onClose}
               aria-label="Yopish"
-              title="Yopish (Esc)"
+              title="Yopish"
               className="text-ink-muted hover:text-ink-main w-8 h-8 rounded-lg flex items-center justify-center hover:bg-bg transition-colors"
             >
               <X className="w-4 h-4" />

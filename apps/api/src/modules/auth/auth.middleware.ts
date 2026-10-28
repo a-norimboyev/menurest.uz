@@ -154,7 +154,7 @@ export function requirePermission(...requiredPermissions: Permission[]) {
         success: false,
         error: {
           code: 'SUPPORT_SESSION_REQUIRED',
-          message: 'Super admin ushbu restoran ma\'lumotlariga kirishi uchun sabab ko\'rsatilgan faol yordam (support) sessiyasi talab qilinadi.',
+          message: 'Super admin ushbu restoran ma\'lumotlariga kirishi uchun sabab ko\'rsatilgan faol yordam sessiyasi talab qilinadi.',
         },
         meta: {
           timestamp: new Date().toISOString(),
@@ -165,6 +165,46 @@ export function requirePermission(...requiredPermissions: Permission[]) {
 
     const hasAll = requiredPermissions.every((p) => req.user!.permissions.includes(p));
     if (!hasAll) {
+      return res.status(403).json({
+        success: false,
+        error: {
+          code: 'FORBIDDEN',
+          message: 'Sizda ushbu amalni bajarish uchun yetarli vakolat mavjud emas.',
+          details: [{ field: 'requiredPermissions', issue: requiredPermissions.join(', ') }],
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: `req_${Date.now()}`,
+        },
+      });
+    }
+
+    next();
+  };
+}
+
+export function requireAnyPermission(...requiredPermissions: Permission[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Tizimga kirish talab qilinadi.',
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          requestId: `req_${Date.now()}`,
+        },
+      });
+    }
+
+    if (req.user.isSuperAdmin) {
+      return next();
+    }
+
+    const hasAny = requiredPermissions.some((p) => req.user!.permissions.includes(p));
+    if (!hasAny) {
       return res.status(403).json({
         success: false,
         error: {
@@ -209,7 +249,7 @@ export async function requireTenant(req: Request, res: Response, next: NextFunct
         success: false,
         error: {
           code: 'SUPPORT_SESSION_REQUIRED',
-          message: 'Super admin ushbu restoran ma\'lumotlariga kirishi uchun sabab ko\'rsatilgan faol yordam (support) sessiyasi talab qilinadi.',
+          message: 'Super admin ushbu restoran ma\'lumotlariga kirishi uchun sabab ko\'rsatilgan faol yordam sessiyasi talab qilinadi.',
         },
         meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
       });
@@ -230,19 +270,19 @@ export async function requireTenant(req: Request, res: Response, next: NextFunct
         success: false,
         error: {
           code: 'SUPPORT_SESSION_EXPIRED',
-          message: 'Yordam (support) sessiyasi muddati tugagan yoki bekor qilingan.',
+          message: 'Yordam sessiyasi muddati tugagan yoki bekor qilingan.',
         },
         meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
       });
     }
 
-    // Read-only rejimi tekshiruvi: O'zgartirishlar (mutatsiyalar) rad etiladi
+    // Read-only rejimi tekshiruvi: O'zgartirishlar rad etiladi
     if (supportAccess.isReadOnly && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
       return res.status(403).json({
         success: false,
         error: {
           code: 'SUPPORT_READ_ONLY',
-          message: 'Yordam (support) sessiyasi faqat o\'qish (read-only) rejimida. O\'zgartirish kiritish taqiqlanadi.',
+          message: 'Yordam sessiyasi faqat o\'qish rejimida. O\'zgartirish kiritish taqiqlanadi.',
         },
         meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
       });

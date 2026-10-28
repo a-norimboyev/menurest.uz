@@ -37,7 +37,7 @@ export class OutboxService {
   private timer: NodeJS.Timeout | null = null;
   private isProcessing = false;
 
-  start(intervalMs = 300) {
+  start(intervalMs = 1500) {
     if (this.timer) return;
     this.timer = setInterval(() => {
       this.processPending().catch((err) => {

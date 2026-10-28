@@ -72,7 +72,7 @@ export class SettingsService {
         throw {
           statusCode: 400,
           code: 'INVALID_SERVICE_CHARGE',
-          message: 'Xizmat haqi 0% dan 50% gacha (0..5000 bps) bo\'lishi shart.',
+          message: 'Xizmat haqi 0% dan 50% gacha bo\'lishi shart.',
         };
       }
     }

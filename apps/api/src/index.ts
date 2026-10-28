@@ -103,7 +103,7 @@ app.get(['/ready', '/api/ready'], async (_req: Request, res: Response) => {
       success: true,
       data: {
         ready: true,
-        database: 'connected (PostgreSQL)',
+        database: 'connected PostgreSQL',
         timestamp: new Date().toISOString(),
       },
       meta: {

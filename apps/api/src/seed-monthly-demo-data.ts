@@ -82,7 +82,6 @@ async function seedMonthlyDemoData() {
             restaurantId: restaurant.id,
             name: 'Asosiy Oshxona',
             type: 'KITCHEN',
-            sortOrder: 1,
           },
         });
       }
@@ -120,7 +119,6 @@ async function seedMonthlyDemoData() {
           restaurantId: restaurant.id,
           name: 'Asosiy Oshxona',
           type: 'KITCHEN',
-          sortOrder: 1,
         },
       });
     }

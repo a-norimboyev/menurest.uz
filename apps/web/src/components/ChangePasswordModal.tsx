@@ -120,7 +120,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         throw new Error(data.error?.message || 'Ma\'lumotlarni o\'zgartirishda xatolik yuz berdi');
       }
 
-      setSuccess('Hisob ma\'lumotlari (telefon va/yoki parol) muvaffaqiyatli saqlandi!');
+      setSuccess('Hisob ma\'lumotlari muvaffaqiyatli saqlandi!');
       setTimeout(() => {
         handleClose();
         if (onSuccess) {
@@ -169,7 +169,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-ink-main flex items-center gap-1.5">
             <Phone className="w-3.5 h-3.5 text-brand" />
-            Telefon Raqami (Login) *
+            Telefon Raqami *
           </label>
           <Input
             type="tel"
@@ -192,7 +192,7 @@ export const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({
                 <ShieldCheck className="w-3.5 h-3.5 text-brand" />
                 Yangi Parol
               </span>
-              <span className="text-[11px] font-normal text-ink-secondary">(o'zgartirmaslik uchun bo'sh qoldiring)</span>
+              <span className="text-[11px] font-normal text-ink-secondary">o'zgartirmaslik uchun bo'sh qoldiring</span>
             </label>
             <div className="relative">
               <Input

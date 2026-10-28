@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  QrCode,
   Users,
   CreditCard,
   BarChart3,
@@ -8,7 +7,6 @@ import {
   Send,
   Instagram,
   Store,
-  ArrowRight,
   ArrowUpRight,
   Smartphone,
   LogIn,
@@ -16,6 +14,7 @@ import {
   X,
   CheckCircle2,
   Check,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button.tsx';
 import { BrandLogo } from '../components/ui/BrandLogo.tsx';
@@ -41,7 +40,9 @@ interface LandingViewProps {
 }
 
 export function LandingView({
+  authProfile,
   onOpenLogin,
+  onSelectRoleView,
 }: LandingViewProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -148,15 +149,37 @@ export function LandingView({
           </nav>
 
           <div className="flex items-center space-x-3">
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={handleLoginAction}
-              className="gap-2 shadow-sm min-h-[40px] font-bold px-5 rounded-xl"
-            >
-              <LogIn className="w-4 h-4" />
-              <span>Kirish</span>
-            </Button>
+            {authProfile?.user?.isSuperAdmin ? (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => onSelectRoleView('SUPER_ADMIN')}
+                className="gap-2 shadow-sm min-h-[40px] font-bold px-4 rounded-xl bg-purple-700 hover:bg-purple-800 text-white"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>Super Admin</span>
+              </Button>
+            ) : authProfile ? (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => onSelectRoleView(authProfile.roles?.includes('MANAGER') ? 'MANAGER' : authProfile.roles?.includes('WAITER') ? 'WAITER' : authProfile.roles?.includes('CASHIER') ? 'CASHIER' : 'SESSION')}
+                className="gap-2 shadow-sm min-h-[40px] font-bold px-4 rounded-xl"
+              >
+                <Store className="w-4 h-4" />
+                <span>Kabinet</span>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={handleLoginAction}
+                className="gap-2 shadow-sm min-h-[40px] font-bold px-5 rounded-xl"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Kirish</span>
+              </Button>
+            )}
 
             {/* Mobile Menu Button */}
             <button
@@ -217,104 +240,84 @@ export function LandingView({
       {/* 2. Hero Section */}
       <section className="bg-gradient-to-b from-brand-500/10 via-brand-50/20 to-bg pt-12 pb-16 sm:pt-20 sm:pb-24 border-b border-line">
         <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            
-            {/* Left Column */}
-            <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-ink-main tracking-tight leading-[1.15]">
-                Aqlli <span className="text-brand">QR Menyu</span> va Restoran Boshqaruvi
-              </h1>
+          <div className="max-w-3xl mx-auto space-y-6 text-center">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-ink-main tracking-tight leading-[1.15]">
+              Aqlli <span className="text-brand">QR Menyu</span> va Restoran Boshqaruvi
+            </h1>
 
-              <p className="text-base sm:text-lg text-ink-secondary max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-                O'zbekistondagi restoran, kafe va choyxonalar uchun zamonaviy elektron QR menyu, ofitsiant va kassa avtomatlashtirish tizimi. Mijozlar menyuni QR kod orqali ilovasiz ko'radi va buyurtma beradi.
-              </p>
+            <p className="text-base sm:text-lg text-ink-secondary max-w-2xl mx-auto leading-relaxed">
+              O'zbekistondagi restoran, kafe va choyxonalar uchun zamonaviy elektron QR menyu, ofitsiant va kassa avtomatlashtirish tizimi. Mijozlar menyuni QR kod orqali ilovasiz ko'radi va buyurtma beradi.
+            </p>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3.5 pt-2">
+            {/* Action Buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
+              {authProfile?.user?.isSuperAdmin ? (
                 <Button
                   size="lg"
                   variant="primary"
-                  onClick={() => scrollToSection('contact-section')}
+                  onClick={() => onSelectRoleView('SUPER_ADMIN')}
+                  className="gap-2 shadow-lg shadow-purple-500/20 font-bold text-base py-3.5 px-6 rounded-2xl bg-purple-700 hover:bg-purple-800 text-white"
+                >
+                  <ShieldCheck className="w-5 h-5" />
+                  <span>Super Admin Paneli</span>
+                </Button>
+              ) : authProfile ? (
+                <Button
+                  size="lg"
+                  variant="primary"
+                  onClick={() =>
+                    onSelectRoleView(
+                      authProfile.roles?.includes('MANAGER')
+                        ? 'MANAGER'
+                        : authProfile.roles?.includes('WAITER')
+                        ? 'WAITER'
+                        : authProfile.roles?.includes('CASHIER')
+                        ? 'CASHIER'
+                        : 'SESSION'
+                    )
+                  }
                   className="gap-2 shadow-lg shadow-brand/20 font-bold text-base py-3.5 px-6 rounded-2xl"
                 >
                   <Store className="w-5 h-5" />
-                  <span>Ulanish</span>
-                  <ArrowRight className="w-4 h-4 ml-1" />
+                  <span>Boshqaruv Kabineti</span>
                 </Button>
+              ) : (
                 <Button
                   size="lg"
-                  variant="outline"
+                  variant="primary"
                   onClick={handleLoginAction}
-                  className="gap-2 bg-surface font-semibold text-base py-3.5 px-6 rounded-2xl border-line hover:border-brand"
+                  className="gap-2 shadow-lg shadow-brand/20 font-bold text-base py-3.5 px-8 rounded-2xl"
                 >
-                  <LogIn className="w-5 h-5 text-brand" />
-                  <span>Kirish</span>
+                  <LogIn className="w-5 h-5" />
+                  <span>Tizimga Kirish</span>
                 </Button>
-              </div>
-
-              {/* Short Value Bullets */}
-              <div className="grid grid-cols-3 gap-3 pt-6 border-t border-line/80 max-w-lg mx-auto lg:mx-0 text-center">
-                <div className="p-3 bg-surface rounded-xl border border-line">
-                  <div className="text-base sm:text-lg font-black text-ink-main">Tezkor</div>
-                  <div className="text-[11px] text-ink-secondary">Xizmat va oshxona</div>
-                </div>
-                <div className="p-3 bg-surface rounded-xl border border-line">
-                  <div className="text-base sm:text-lg font-black text-brand">Ilovasiz</div>
-                  <div className="text-[11px] text-ink-secondary">Brauzerda ochiladi</div>
-                </div>
-                <div className="p-3 bg-surface rounded-xl border border-line">
-                  <div className="text-base sm:text-lg font-black text-ink-main">Aniq</div>
-                  <div className="text-[11px] text-ink-secondary">Kassa va hisob</div>
-                </div>
-              </div>
+              )}
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => scrollToSection('contact-section')}
+                className="gap-2 bg-surface text-ink-secondary font-semibold text-base py-3.5 px-6 rounded-2xl border-line hover:text-ink-main"
+              >
+                <Store className="w-5 h-5" />
+                <span>Ulanish uchun ariza</span>
+              </Button>
             </div>
 
-            {/* Right Column (Clean Menu Visual) */}
-            <div className="lg:col-span-5 flex justify-center">
-              <div className="w-full max-w-sm bg-surface rounded-3xl p-5 shadow-xl border border-line space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-line">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-brand-50 text-brand flex items-center justify-center font-bold">
-                      <Store className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-ink-main">Rayhon Restorani</div>
-                      <div className="text-[11px] text-ink-secondary">Stol #4 • QR Menyu</div>
-                    </div>
-                  </div>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                    Faol
-                  </span>
-                </div>
-
-                {/* Sample Menu Items */}
-                <div className="space-y-2.5">
-                  <div className="p-3 bg-bg rounded-2xl border border-line flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-bold text-ink-main">Choyxona Palov</div>
-                      <div className="text-[11px] text-ink-secondary">Go'sht, no'xot, mayiz bilan</div>
-                    </div>
-                    <span className="text-xs font-bold text-brand">45 000 so'm</span>
-                  </div>
-
-                  <div className="p-3 bg-bg rounded-2xl border border-line flex items-center justify-between">
-                    <div>
-                      <div className="text-xs font-bold text-ink-main">Kavkaz Shashlik</div>
-                      <div className="text-[11px] text-ink-secondary">Momiq qo'y go'shti</div>
-                    </div>
-                    <span className="text-xs font-bold text-brand">24 000 so'm</span>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <div className="w-full py-2.5 bg-brand text-white text-center rounded-xl font-bold text-xs shadow-sm flex items-center justify-center gap-1.5">
-                    <QrCode className="w-4 h-4" />
-                    <span>Buyurtma Berish</span>
-                  </div>
-                </div>
+            {/* Short Value Bullets */}
+            <div className="grid grid-cols-3 gap-3 pt-6 border-t border-line/80 max-w-lg mx-auto text-center">
+              <div className="p-3 bg-surface rounded-xl border border-line">
+                <div className="text-base sm:text-lg font-black text-ink-main">Tezkor</div>
+                <div className="text-[11px] text-ink-secondary">Xizmat va taomlar</div>
+              </div>
+              <div className="p-3 bg-surface rounded-xl border border-line">
+                <div className="text-base sm:text-lg font-black text-brand">Ilovasiz</div>
+                <div className="text-[11px] text-ink-secondary">Brauzerda ochiladi</div>
+              </div>
+              <div className="p-3 bg-surface rounded-xl border border-line">
+                <div className="text-base sm:text-lg font-black text-ink-main">Aniq</div>
+                <div className="text-[11px] text-ink-secondary">Kassa va hisob</div>
               </div>
             </div>
-
           </div>
         </div>
       </section>
@@ -388,9 +391,17 @@ export function LandingView({
               </p>
             </div>
 
-            <div className="bg-surface rounded-2xl p-5 border border-line space-y-2.5">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
-                <Users className="w-5 h-5" />
+            <div
+              onClick={() => onSelectRoleView('WAITER')}
+              className="bg-surface rounded-2xl p-5 border border-line space-y-2.5 hover:border-blue-300 hover:shadow-md cursor-pointer transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+                  <Users className="w-5 h-5" />
+                </div>
+                <span className="text-[11px] font-bold text-blue-600 group-hover:underline flex items-center gap-0.5">
+                  Ko'rish &rarr;
+                </span>
               </div>
               <h3 className="font-bold text-base text-ink-main">Ofitsiant Paneli</h3>
               <p className="text-xs text-ink-secondary leading-relaxed">
@@ -398,9 +409,17 @@ export function LandingView({
               </p>
             </div>
 
-            <div className="bg-surface rounded-2xl p-5 border border-line space-y-2.5">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                <CreditCard className="w-5 h-5" />
+            <div
+              onClick={() => onSelectRoleView('CASHIER')}
+              className="bg-surface rounded-2xl p-5 border border-line space-y-2.5 hover:border-emerald-300 hover:shadow-md cursor-pointer transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <span className="text-[11px] font-bold text-emerald-600 group-hover:underline flex items-center gap-0.5">
+                  Kassaga o'tish &rarr;
+                </span>
               </div>
               <h3 className="font-bold text-base text-ink-main">Kassa va POS</h3>
               <p className="text-xs text-ink-secondary leading-relaxed">
@@ -408,11 +427,19 @@ export function LandingView({
               </p>
             </div>
 
-            <div className="bg-surface rounded-2xl p-5 border border-line space-y-2.5">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
-                <BarChart3 className="w-5 h-5" />
+            <div
+              onClick={() => onSelectRoleView('MANAGER')}
+              className="bg-surface rounded-2xl p-5 border border-line space-y-2.5 hover:border-purple-300 hover:shadow-md cursor-pointer transition-all group"
+            >
+              <div className="flex items-center justify-between">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <span className="text-[11px] font-bold text-purple-600 group-hover:underline flex items-center gap-0.5">
+                  Boshqaruv &rarr;
+                </span>
               </div>
-              <h3 className="font-bold text-base text-ink-main">Hisobotlar</h3>
+              <h3 className="font-bold text-base text-ink-main">Menejer Tahlili</h3>
               <p className="text-xs text-ink-secondary leading-relaxed">
                 Kunlik tushum, xaridorgir taomlar va xodimlar harakati nazorati.
               </p>
@@ -691,7 +718,7 @@ export function LandingView({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-ink-main">Viloyat (Manzil) *</label>
+                    <label className="text-xs font-semibold text-ink-main">Viloyat - Manzil *</label>
                     <select
                       value={contactForm.region}
                       onChange={(e) => setContactForm({ ...contactForm, region: e.target.value })}
@@ -735,7 +762,9 @@ export function LandingView({
       {/* 7. Footer */}
       <footer className="bg-surface py-6 text-xs text-ink-secondary border-t border-line">
         <div className="w-full px-4 sm:px-8 lg:px-12 xl:px-16 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© 2026 Menurest.uz. Barcha huquqlar himoyalangan.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p>© 2026 Menurest.uz. Barcha huquqlar himoyalangan.</p>
+          </div>
           <div className="flex items-center gap-4 text-xs">
             {contactInfo.supportTelegram && (
               <a

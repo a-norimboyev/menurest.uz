@@ -1,5 +1,6 @@
 import { prisma } from '../../db.js';
 import { recordOutboxEvent, outboxService } from '../realtime/outbox.service.js';
+import { stripParentheses } from '@menurest/shared';
 
 export interface CreateTranslationDto {
   language: string;
@@ -606,7 +607,7 @@ export class MenuService {
       return {
         id: itemId,
         action: 'archived',
-        message: 'Taom buyurtmalar tarixida mavjud bo\'lgani sababli arxivlandi (tarix saqlandi)',
+        message: 'Taom buyurtmalar tarixida mavjud bo\'lgani sababli arxivlandi',
       };
     } else {
       // No order items => safe to hard delete
@@ -729,8 +730,12 @@ export class MenuService {
     // 4. Transform translated names and clean sensitive information
     const localizedItems = menuItems.map((item) => {
       const translation = item.translations.find((t) => t.language === lang);
-      const name = translation?.name || item.name;
-      const description = translation?.description || item.description;
+      const name = stripParentheses(translation?.name || item.name);
+      const description = translation?.description
+        ? stripParentheses(translation.description)
+        : item.description
+        ? stripParentheses(item.description)
+        : null;
 
       return {
         id: item.id,
@@ -745,18 +750,18 @@ export class MenuService {
         version: item.version,
         variants: item.variants.map((v) => ({
           id: v.id,
-          name: v.name,
+          name: stripParentheses(v.name),
           priceDifferenceTiyin: v.priceDifferenceTiyin,
           isDefault: v.isDefault,
         })),
         addonGroups: item.addonGroups.map((g) => ({
           id: g.id,
-          name: g.name,
+          name: stripParentheses(g.name),
           minSelect: g.minSelect,
           maxSelect: g.maxSelect,
           options: g.options.map((opt) => ({
             id: opt.id,
-            name: opt.name,
+            name: stripParentheses(opt.name),
             priceTiyin: opt.priceTiyin,
           })),
         })),
@@ -765,7 +770,7 @@ export class MenuService {
 
     return {
       restaurant,
-      categories,
+      categories: categories.map((c) => ({ ...c, name: stripParentheses(c.name) })),
       items: localizedItems,
     };
   }

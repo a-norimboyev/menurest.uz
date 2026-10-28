@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Printer, RefreshCw, AlertCircle, CheckCircle2, Download, Copy, Check, ExternalLink } from 'lucide-react';
+import { Printer, RefreshCw, CheckCircle2, Download, Edit2 } from 'lucide-react';
 import { Dialog } from '../ui/Dialog.tsx';
 import { Button } from '../ui/Button.tsx';
 
@@ -28,12 +28,16 @@ export const TableQrModal: React.FC<TableQrModalProps> = ({
 }) => {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [regeneratedMsg, setRegeneratedMsg] = useState(false);
-  const [copied, setCopied] = useState(false);
+
+  // So'zlarni tahrirlash holati
+  const [isEditingText, setIsEditingText] = useState(false);
+  const [instructions, setInstructions] = useState('Kamerangiz bilan skanerlang');
+  const [subInstructions, setSubInstructions] = useState("Menyuni ko'rish va ofitsiantni chaqirish uchun");
+  const [customNote, setCustomNote] = useState('');
 
   if (!table) return null;
 
   const qrImageUrl = `/api/v1/restaurants/${restaurantId}/tables/${table.id}/qr?format=png`;
-  const guestMenuUrl = typeof window !== 'undefined' ? `${window.location.origin}/table/${table.qrToken}` : '';
 
   async function handleRegenerate() {
     if (
@@ -140,6 +144,17 @@ export const TableQrModal: React.FC<TableQrModalProps> = ({
               color: #6b7280;
               line-height: 1.4;
             }
+            .custom-note {
+              margin-top: 10px;
+              font-size: 13px;
+              font-weight: 700;
+              color: #0F5C3C;
+              background: #F0FDF4;
+              border: 1.5px solid #BBF7D0;
+              border-radius: 12px;
+              padding: 8px 12px;
+              display: inline-block;
+            }
             .powered-by {
               margin-top: 16px;
               font-size: 10px;
@@ -153,12 +168,12 @@ export const TableQrModal: React.FC<TableQrModalProps> = ({
           <div class="card">
             <div class="brand">${restaurantName || 'MENUREST.UZ'}</div>
             <div class="table-num">STOL #${table?.number}</div>
-            ${table?.hallName ? `<div class="hall">${table.hallName}</div>` : ''}
             <div class="qr-wrapper">
               <img class="qr-img" src="${fullQrUrl}" alt="QR" />
             </div>
-            <div class="instructions">Kamerangiz bilan skanerlang</div>
-            <div class="sub-instructions">Taomlar menyusini ko'rish va ofitsiantni chaqirish uchun</div>
+            ${instructions ? `<div class="instructions">${instructions}</div>` : ''}
+            ${subInstructions ? `<div class="sub-instructions">${subInstructions}</div>` : ''}
+            ${customNote ? `<div class="custom-note">${customNote}</div>` : ''}
             <div class="powered-by">menurest.uz • aqlli restoran</div>
           </div>
           <script>
@@ -172,12 +187,6 @@ export const TableQrModal: React.FC<TableQrModalProps> = ({
     `);
     printWindow.document.close();
   }
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(guestMenuUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
-  };
 
   return (
     <Dialog isOpen={isOpen} onClose={onClose} title={`Stol #${table.number} — QR Kod`} maxWidth="sm">
@@ -194,9 +203,6 @@ export const TableQrModal: React.FC<TableQrModalProps> = ({
             <h2 className="text-3xl font-black text-ink-main tracking-tight">
               Stol #{table.number}
             </h2>
-            {table.hallName && (
-              <p className="text-xs text-ink-muted font-medium">{table.hallName}</p>
-            )}
           </div>
 
           <div className="flex justify-center p-3 bg-white rounded-2xl border border-line shadow-inner inline-block mx-auto">
@@ -208,44 +214,23 @@ export const TableQrModal: React.FC<TableQrModalProps> = ({
           </div>
 
           <div className="space-y-1">
-            <p className="text-xs font-bold text-ink-main">
-              Kamerangiz bilan skanerlang
-            </p>
-            <p className="text-[11px] text-ink-muted">
-              Menyuni ko'rish va ofitsiantni chaqirish uchun
-            </p>
-          </div>
-        </div>
-
-        {/* Tezkor Havola va Nusxa olish */}
-        <div className="p-3 rounded-xl bg-bg border border-line space-y-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-ink-secondary">Mehmon menyusi havolasi:</span>
-            <a
-              href={guestMenuUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-brand hover:underline flex items-center gap-1 font-bold"
-            >
-              Ochish <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              readOnly
-              value={guestMenuUrl}
-              className="flex-1 px-2.5 py-1.5 rounded-lg border border-line bg-surface text-xs font-mono text-ink-secondary truncate select-all"
-            />
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleCopyLink}
-              className="shrink-0 text-xs"
-            >
-              {copied ? <Check className="w-3.5 h-3.5 mr-1 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-              {copied ? "Nusxalandi" : "Nusxalash"}
-            </Button>
+            {instructions && (
+              <p className="text-xs font-bold text-ink-main">
+                {instructions}
+              </p>
+            )}
+            {subInstructions && (
+              <p className="text-[11px] text-ink-muted">
+                {subInstructions}
+              </p>
+            )}
+            {customNote && (
+              <div className="pt-1.5">
+                <span className="inline-block text-[11px] font-bold text-brand bg-brand-50 border border-brand/20 px-3 py-1 rounded-lg">
+                  {customNote}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -256,18 +241,75 @@ export const TableQrModal: React.FC<TableQrModalProps> = ({
           </div>
         )}
 
-        <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs text-amber-800">
-          <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
-          <span>
-            QR havola ommaviy xavfsiz identifikatorga ega. Ushbu QR kodni stol ustiga stiker qilib yopishtirish mumkin.
-          </span>
-        </div>
+        {/* So'zlarni tahrirlash paneli */}
+        {isEditingText && (
+          <div className="p-3.5 bg-bg rounded-2xl border border-line space-y-3 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between pb-1 border-b border-line">
+              <span className="text-xs font-bold text-ink-main">Matnlarni tahrirlash</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setInstructions('Kamerangiz bilan skanerlang');
+                  setSubInstructions("Menyuni ko'rish va ofitsiantni chaqirish uchun");
+                  setCustomNote('');
+                }}
+                className="text-[11px] text-brand hover:underline font-semibold"
+              >
+                Standartga qaytarish
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-ink-secondary block">Asosiy sarlavha</label>
+              <input
+                type="text"
+                value={instructions}
+                onChange={(e) => setInstructions(e.target.value)}
+                placeholder="Kamerangiz bilan skanerlang"
+                className="w-full px-3 py-1.5 text-xs rounded-xl border border-line bg-surface text-ink-main focus:outline-none focus:ring-1 focus:ring-brand font-medium"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-ink-secondary block">Quyi izoh</label>
+              <input
+                type="text"
+                value={subInstructions}
+                onChange={(e) => setSubInstructions(e.target.value)}
+                placeholder="Menyuni ko'rish va ofitsiantni chaqirish uchun"
+                className="w-full px-3 py-1.5 text-xs rounded-xl border border-line bg-surface text-ink-main focus:outline-none focus:ring-1 focus:ring-brand"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-ink-secondary block">
+                Qo'shimcha matn (masalan: Wi-Fi paroli yoki tilak)
+              </label>
+              <input
+                type="text"
+                value={customNote}
+                onChange={(e) => setCustomNote(e.target.value)}
+                placeholder="Masalan: Wi-Fi: Qaldirg'och | Parol: 12345678"
+                className="w-full px-3 py-1.5 text-xs rounded-xl border border-line bg-surface text-ink-main focus:outline-none focus:ring-1 focus:ring-brand font-medium"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Tugmalar */}
         <div className="space-y-2 pt-1">
+          <Button
+            variant="outline"
+            onClick={() => setIsEditingText(!isEditingText)}
+            className="w-full justify-center text-xs font-semibold"
+          >
+            <Edit2 className="w-3.5 h-3.5 mr-2 text-brand" />
+            {isEditingText ? "Tahrirlashni yopish" : "So'zlarni tahrirlash"}
+          </Button>
+
           <Button variant="primary" onClick={handlePrint} className="w-full justify-center">
             <Printer className="w-4 h-4 mr-2" />
-            Chop etish (Print)
+            Chop etish
           </Button>
 
           <a

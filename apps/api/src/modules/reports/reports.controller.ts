@@ -131,6 +131,15 @@ reportsRouter.get(
             ...w,
             totalOrderValueTiyin: w.totalOrderValueTiyin.toString(),
           })),
+          dailyBreakdown: detailed.dailyBreakdown.map((d: any) => ({
+            date: d.date,
+            dayLabel: d.dayLabel,
+            netReceiptsTiyin: d.netReceiptsTiyin.toString(),
+            cashTiyin: d.cashTiyin.toString(),
+            terminalTiyin: d.terminalTiyin.toString(),
+            ordersCount: d.ordersCount,
+            orderTotalTiyin: d.orderTotalTiyin.toString(),
+          })),
         },
         meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
       });

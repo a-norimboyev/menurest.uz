@@ -200,12 +200,13 @@ tablesRouter.patch(
   requirePermission('tables.manage'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { hallId, number, capacity, assignedWaiterId } = req.body;
+      const { hallId, number, capacity, assignedWaiterId, status } = req.body;
       const table = await tablesService.updateTable(req.params.restaurantId, req.params.tableId, {
         hallId,
         number: number !== undefined ? Number(number) : undefined,
         capacity: capacity !== undefined ? Number(capacity) : undefined,
         assignedWaiterId,
+        status,
       });
 
       res.status(200).json({

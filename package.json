@@ -10,6 +10,10 @@
   "scripts": {
     "dev": "npm run dev --workspace=@menurest/api",
     "dev:web": "npm run dev --workspace=@menurest/web",
+    "dev:menu": "npm run dev --workspace=@menurest/web",
+    "dev:cashier": "node scripts/start-cashier.mjs",
+    "cashier": "node scripts/start-cashier.mjs",
+    "menu": "npm run dev --workspace=@menurest/web",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",

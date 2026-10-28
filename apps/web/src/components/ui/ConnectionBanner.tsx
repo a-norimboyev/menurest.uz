@@ -35,7 +35,7 @@ export function RealtimeIndicatorPill({
         }`}
         title={
           status === 'CONNECTED'
-            ? 'Jonli ulanish faol (SSE)'
+            ? 'Jonli ulanish faol'
             : status === 'CONNECTING'
             ? 'Ulanmoqda...'
             : 'Ulanish uzildi'
@@ -63,7 +63,7 @@ export function RealtimeIndicatorPill({
             ? 'bg-emerald-100 text-emerald-800 border-emerald-300 hover:bg-emerald-200'
             : 'bg-neutral-100 text-neutral-600 border-neutral-300 hover:bg-neutral-200'
         }`}
-        title={soundEnabled ? 'Ovozli bildirishnomalar yoqilgan' : 'Ovozli bildirishnomalar o\'chirilgan (yoqish uchun bosing)'}
+        title={soundEnabled ? 'Ovozli bildirishnomalar yoqilgan' : 'Ovozli bildirishnomalar o\'chirilgan, yoqish uchun bosing'}
       >
         {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
       </button>

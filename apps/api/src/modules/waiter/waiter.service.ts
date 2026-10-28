@@ -6,6 +6,7 @@ import {
   ServiceCallType,
   deriveOrderStatus,
   Role,
+  stripParentheses,
 } from '@menurest/shared';
 import { recordOutboxEvent, outboxService } from '../realtime/outbox.service.js';
 
@@ -36,10 +37,11 @@ export class WaiterService {
    */
   async getDashboard(restaurantIdInput: string, userId: string, isManager: boolean) {
     const restaurantId = await resolveRestaurantId(restaurantIdInput);
-    // 1. Faol chaqiruvlar (OPEN yoki CLAIMED)
+    // 1. Faol chaqiruvlar (Faqat OFITSIANT chaqiruvlari)
     const activeCalls = await prisma.serviceCall.findMany({
       where: {
         restaurantId,
+        type: ServiceCallType.WAITER,
         status: { in: [ServiceCallStatus.PENDING, ServiceCallStatus.ACKNOWLEDGED] },
       },
       include: {
@@ -85,6 +87,24 @@ export class WaiterService {
                     number: true,
                     assignedWaiterId: true,
                     hall: { select: { name: true } },
+                  },
+                },
+                orders: {
+                  orderBy: { createdAt: 'asc' },
+                  select: {
+                    id: true,
+                    orderNumber: true,
+                    createdAt: true,
+                    status: true,
+                    items: {
+                      select: {
+                        id: true,
+                        snapshotName: true,
+                        snapshotVariantName: true,
+                        quantity: true,
+                        status: true,
+                      },
+                    },
                   },
                 },
               },
@@ -205,16 +225,51 @@ export class WaiterService {
               ordersCount,
               itemsCount,
               totalBillTiyin: totalBillTiyin.toString(),
+              items: (activeVisit.orders || []).flatMap((o: any) =>
+                (o.items || []).map((it: any) => ({
+                  id: it.id,
+                  orderId: o.id,
+                  orderNumber: o.orderNumber,
+                  orderStatus: o.status,
+                  name: stripParentheses(it.snapshotName),
+                  variantName: it.snapshotVariantName ? stripParentheses(it.snapshotVariantName) : null,
+                  quantity: it.quantity,
+                  status: it.status,
+                  priceTiyin: it.snapshotPriceTiyin.toString(),
+                }))
+              ),
             }
           : null,
       };
     });
 
+    // Agar stol hali biriktirilmagan bo'lsa, barcha ofitsiantlar ko'radi (mas'uliyatni olish uchun)
+    // Biriktirilgan bo'lsa, faqat mas'ul ofitsiant ko'radi (menejer barchasini ko'radi)
+    const isStaffTable = (tbl: { assignedWaiterId: string | null }, vst?: { waiterId: string | null } | null) => {
+      const assigned = tbl.assignedWaiterId || vst?.waiterId;
+      if (!assigned) {
+        return true;
+      }
+      return assigned === userId;
+    };
+
+    const visibleCalls = isManager
+      ? activeCalls
+      : activeCalls.filter((c) => isStaffTable(c.table, c.visit));
+
+    const visibleReadyItems = isManager
+      ? readyItems
+      : readyItems.filter((i) => isStaffTable(i.order.visit.table, i.order.visit));
+
+    const visiblePendingOrders = isManager
+      ? pendingOrders
+      : pendingOrders.filter((o) => isStaffTable(o.visit.table, o.visit));
+
     // Metrikalar
-    const openCallsCount = activeCalls.filter((c) => c.status === ServiceCallStatus.PENDING).length;
-    const billRequestsCount = activeCalls.filter((c) => c.type === ServiceCallType.BILL).length;
-    const readyItemsCount = readyItems.length;
-    const pendingOrdersCount = pendingOrders.length;
+    const openCallsCount = visibleCalls.filter((c) => c.status === ServiceCallStatus.PENDING).length;
+    const billRequestsCount = visibleCalls.filter((c) => c.type === ServiceCallType.BILL).length;
+    const readyItemsCount = visibleReadyItems.length;
+    const pendingOrdersCount = visiblePendingOrders.length;
 
     return {
       metrics: {
@@ -223,7 +278,7 @@ export class WaiterService {
         pendingOrdersCount,
         billRequestsCount,
       },
-      serviceCalls: activeCalls.map((c) => ({
+      serviceCalls: visibleCalls.map((c) => ({
         id: c.id,
         tableId: c.tableId,
         tableNumber: c.table.number,
@@ -232,25 +287,35 @@ export class WaiterService {
         status: c.status,
         acknowledgedByUserId: c.acknowledgedByUserId,
         isMyTable: c.table.assignedWaiterId === userId || c.visit.waiterId === userId,
-        createdAt: c.createdAt,
+        createdAt: c.createdAt ? new Date(c.createdAt).toISOString() : new Date().toISOString(),
       })),
-      readyItems: readyItems.map((i) => ({
+      readyItems: visibleReadyItems.map((i) => ({
         id: i.id,
         orderId: i.orderId,
         orderNumber: i.order.orderNumber,
         tableId: i.order.visit.table.id,
         tableNumber: i.order.visit.table.number,
         hallName: i.order.visit.table.hall.name,
-        name: i.snapshotName,
-        variantName: i.snapshotVariantName,
+        name: stripParentheses(i.snapshotName),
+        variantName: i.snapshotVariantName ? stripParentheses(i.snapshotVariantName) : null,
         quantity: i.quantity,
         stationName: i.station.name,
         status: i.status,
         priceTiyin: i.snapshotPriceTiyin.toString(),
         isMyTable:
           i.order.visit.table.assignedWaiterId === userId || i.order.visit.waiterId === userId,
+        allTableItems: (i.order.visit.orders || []).flatMap((o: any) =>
+          (o.items || []).map((it: any) => ({
+            id: it.id,
+            orderNumber: o.orderNumber,
+            name: stripParentheses(it.snapshotName),
+            variantName: it.snapshotVariantName ? stripParentheses(it.snapshotVariantName) : null,
+            quantity: it.quantity,
+            status: it.status,
+          }))
+        ),
       })),
-      pendingOrders: pendingOrders.map((o) => ({
+      pendingOrders: visiblePendingOrders.map((o) => ({
         id: o.id,
         orderNumber: o.orderNumber,
         tableId: o.visit.table.id,
@@ -262,8 +327,8 @@ export class WaiterService {
         isMyTable: o.visit.table.assignedWaiterId === userId || o.visit.waiterId === userId,
         items: o.items.map((item) => ({
           id: item.id,
-          name: item.snapshotName,
-          variantName: item.snapshotVariantName,
+          name: stripParentheses(item.snapshotName),
+          variantName: item.snapshotVariantName ? stripParentheses(item.snapshotVariantName) : null,
           quantity: item.quantity,
           status: item.status,
           priceTiyin: item.snapshotPriceTiyin.toString(),
@@ -646,6 +711,16 @@ export class WaiterService {
         },
       });
 
+      // Tasdiqlovchi ofitsiantni ushbu stol va tashrifga mas'ul etib biriktiramiz
+      await tx.visit.update({
+        where: { id: ord.visitId },
+        data: { waiterId },
+      });
+      await tx.table.update({
+        where: { id: ord.visit.tableId },
+        data: { assignedWaiterId: waiterId },
+      });
+
       await tx.orderItem.updateMany({
         where: {
           orderId,
@@ -912,6 +987,80 @@ export class WaiterService {
   }
 
   /**
+   * 8.1. Stolning barcha faol taomlarini yetkazilgan deb belgilash (Serve All Items for Visit)
+   */
+  async serveVisitItems(restaurantId: string, visitId: string, waiterId: string) {
+    const items = await prisma.orderItem.findMany({
+      where: {
+        order: { visitId, restaurantId },
+        status: { in: [OrderItemStatus.READY, OrderItemStatus.ACCEPTED, OrderItemStatus.PREPARING] },
+      },
+      include: { order: true },
+    });
+
+    if (items.length === 0) return { count: 0 };
+
+    await prisma.$transaction(async (tx) => {
+      // Mas'ul ofitsiant belgilanmagan bo'lsa, yetkazib bergan ofitsiantni biriktiramiz
+      const visit = await tx.visit.findUnique({
+        where: { id: visitId },
+        select: { tableId: true, waiterId: true },
+      });
+      if (visit && !visit.waiterId) {
+        await tx.visit.update({
+          where: { id: visitId },
+          data: { waiterId },
+        });
+        await tx.table.update({
+          where: { id: visit.tableId },
+          data: { assignedWaiterId: waiterId },
+        });
+      }
+
+      await tx.orderItem.updateMany({
+        where: { id: { in: items.map((i) => i.id) } },
+        data: { status: OrderItemStatus.SERVED },
+      });
+
+      const orderIds = [...new Set(items.map((i) => i.orderId))];
+      for (const orderId of orderIds) {
+        const orderItems = await tx.orderItem.findMany({
+          where: { orderId },
+          select: { status: true },
+        });
+        const derived = deriveOrderStatus(
+          orderItems.map((i) => ({ status: i.status as unknown as OrderItemStatus }))
+        );
+        await tx.order.update({
+          where: { id: orderId },
+          data: { status: derived },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          restaurantId,
+          action: 'VISIT_ITEMS_SERVED',
+          actorId: waiterId,
+          entityName: 'Visit',
+          entityId: visitId,
+          newStateJson: { count: items.length },
+        },
+      });
+
+      await recordOutboxEvent(tx, {
+        restaurantId,
+        eventType: 'item.state_changed',
+        payload: { visitId, count: items.length },
+        scope: { restaurantId, visitId },
+      });
+    });
+
+    outboxService.trigger();
+    return { count: items.length };
+  }
+
+  /**
    * 9. Ofitsiant tomonidan mehmon nomidan buyurtma yaratish (Staff Order)
    */
   async createStaffOrder(
@@ -1027,9 +1176,9 @@ export class WaiterService {
         stationId: dbItem.stationId,
         quantity: item.quantity,
         notes: item.notes?.trim() || null,
-        snapshotName: dbItem.name,
+        snapshotName: stripParentheses(dbItem.name),
         snapshotPriceTiyin: finalUnitPriceTiyin,
-        snapshotVariantName: variantName,
+        snapshotVariantName: variantName ? stripParentheses(variantName) : null,
         addons: addonSnapshots,
       });
     }

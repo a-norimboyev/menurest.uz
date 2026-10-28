@@ -431,3 +431,55 @@ billingRouter.post(
     }
   }
 );
+
+/**
+ * 12. To'lovlar tarixi (Bugungi yopilgan to'lovlar)
+ * GET /api/v1/restaurants/:restaurantId/billing/payments-history
+ */
+billingRouter.get(
+  ['/:restaurantId/billing/payments-history', '/billing/payments-history'],
+  requireAuth,
+  requireTenant,
+  requirePermission('payments.record'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const restaurantId = getRestaurantId(req);
+      const history = await billingService.getPaymentsHistory(restaurantId);
+
+      res.status(200).json({
+        success: true,
+        data: serializeBigInt(history),
+        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * 13. Kassa moliyasi xulosasi (Bugungi tushumlar, naqd, terminal, kassa harakatlari)
+ * GET /api/v1/restaurants/:restaurantId/billing/cashier-finance
+ */
+billingRouter.get(
+  ['/:restaurantId/billing/cashier-finance', '/billing/cashier-finance'],
+  requireAuth,
+  requireTenant,
+  requirePermission('payments.record'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const restaurantId = getRestaurantId(req);
+      const user = req.user;
+      const finance = await billingService.getCashierFinanceSummary(restaurantId, user?.id);
+
+      res.status(200).json({
+        success: true,
+        data: serializeBigInt(finance),
+        meta: { timestamp: new Date().toISOString(), requestId: `req_${Date.now()}` },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
